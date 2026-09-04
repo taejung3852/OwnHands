@@ -54,7 +54,8 @@ jq -e 'all(.report_contract_fixtures[];
 
 expected_report_envelope_fixture_names='conflicting verdicts for one claim are rejected
 empty claim results are rejected
-identical claim results are rejected'
+identical claim results are rejected
+same claim id with different result objects is rejected'
 actual_report_envelope_fixture_names="$(jq -r '.report_envelope_fixtures[].name' "$fixtures" | sort)"
 test "$actual_report_envelope_fixture_names" = "$expected_report_envelope_fixture_names"
 jq -e 'all(.report_envelope_fixtures[];
@@ -75,6 +76,7 @@ identical claim results are rejected
 imported task cannot support a managed-only claim
 mismatched matrix version is rejected
 missing required requirement id is rejected
+same claim id with different result objects is rejected
 supported report rejects a failed required control check
 supported report rejects an unresolvable control validation reference
 unknown claim id is rejected
@@ -324,9 +326,9 @@ printf 'claim_membership_gate=passed\n'
 printf 'requirement_id_gate=passed\n'
 printf 'all_control_records_gate=passed\n'
 printf 'pre_fix_fail_open_cases_rejected=%s\n' "$pre_fix_fail_open_count"
-printf 'report_envelope_fixtures_rejected=3\n'
+printf 'report_envelope_fixtures_rejected=4\n'
 printf 'claim_results_nonempty_gate=passed\n'
 printf 'claim_id_uniqueness_gate=passed\n'
 printf 'claim_verdict_conflict_gate=passed\n'
-printf 'required_adversarial_fixture_coverage=12\n'
+printf 'required_adversarial_fixture_coverage=13\n'
 printf 'adversarial_report_contract=passed\n'

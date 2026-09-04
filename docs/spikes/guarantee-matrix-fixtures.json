@@ -623,6 +623,36 @@
       "control_validations": [],
       "pre_fix_gate_result": "accepted",
       "expected_contract_valid": false
+    },
+    {
+      "name": "same claim id with different result objects is rejected",
+      "matrix_version": "1.0",
+      "task": {"mode": "managed"},
+      "claim_results": [
+        {
+          "claim_id": "GM-013",
+          "verdict": "supported",
+          "requirement_results": [
+            {"requirement_id": "test-run", "result": "pass", "basis": "observed", "conflict_refs": []}
+          ],
+          "control_validation_refs": [],
+          "conflict_refs": [],
+          "permitted_statement": "정의한 합성 테스트를 실행했다"
+        },
+        {
+          "claim_id": "GM-013",
+          "verdict": "supported",
+          "requirement_results": [
+            {"requirement_id": "test-run", "result": "pass", "basis": "observed", "conflict_refs": []}
+          ],
+          "control_validation_refs": [],
+          "conflict_refs": [],
+          "permitted_statement": "범위를 명시한 합성 테스트를 실행했다"
+        }
+      ],
+      "control_validations": [],
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
     }
   ]
 }

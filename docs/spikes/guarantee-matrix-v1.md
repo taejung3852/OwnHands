@@ -130,11 +130,11 @@ claim_membership_gate=passed
 requirement_id_gate=passed
 all_control_records_gate=passed
 pre_fix_fail_open_cases_rejected=7
-report_envelope_fixtures_rejected=3
+report_envelope_fixtures_rejected=4
 claim_results_nonempty_gate=passed
 claim_id_uniqueness_gate=passed
 claim_verdict_conflict_gate=passed
-required_adversarial_fixture_coverage=12
+required_adversarial_fixture_coverage=13
 adversarial_report_contract=passed
 ```
 
@@ -170,15 +170,16 @@ Probe는 다음을 확인했다.
 | requirement ID 중복 | 허용 | 거부 |
 | 동일 Control의 pass/fail Validation record | 허용 | 거부 |
 
-추가한 Report envelope 세 fixture의 RED/GREEN 결과는 다음과 같다. RED gate는 envelope 검사를 추가하기 전의 실제 Probe였고 세 fixture를 모두 허용했다. Schema RED는 `minItems`와 `uniqueItems`를 추가하기 전 schema를 같은 pinned Ajv로 검사한 결과로, 빈 배열과 완전히 동일한 객체 중복이 모두 `valid`였다.
+추가한 Report envelope 네 fixture의 RED/GREEN 결과는 다음과 같다. RED gate는 envelope 검사를 추가하기 전의 실제 Probe였고 네 fixture를 모두 허용했다. Schema RED는 `minItems`와 `uniqueItems`를 추가하기 전 schema를 같은 pinned Ajv로 검사한 결과로, 빈 배열과 완전히 동일한 객체 중복이 모두 `valid`였다.
 
 | Adversarial fixture | 변경 전 RED에서 관찰 | 변경 후 기대·결과 |
 |---|---|---|
 | 빈 `claim_results` | gate 허용, schema `valid` | schema와 gate 모두 거부 |
 | 완전히 동일한 Claim result 중복 | gate 허용, schema `valid` | schema와 gate 모두 거부 |
+| 같은 Claim ID·같은 verdict지만 문구가 다른 객체 중복 | gate 허용; `uniqueItems`는 서로 다른 객체로 허용 | claim ID 유일성 gate가 거부 |
 | 같은 Claim ID에 `supported`와 `contradicted` 동시 존재 | gate 허용; `uniqueItems`만으로는 서로 다른 객체라 식별 불가 | claim ID 유일성·verdict 일관성 gate가 거부 |
 
-필수 공격 경계 12종은 이름 집합으로도 고정했다. 여기에는 위 세 envelope 사례와 Imported 적용성, 알 수 없는 Claim, Matrix version, requirement 누락·추가·중복, 해소되지 않는 Control 참조, Control record 순서로 숨겨지는 pass/fail 충돌, observed Control fail을 `supported`로 바꾸는 사례가 포함된다.
+필수 공격 경계 13종은 이름 집합으로도 고정했다. 여기에는 위 네 envelope 사례와 Imported 적용성, 알 수 없는 Claim, Matrix version, requirement 누락·추가·중복, 해소되지 않는 Control 참조, Control record 순서로 숨겨지는 pass/fail 충돌, observed Control fail을 `supported`로 바꾸는 사례가 포함된다.
 
 세 schema와 example은 pinned temporary `ajv-cli@5.0.0` + `ajv-formats@3.0.1`로 draft 2020-12 validation을 통과했고 `strict-types`/`strict-tuples` error나 warning은 없었다. 이 도구는 repository dependency로 추가하지 않았다.
 
