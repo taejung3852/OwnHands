@@ -1,0 +1,1495 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DevHarness M0-07 Brand & Dashboard Foundation Spike</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&amp;family=Noto+Sans+KR:wght@400;500;600;700&amp;display=swap">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      color-scheme: light dark;
+      font-family: "Pretendard Variable", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis: none;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: #111719;
+    }
+
+    .choice {
+      position: fixed;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .prototype {
+      --page: #f5f7f7;
+      --surface: #ffffff;
+      --surface-raised: #fbfcfc;
+      --text: #151a1c;
+      --muted: #536166;
+      --faint: #737f83;
+      --border: #d8dfe1;
+      --border-strong: #89969a;
+      --brand: #006d73;
+      --brand-hover: #00585d;
+      --brand-soft: #d9f3f2;
+      --brand-ink: #004d51;
+      --focus: #008b92;
+      --success: #176c45;
+      --success-soft: #dff6ea;
+      --warning: #7a5000;
+      --warning-soft: #fff0c2;
+      --danger: #a1262f;
+      --danger-soft: #fde7e9;
+      --unknown: #5d6870;
+      --unknown-soft: #e9edef;
+      --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      min-block-size: 100vh;
+      color: var(--text);
+      background: var(--page);
+      transition: background-color 120ms ease, color 120ms ease;
+    }
+
+    body:has(#theme-light:checked):has(#brand-signal:checked) .prototype,
+    body:has(#capture-signal-light-task:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-signal-light-harness:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-signal-light-evidence:target):has(#brand-signal:checked) .prototype {
+      --brand: #006d73;
+      --brand-hover: #00585d;
+      --brand-soft: #d9f3f2;
+      --brand-ink: #004d51;
+      --focus: #008b92;
+    }
+
+    body:has(#theme-light:checked):has(#brand-ledger:checked) .prototype,
+    body:has(#capture-ledger-light-task:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-ledger-light-harness:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-ledger-light-evidence:target):has(#brand-signal:checked) .prototype {
+      --page: #f7f6f2;
+      --surface: #fffefa;
+      --surface-raised: #fbfaf6;
+      --text: #1d1d23;
+      --muted: #5d5c66;
+      --faint: #787781;
+      --border: #dddcd4;
+      --border-strong: #939187;
+      --brand: #4a49a8;
+      --brand-hover: #39388c;
+      --brand-soft: #e8e7fb;
+      --brand-ink: #353478;
+      --focus: #5c5bc2;
+    }
+
+    body:has(#theme-light:checked):has(#brand-slate:checked) .prototype,
+    body:has(#capture-slate-light-task:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-slate-light-harness:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-slate-light-evidence:target):has(#brand-signal:checked) .prototype {
+      --page: #f4f6f8;
+      --surface: #ffffff;
+      --surface-raised: #f9fafc;
+      --text: #171923;
+      --muted: #555d6d;
+      --faint: #727b8d;
+      --border: #d9dee7;
+      --border-strong: #8993a5;
+      --brand: #6639a6;
+      --brand-hover: #512b89;
+      --brand-soft: #eee5fa;
+      --brand-ink: #482478;
+      --focus: #7950b7;
+    }
+
+    body:has(#theme-dark:checked) .prototype,
+    body:has([id*="-dark-"]:target) .prototype {
+      --page: #0d1214;
+      --surface: #141a1d;
+      --surface-raised: #192124;
+      --text: #f1f5f5;
+      --muted: #aeb9bc;
+      --faint: #8d9a9e;
+      --border: #313c40;
+      --border-strong: #637176;
+      --success: #81d9ad;
+      --success-soft: #173828;
+      --warning: #efc66d;
+      --warning-soft: #3c2d10;
+      --danger: #ff9da5;
+      --danger-soft: #421d22;
+      --unknown: #b4bec2;
+      --unknown-soft: #283135;
+    }
+
+    body:has(#theme-dark:checked):has(#brand-signal:checked) .prototype,
+    body:has(#capture-signal-dark-task:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-signal-dark-harness:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-signal-dark-evidence:target):has(#brand-signal:checked) .prototype {
+      --brand: #68dadd;
+      --brand-hover: #8ae7e9;
+      --brand-soft: #12373a;
+      --brand-ink: #a7f0f1;
+      --focus: #68dadd;
+    }
+
+    body:has(#theme-dark:checked):has(#brand-ledger:checked) .prototype,
+    body:has(#capture-ledger-dark-task:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-ledger-dark-harness:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-ledger-dark-evidence:target):has(#brand-signal:checked) .prototype {
+      --page: #111116;
+      --surface: #18181f;
+      --surface-raised: #1e1e27;
+      --text: #f4f3f8;
+      --muted: #b7b4c0;
+      --faint: #9693a0;
+      --border: #393842;
+      --border-strong: #716f7c;
+      --brand: #b3b1ff;
+      --brand-hover: #c9c8ff;
+      --brand-soft: #2b2a58;
+      --brand-ink: #dfdeff;
+      --focus: #b3b1ff;
+    }
+
+    body:has(#theme-dark:checked):has(#brand-slate:checked) .prototype,
+    body:has(#capture-slate-dark-task:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-slate-dark-harness:target):has(#brand-signal:checked) .prototype,
+    body:has(#capture-slate-dark-evidence:target):has(#brand-signal:checked) .prototype {
+      --page: #101219;
+      --surface: #171a23;
+      --surface-raised: #1d212c;
+      --text: #f3f4f8;
+      --muted: #b3b8c7;
+      --faint: #9299aa;
+      --border: #343947;
+      --border-strong: #687184;
+      --brand: #c6a6ff;
+      --brand-hover: #d7c1ff;
+      --brand-soft: #34254d;
+      --brand-ink: #eadfff;
+      --focus: #c6a6ff;
+    }
+
+    a { color: var(--brand); }
+
+    a:hover { color: var(--brand-hover); }
+
+    :focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    .capture-targets {
+      position: fixed;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+
+    .utility-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-block-size: 40px;
+      padding: 8px 24px;
+      gap: 16px;
+      color: var(--muted);
+      background: var(--surface-raised);
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .spike-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--brand-ink);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .spike-label::before {
+      content: "◇";
+      color: var(--brand);
+      font-size: 16px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 224px minmax(0, 1fr);
+      min-block-size: calc(100vh - 40px);
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+      background: var(--surface-raised);
+      border-right: 1px solid var(--border);
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 8px 32px;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      inline-size: 28px;
+      block-size: 28px;
+      color: var(--surface);
+      background: var(--brand);
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    .nav-title {
+      margin: 0 8px 8px;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .nav-list {
+      display: grid;
+      gap: 4px;
+      margin: 0 0 24px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      min-block-size: 40px;
+      padding: 8px 12px;
+      gap: 10px;
+      color: var(--muted);
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .nav-link:hover,
+    .nav-link:focus-visible {
+      color: var(--text);
+      background: var(--brand-soft);
+    }
+
+    .nav-icon {
+      inline-size: 20px;
+      color: var(--brand);
+      font-family: var(--mono);
+      text-align: center;
+    }
+
+    .sidebar-note {
+      margin-top: auto;
+      padding: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .sidebar-note strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .content {
+      min-inline-size: 0;
+    }
+
+    .prototype-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      min-block-size: 56px;
+      padding: 8px 32px;
+      gap: 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .control-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .control-heading {
+      margin-right: 8px;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .choice-label {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 32px;
+      padding: 4px 10px;
+      color: var(--muted);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .choice-label:hover {
+      color: var(--text);
+      background: var(--surface-raised);
+    }
+
+    #brand-signal:checked ~ .prototype label[for="brand-signal"],
+    #brand-ledger:checked ~ .prototype label[for="brand-ledger"],
+    #brand-slate:checked ~ .prototype label[for="brand-slate"],
+    #theme-light:checked ~ .prototype label[for="theme-light"],
+    #theme-dark:checked ~ .prototype label[for="theme-dark"] {
+      color: var(--brand-ink);
+      background: var(--brand-soft);
+      border-color: var(--brand);
+    }
+
+    body:has([id^="capture-"]:target) .choice-label {
+      color: var(--muted) !important;
+      background: transparent !important;
+      border-color: transparent !important;
+    }
+
+    body:has([id^="capture-signal-"]:target) label[for="brand-signal"],
+    body:has([id^="capture-ledger-"]:target) label[for="brand-ledger"],
+    body:has([id^="capture-slate-"]:target) label[for="brand-slate"],
+    body:has([id*="-light-"]:target) label[for="theme-light"],
+    body:has([id*="-dark-"]:target) label[for="theme-dark"] {
+      color: var(--brand-ink) !important;
+      background: var(--brand-soft) !important;
+      border-color: var(--brand) !important;
+    }
+
+    .screen {
+      display: none;
+      max-inline-size: 1240px;
+      margin: 0 auto;
+      padding: 40px 48px 72px;
+    }
+
+    #task-panel { display: block; }
+
+    .screen:target { display: block; }
+
+    main:has(.screen:target) #task-panel:not(:target) { display: none; }
+
+    body:has([id$="-harness"]:target) #task-panel,
+    body:has([id$="-harness"]:target) #evidence-panel,
+    body:has([id$="-evidence"]:target) #task-panel,
+    body:has([id$="-evidence"]:target) #harness-panel { display: none; }
+
+    body:has([id$="-harness"]:target) #harness-panel,
+    body:has([id$="-evidence"]:target) #evidence-panel { display: block; }
+
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      gap: 24px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--brand-ink);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin-bottom: 16px;
+      color: var(--text);
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .lede {
+      max-inline-size: 720px;
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-block-size: 40px;
+      padding: 8px 14px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .button:hover { background: var(--surface-raised); }
+
+    .button-primary {
+      color: #ffffff;
+      background: #006d73;
+      border-color: #006d73;
+    }
+
+    body:has(#brand-ledger:checked) .button-primary,
+    body:has([id^="capture-ledger-"]:target) .button-primary {
+      background: #4a49a8;
+      border-color: #4a49a8;
+    }
+
+    body:has(#brand-slate:checked) .button-primary,
+    body:has([id^="capture-slate-"]:target) .button-primary {
+      background: #6639a6;
+      border-color: #6639a6;
+    }
+
+    .button-primary:hover { color: #ffffff; filter: brightness(0.92); }
+
+    .decision-strip {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      margin-bottom: 24px;
+      padding: 20px 24px;
+      gap: 24px;
+      background: var(--brand-soft);
+      border-left: 4px solid var(--brand);
+    }
+
+    .decision-strip strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--brand-ink);
+      font-size: 16px;
+    }
+
+    .decision-strip p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .state-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--brand-ink);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .state-line::before { content: "◇"; }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-bottom: 32px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .metric {
+      padding: 20px 24px;
+      border-right: 1px solid var(--border);
+    }
+
+    .metric:last-child { border-right: 0; }
+
+    .metric-value {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .review-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-bottom: 32px;
+      border-top: 1px solid var(--border);
+    }
+
+    .review-item {
+      min-block-size: 160px;
+      padding: 24px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .review-item:nth-child(2n) { border-right: 0; }
+
+    .review-kicker {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 8px;
+      color: var(--brand-ink);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .review-kicker span {
+      display: grid;
+      place-items: center;
+      inline-size: 20px;
+      block-size: 20px;
+      color: var(--surface);
+      background: var(--brand);
+      border-radius: 50%;
+    }
+
+    .review-item p {
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .evidence-link {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 32px;
+      gap: 6px;
+      color: var(--brand-ink);
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .evidence-link::after { content: "→"; }
+
+    .section-block {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .diagram-wrap {
+      overflow-x: auto;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .diagram-wrap svg {
+      display: block;
+      min-inline-size: 800px;
+      inline-size: 100%;
+      block-size: auto;
+    }
+
+    .diagram-node rect {
+      fill: var(--surface-raised);
+      stroke: var(--border-strong);
+      stroke-width: 1;
+    }
+
+    .diagram-node.added rect {
+      fill: var(--brand-soft);
+      stroke: var(--brand);
+      stroke-width: 2;
+    }
+
+    .diagram-node.removed rect {
+      fill: var(--danger-soft);
+      stroke: var(--danger);
+      stroke-dasharray: 8 4;
+    }
+
+    .diagram-node.unknown rect {
+      fill: var(--unknown-soft);
+      stroke: var(--unknown);
+      stroke-dasharray: 4 4;
+    }
+
+    .diagram-node text {
+      fill: var(--text);
+      font-family: "Pretendard Variable", "Noto Sans KR", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .diagram-node .node-meta {
+      fill: var(--muted);
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+
+    .diagram-edge path,
+    .diagram-edge line {
+      fill: none;
+      stroke: var(--border-strong);
+      stroke-width: 2;
+    }
+
+    .diagram-edge text {
+      fill: var(--muted);
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+    }
+
+    .diagram-edge:hover path,
+    .diagram-edge:hover line,
+    .diagram-edge:focus path,
+    .diagram-edge:focus line { stroke: var(--brand); }
+
+    .diagram-edge:hover text,
+    .diagram-edge:focus text { fill: var(--brand-ink); }
+
+    .diagram-heading {
+      fill: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+    }
+
+    .diagram-note {
+      fill: var(--unknown);
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 500;
+    }
+
+    .diagram-divider {
+      stroke: var(--border);
+      stroke-width: 1;
+    }
+
+    .diagram-legend {
+      display: flex;
+      flex-wrap: wrap;
+      margin: 16px 0 0;
+      padding: 0;
+      gap: 16px;
+      color: var(--muted);
+      list-style: none;
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .diagram-jumps {
+      display: flex;
+      flex-wrap: wrap;
+      margin: 16px 0 0;
+      padding: 16px 0 0;
+      gap: 8px 16px;
+      border-top: 1px solid var(--border);
+      list-style: none;
+      font-size: 12px;
+    }
+
+    .diagram-jumps a { font-weight: 600; }
+
+    .direction-note {
+      display: none;
+      margin-top: 32px;
+      padding: 20px 24px;
+      color: var(--muted);
+      background: var(--surface-raised);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .direction-note strong { color: var(--text); }
+
+    #brand-signal:checked ~ .prototype .note-signal,
+    #brand-ledger:checked ~ .prototype .note-ledger,
+    #brand-slate:checked ~ .prototype .note-slate,
+    body:has([id^="capture-signal-"]:target) .note-signal,
+    body:has([id^="capture-ledger-"]:target) .note-ledger,
+    body:has([id^="capture-slate-"]:target) .note-slate { display: block; }
+
+    body:has([id^="capture-"]:target) .direction-note { display: none !important; }
+
+    body:has([id^="capture-signal-"]:target) .note-signal,
+    body:has([id^="capture-ledger-"]:target) .note-ledger,
+    body:has([id^="capture-slate-"]:target) .note-slate { display: block !important; }
+
+    .status-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-bottom: 32px;
+      gap: 16px;
+    }
+
+    .summary-cell {
+      padding: 20px;
+      background: var(--surface);
+      border-top: 2px solid var(--border-strong);
+    }
+
+    .summary-cell strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 18px;
+    }
+
+    .summary-cell span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .control-table-wrap {
+      overflow-x: auto;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .control-table {
+      inline-size: 100%;
+      min-inline-size: 920px;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .control-table th,
+    .control-table td {
+      padding: 16px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .control-table th:last-child,
+    .control-table td:last-child { border-right: 0; }
+
+    .control-table tbody tr:last-child td { border-bottom: 0; }
+
+    .control-table th {
+      color: var(--faint);
+      background: var(--surface-raised);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .control-name {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .control-id {
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .check-result {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-weight: 600;
+    }
+
+    .check-result.pass { color: var(--success); }
+
+    .check-result.not-run { color: var(--unknown); }
+
+    .basis {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .basis-symbol {
+      inline-size: 16px;
+      flex: 0 0 16px;
+      color: var(--text);
+      font-family: var(--mono);
+      text-align: center;
+    }
+
+    .basis strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .status-key {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      margin-top: 24px;
+      gap: 16px;
+    }
+
+    .key-panel {
+      padding: 20px;
+      background: var(--surface-raised);
+      border-left: 3px solid var(--border-strong);
+    }
+
+    .key-panel p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .evidence-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(248px, 320px);
+      margin-bottom: 32px;
+      gap: 24px;
+    }
+
+    .evidence-summary {
+      min-inline-size: 0;
+      padding: 24px;
+      background: var(--surface);
+      border-top: 3px solid var(--brand);
+    }
+
+    .evidence-summary p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .provenance {
+      display: grid;
+      min-inline-size: 0;
+      margin: 0;
+      padding: 20px;
+      gap: 12px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+    }
+
+    .provenance div {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 8px;
+    }
+
+    .provenance dt {
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .provenance dd {
+      margin: 0;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+
+    .result-list {
+      margin: 0 0 32px;
+      padding: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      list-style: none;
+    }
+
+    .result-row {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr) auto;
+      align-items: center;
+      min-block-size: 64px;
+      padding: 12px 16px;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-icon {
+      display: grid;
+      place-items: center;
+      inline-size: 24px;
+      block-size: 24px;
+      color: var(--success);
+      background: var(--success-soft);
+      border-radius: 50%;
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+
+    .result-main strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .result-main span {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .result-basis {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .limits {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-bottom: 32px;
+      gap: 12px;
+    }
+
+    .limit-item {
+      padding: 16px;
+      color: var(--muted);
+      background: var(--unknown-soft);
+      border-left: 3px dashed var(--unknown);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .limit-item strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    details {
+      margin-bottom: 12px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    summary {
+      min-block-size: 48px;
+      padding: 14px 16px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    details > div,
+    details > pre {
+      margin: 0;
+      padding: 16px;
+      color: var(--muted);
+      background: var(--surface-raised);
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    pre {
+      overflow-x: auto;
+      font-family: var(--mono);
+      white-space: pre;
+    }
+
+    code, .mono { font-family: var(--mono); }
+
+    .screen-footer {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 48px;
+      padding-top: 16px;
+      gap: 16px;
+      color: var(--faint);
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .screen { padding: 32px 24px 56px; }
+      .prototype-controls { padding-inline: 24px; }
+      .page-header,
+      .decision-strip { grid-template-columns: 1fr; flex-direction: column; }
+      .actions { justify-content: flex-start; }
+      .review-grid,
+      .status-key,
+      .evidence-hero,
+      .limits { grid-template-columns: 1fr; }
+      .review-item,
+      .review-item:nth-child(2n) { border-right: 0; }
+    }
+
+    @media (max-width: 640px) {
+      .utility-bar { padding-inline: 16px; }
+      .prototype-controls { align-items: flex-start; padding-inline: 16px; }
+      .screen { padding: 24px 16px 48px; }
+      .metrics,
+      .status-summary { grid-template-columns: 1fr; }
+      .metric { border-right: 0; border-bottom: 1px solid var(--border); }
+      .metric:last-child { border-bottom: 0; }
+      .screen-footer { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .prototype { transition: none; }
+      * { scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <input class="choice" type="radio" name="brand" id="brand-signal" checked>
+  <input class="choice" type="radio" name="brand" id="brand-ledger">
+  <input class="choice" type="radio" name="brand" id="brand-slate">
+  <input class="choice" type="radio" name="theme" id="theme-light" checked>
+  <input class="choice" type="radio" name="theme" id="theme-dark">
+
+  <div class="prototype" data-fixture-id="m0-06-store-probe-2026-09-04" data-probe-checks="6" data-unobserved-paths="6">
+    <div class="capture-targets" aria-hidden="true">
+      <span id="capture-signal-light-task"></span><span id="capture-signal-light-harness"></span><span id="capture-signal-light-evidence"></span>
+      <span id="capture-signal-dark-task"></span><span id="capture-signal-dark-harness"></span><span id="capture-signal-dark-evidence"></span>
+      <span id="capture-ledger-light-task"></span><span id="capture-ledger-light-harness"></span><span id="capture-ledger-light-evidence"></span>
+      <span id="capture-ledger-dark-task"></span><span id="capture-ledger-dark-harness"></span><span id="capture-ledger-dark-evidence"></span>
+      <span id="capture-slate-light-task"></span><span id="capture-slate-light-harness"></span><span id="capture-slate-light-evidence"></span>
+      <span id="capture-slate-dark-task"></span><span id="capture-slate-dark-harness"></span><span id="capture-slate-dark-evidence"></span>
+    </div>
+
+    <div class="utility-bar">
+      <span class="spike-label">M0-07 Spike · Non-production</span>
+      <span>fixture / M0-06 · 2026-09-04</span>
+    </div>
+
+    <div class="shell">
+      <aside class="sidebar" aria-label="주요 화면">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">DH</span>
+          <span>DevHarness</span>
+        </div>
+        <p class="nav-title">Review surfaces</p>
+        <nav aria-label="시안 화면">
+          <ul class="nav-list">
+            <li><a class="nav-link" href="#task-panel"><span class="nav-icon" aria-hidden="true">△</span>Task Review</a></li>
+            <li><a class="nav-link" href="#harness-panel"><span class="nav-icon" aria-hidden="true">≡</span>Harness Status</a></li>
+            <li><a class="nav-link" href="#evidence-panel"><span class="nav-icon" aria-hidden="true">◇</span>Evidence Detail</a></li>
+          </ul>
+        </nav>
+        <div class="sidebar-note">
+          <strong>판정 경계</strong>
+          합성 Probe 결과만 표시합니다. 실제 장애·동시성 경로는 아직 미관찰입니다.
+        </div>
+      </aside>
+
+      <div class="content">
+        <header class="prototype-controls" aria-label="시안 비교 설정">
+          <div class="control-group" role="group" aria-label="브랜드 방향">
+            <span class="control-heading">Direction</span>
+            <label class="choice-label" for="brand-signal">A · Signal Graphite</label>
+            <label class="choice-label" for="brand-ledger">B · Ledger Indigo</label>
+            <label class="choice-label" for="brand-slate">C · Slate Violet</label>
+          </div>
+          <div class="control-group" role="group" aria-label="화면 모드">
+            <span class="control-heading">Mode</span>
+            <label class="choice-label" for="theme-light">Light</label>
+            <label class="choice-label" for="theme-dark">Dark</label>
+          </div>
+        </header>
+
+        <main>
+          <section class="screen" id="task-panel" tabindex="-1" aria-labelledby="task-title">
+            <header class="page-header">
+              <div>
+                <p class="eyebrow">Task Review / M0-06</p>
+                <h1 id="task-title">저장 결정안은 검토 준비됨</h1>
+                <p class="lede">SQLite catalog와 로컬 hash object 조합을 제안합니다. 합성 검사는 통과했지만 실제 전원 손실·디스크 부족·동시 쓰기는 아직 확인하지 않았습니다.</p>
+              </div>
+              <div class="actions" aria-label="다음 행동">
+                <a class="button button-primary" href="../../adr/0004-event-evidence-store.md">ADR 검토</a>
+                <a class="button" href="#evidence-panel">근거 먼저 보기</a>
+              </div>
+            </header>
+
+            <div class="decision-strip">
+              <div>
+                <strong>지금 할 일: ADR-0004를 승인하거나 수정 요청하세요.</strong>
+                <p>이 결정은 M1 저장 구현의 방향을 정합니다. 이 시안 자체는 구현 승인을 뜻하지 않습니다.</p>
+              </div>
+              <span class="state-line">Proposed · 승인 대기</span>
+            </div>
+
+            <div class="metrics" aria-label="검토 요약">
+              <div class="metric"><span class="metric-value">6</span><span class="metric-label">합성 범위 내 통과</span></div>
+              <div class="metric"><span class="metric-value">6</span><span class="metric-label">Production 경로 미관찰</span></div>
+              <div class="metric"><span class="metric-value">1</span><span class="metric-label">사용자 결정 필요</span></div>
+            </div>
+
+            <div class="review-grid">
+              <article class="review-item">
+                <div class="review-kicker"><span aria-hidden="true">1</span>무엇이 바뀜</div>
+                <h2>저장 후보가 하나의 제안으로 좁혀졌습니다.</h2>
+                <p>Event와 metadata는 SQLite에, 크거나 민감한 Raw Evidence는 content hash로 찾는 로컬 파일에 둡니다.</p>
+                <a class="evidence-link" href="#evidence-panel">저장 Probe 보기</a>
+              </article>
+              <article class="review-item">
+                <div class="review-kicker"><span aria-hidden="true">2</span>왜 중요함</div>
+                <h2>주장과 원본 근거의 연결을 잃지 않습니다.</h2>
+                <p>Event 순서·중복 방지·Projection 재생성을 한 계약으로 다루면서 Raw Evidence는 Git 밖에 유지할 수 있습니다.</p>
+                <a class="evidence-link" href="#evidence-panel">근거 경계 보기</a>
+              </article>
+              <article class="review-item">
+                <div class="review-kicker"><span aria-hidden="true">3</span>근거</div>
+                <h2>합성 Fixture에서 여섯 검사가 통과했습니다.</h2>
+                <p>부분 쓰기 rollback, 중복 Event, hash, Projection rebuild, Git 제외, integrity check를 관찰했습니다.</p>
+                <a class="evidence-link" href="#evidence-panel">선택 Evidence 열기</a>
+              </article>
+              <article class="review-item">
+                <div class="review-kicker"><span aria-hidden="true">4</span>다음 행동</div>
+                <h2>결정과 남은 위험을 함께 검토합니다.</h2>
+                <p>Hybrid 저장과 rollback journal을 승인할지 결정하고, 실제 장애·동시성 검증은 M1 Gate에 남깁니다.</p>
+                <a class="evidence-link" href="../../adr/0004-event-evidence-store.md">ADR 원문 읽기</a>
+              </article>
+            </div>
+
+            <section class="section-block" aria-labelledby="flow-heading">
+              <h2 id="flow-heading">Before / After — 저장 흐름</h2>
+              <div class="diagram-wrap">
+                <svg viewBox="0 0 960 416" role="img" aria-labelledby="m007-flow-title m007-flow-desc">
+                  <title id="m007-flow-title">M0-06 저장 결정 전후 데이터 흐름</title>
+                  <desc id="m007-flow-desc">결정 전에는 Event가 JSONL 단일 저장 후보와 수동 복구 위험으로 이어졌습니다. 결정 후 제안에서는 Event가 SQLite catalog에 기록되고 Guarantee Projection과 Dashboard 요약으로 흐르며, Raw Evidence는 hash object로 분리됩니다. WAL은 미검증으로 보류됩니다.</desc>
+                  <defs>
+                    <marker id="m007-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                      <path d="M0,0 L8,4 L0,8 Z" fill="var(--border-strong)"></path>
+                    </marker>
+                  </defs>
+
+                  <text class="diagram-heading" x="24" y="28">BEFORE · 후보가 열려 있던 상태</text>
+                  <line class="diagram-divider" x1="24" y1="176" x2="936" y2="176"></line>
+                  <text class="diagram-heading" x="24" y="212">AFTER · M0-06 제안</text>
+
+                  <a class="diagram-node" href="#evidence-panel" aria-label="결정 전 Event source 근거 보기">
+                    <rect x="40" y="64" width="160" height="64" rx="4"></rect>
+                    <text x="120" y="92" text-anchor="middle">= Event source</text>
+                    <text class="node-meta" x="120" y="112" text-anchor="middle">APPEND INTENT</text>
+                  </a>
+                  <a class="diagram-edge" href="#evidence-panel" aria-label="결정 전 저장 경로 근거 보기">
+                    <line x1="200" y1="96" x2="272" y2="96" marker-end="url(#m007-arrow)"></line>
+                    <text x="236" y="84" text-anchor="middle">WRITE?</text>
+                  </a>
+                  <a class="diagram-node removed" href="#evidence-panel" aria-label="JSONL 단일 저장 제외 근거 보기">
+                    <rect x="280" y="64" width="176" height="64" rx="4"></rect>
+                    <text x="368" y="92" text-anchor="middle">− JSONL only</text>
+                    <text class="node-meta" x="368" y="112" text-anchor="middle">EXCLUDE PROPOSED</text>
+                  </a>
+                  <a class="diagram-edge" href="#evidence-panel" aria-label="수동 복구 부담 근거 보기">
+                    <line x1="456" y1="96" x2="528" y2="96" marker-end="url(#m007-arrow)"></line>
+                    <text x="492" y="84" text-anchor="middle">LEAVES</text>
+                  </a>
+                  <a class="diagram-node unknown" href="#evidence-panel" aria-label="결정 전 복구와 중복 위험 보기">
+                    <rect x="536" y="64" width="200" height="64" rx="4"></rect>
+                    <text x="636" y="92" text-anchor="middle">? 복구·중복 수동</text>
+                    <text class="node-meta" x="636" y="112" text-anchor="middle">UNVERIFIED BURDEN</text>
+                  </a>
+
+                  <a class="diagram-node" href="#evidence-panel" aria-label="결정 후 Event source 근거 보기">
+                    <rect x="40" y="248" width="160" height="64" rx="4"></rect>
+                    <text x="120" y="276" text-anchor="middle">= Event source</text>
+                    <text class="node-meta" x="120" y="296" text-anchor="middle">STABLE EVENT ID</text>
+                  </a>
+                  <a class="diagram-edge" href="#evidence-panel" aria-label="Event append Probe 근거 보기">
+                    <line x1="200" y1="280" x2="272" y2="280" marker-end="url(#m007-arrow)"></line>
+                    <text x="236" y="268" text-anchor="middle">APPEND</text>
+                  </a>
+                  <a class="diagram-node added" href="#evidence-panel" aria-label="SQLite catalog 제안 근거 보기">
+                    <rect x="280" y="248" width="176" height="64" rx="4"></rect>
+                    <text x="368" y="276" text-anchor="middle">+ SQLite catalog</text>
+                    <text class="node-meta" x="368" y="296" text-anchor="middle">CANONICAL</text>
+                  </a>
+                  <a class="diagram-edge" href="#evidence-panel" aria-label="Projection replay Probe 근거 보기">
+                    <line x1="456" y1="280" x2="528" y2="280" marker-end="url(#m007-arrow)"></line>
+                    <text x="492" y="268" text-anchor="middle">REPLAY</text>
+                  </a>
+                  <a class="diagram-node added" href="#evidence-panel" aria-label="Guarantee Projection 근거 보기">
+                    <rect x="536" y="248" width="176" height="64" rx="4"></rect>
+                    <text x="624" y="276" text-anchor="middle">+ Guarantee</text>
+                    <text class="node-meta" x="624" y="296" text-anchor="middle">PROJECTION</text>
+                  </a>
+                  <a class="diagram-edge" href="#evidence-panel" aria-label="Dashboard 요약 연결 근거 보기">
+                    <line x1="712" y1="280" x2="784" y2="280" marker-end="url(#m007-arrow)"></line>
+                    <text x="748" y="268" text-anchor="middle">SUMMARY</text>
+                  </a>
+                  <a class="diagram-node added" href="#evidence-panel" aria-label="Dashboard 요약 근거 보기">
+                    <rect x="792" y="248" width="144" height="64" rx="4"></rect>
+                    <text x="864" y="276" text-anchor="middle">+ Dashboard</text>
+                    <text class="node-meta" x="864" y="296" text-anchor="middle">REVIEW</text>
+                  </a>
+
+                  <a class="diagram-edge" href="#evidence-panel" aria-label="Raw Evidence hash reference 근거 보기">
+                    <path d="M368 312 V336 H448 V352" marker-end="url(#m007-arrow)"></path>
+                    <text x="412" y="332" text-anchor="middle">HASH REF</text>
+                  </a>
+                  <a class="diagram-node added" href="#evidence-panel" aria-label="로컬 Raw Evidence object 근거 보기">
+                    <rect x="360" y="352" width="176" height="48" rx="4"></rect>
+                    <text x="448" y="376" text-anchor="middle">+ Local hash object</text>
+                    <text class="node-meta" x="448" y="392" text-anchor="middle">RAW · GIT-IGNORED</text>
+                  </a>
+                  <a class="diagram-node unknown" href="#evidence-panel" aria-label="WAL 보류 근거 보기">
+                    <rect x="600" y="352" width="216" height="48" rx="4"></rect>
+                    <text x="708" y="376" text-anchor="middle">? WAL 전환 보류</text>
+                    <text class="node-meta" x="708" y="392" text-anchor="middle">SQLITE 3.51.0</text>
+                  </a>
+                </svg>
+                <ul class="diagram-legend" aria-label="변경 기호 설명">
+                  <li>= 유지</li><li>+ 추가 제안</li><li>− 제외 제안</li><li>? 미검증·보류</li>
+                </ul>
+                <ul class="diagram-jumps" aria-label="다이어그램 근거 링크">
+                  <li><a href="#evidence-panel">Node 근거</a></li>
+                  <li><a href="#evidence-panel">Edge 근거</a></li>
+                  <li><a href="../../spikes/event-evidence-store.md">Spike 원문</a></li>
+                  <li><a href="../../spikes/probes/m0-06-store-probe.sh">재현 Probe</a></li>
+                </ul>
+              </div>
+            </section>
+
+            <div class="direction-note note-signal"><strong>A · Signal Graphite — 추천안.</strong> 가장 중립적인 graphite surface에 teal/cyan을 탐색·선택 신호로만 사용합니다. 상태색과 브랜드색이 충돌하지 않고, 고밀도 review 정보의 위계를 가장 조용하게 유지합니다. 구현 비용: 낮음–중간.</div>
+            <div class="direction-note note-ledger"><strong>B · Ledger Indigo.</strong> 따뜻한 paper neutral과 indigo가 문서 검토의 안정감을 줍니다. 장문 ADR에는 편하지만, runtime trace의 긴급도와 기술적 정밀감은 A보다 약합니다. 구현 비용: 낮음.</div>
+            <div class="direction-note note-slate"><strong>C · Slate Violet.</strong> 차가운 slate와 violet이 trace·instrumentation 성격을 선명하게 만듭니다. 기술 화면에는 강하지만, warning/danger가 많은 화면에서는 색 경쟁이 커질 수 있습니다. 구현 비용: 중간.</div>
+
+            <footer class="screen-footer"><span>Fixture: m0-06-store-probe-2026-09-04</span><span>Not a completion claim</span></footer>
+          </section>
+
+          <section class="screen" id="harness-panel" tabindex="-1" aria-labelledby="harness-title">
+            <header class="page-header">
+              <div>
+                <p class="eyebrow">Harness Status / Contract checks</p>
+                <h1 id="harness-title">통제 단계와 근거 방식을 따로 봅니다</h1>
+                <p class="lede">Configured·Loaded·Enforced는 “어디까지 실현됐는가”이고, Observed·Inferred·Unobserved는 “무엇으로 아는가”입니다. 하나의 상태 Badge로 합치지 않습니다.</p>
+              </div>
+              <div class="actions"><a class="button" href="../../adr/0002-control-validation-evidence-model.md">Schema 검토</a></div>
+            </header>
+
+            <div class="decision-strip">
+              <div>
+                <strong>지금 할 일: Enforced가 비어 있는 경로부터 확인하세요.</strong>
+                <p>Configured가 통과해도 실제 경계가 강제됐다고 주장하지 않습니다.</p>
+              </div>
+              <span class="state-line">3 independent checks</span>
+            </div>
+
+            <div class="status-summary" aria-label="Harness 상태 요약">
+              <div class="summary-cell"><strong>4</strong><span>검토 중인 Control</span></div>
+              <div class="summary-cell"><strong>5 / 12</strong><span>Observed check result</span></div>
+              <div class="summary-cell"><strong>0</strong><span>Enforced로 확인된 경계</span></div>
+            </div>
+
+            <div class="control-table-wrap">
+              <table class="control-table">
+                <thead>
+                  <tr><th>Control</th><th>Configured</th><th>Loaded</th><th>Enforced</th><th>다음 Probe</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="control-name">Event 저장 계약</span><span class="control-id">CTL-STORE-001</span></td>
+                    <td><span class="check-result pass">✓ PASS</span><span class="basis"><span class="basis-symbol" aria-hidden="true">◉</span><span><strong>Observed</strong><br>ADR + schema</span></span></td>
+                    <td><span class="check-result not-run">○ NOT RUN</span><span class="basis"><span class="basis-symbol" aria-hidden="true">?</span><span><strong>Unobserved</strong><br>M1 runtime 없음</span></span></td>
+                    <td><span class="check-result not-run">○ NOT RUN</span><span class="basis"><span class="basis-symbol" aria-hidden="true">?</span><span><strong>Unobserved</strong><br>실제 writer 없음</span></span></td>
+                    <td><a class="evidence-link" href="#evidence-panel">합성 Evidence</a></td>
+                  </tr>
+                  <tr>
+                    <td><span class="control-name">Raw Evidence Git 경계</span><span class="control-id">CTL-EVIDENCE-002</span></td>
+                    <td><span class="check-result pass">✓ PASS</span><span class="basis"><span class="basis-symbol" aria-hidden="true">◉</span><span><strong>Observed</strong><br>.gitignore rule</span></span></td>
+                    <td><span class="check-result pass">✓ PASS</span><span class="basis"><span class="basis-symbol" aria-hidden="true">◉</span><span><strong>Observed</strong><br>check-ignore</span></span></td>
+                    <td><span class="check-result not-run">○ NOT RUN</span><span class="basis"><span class="basis-symbol" aria-hidden="true">?</span><span><strong>Unobserved</strong><br>force-add 우회 가능</span></span></td>
+                    <td><a class="evidence-link" href="#evidence-panel">Probe 결과</a></td>
+                  </tr>
+                  <tr>
+                    <td><span class="control-name">Rollback journal 안전 Gate</span><span class="control-id">CTL-SQLITE-003</span></td>
+                    <td><span class="check-result pass">✓ PASS</span><span class="basis"><span class="basis-symbol" aria-hidden="true">◉</span><span><strong>Observed</strong><br>DELETE 설정</span></span></td>
+                    <td><span class="check-result pass">✓ PASS</span><span class="basis"><span class="basis-symbol" aria-hidden="true">◉</span><span><strong>Observed</strong><br>runtime PRAGMA</span></span></td>
+                    <td><span class="check-result not-run">○ NOT RUN</span><span class="basis"><span class="basis-symbol" aria-hidden="true">?</span><span><strong>Unobserved</strong><br>WAL 전환 방지 없음</span></span></td>
+                    <td><a class="evidence-link" href="#evidence-panel">Version 근거</a></td>
+                  </tr>
+                  <tr>
+                    <td><span class="control-name">M5 Brand 승인 Gate</span><span class="control-id">CTL-DESIGN-004</span></td>
+                    <td><span class="check-result pass">✓ PASS</span><span class="basis"><span class="basis-symbol" aria-hidden="true">◉</span><span><strong>Observed</strong><br>Issue #8 계약</span></span></td>
+                    <td><span class="check-result not-run">○ NOT RUN</span><span class="basis"><span class="basis-symbol" aria-hidden="true">?</span><span><strong>Unobserved</strong><br>M5 미착수</span></span></td>
+                    <td><span class="check-result not-run">○ NOT RUN</span><span class="basis"><span class="basis-symbol" aria-hidden="true">?</span><span><strong>Unobserved</strong><br>자동 Gate 없음</span></span></td>
+                    <td><a class="evidence-link" href="#evidence-panel">Issue 계약</a></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="status-key">
+              <section class="key-panel"><h2>실현 단계</h2><p><strong>Configured</strong>는 정의됨, <strong>Loaded</strong>는 현재 실행이 읽음, <strong>Enforced</strong>는 위반 시도가 실제로 막힘을 뜻합니다.</p></section>
+              <section class="key-panel"><h2>근거 방식</h2><p><strong>◉ Observed</strong>는 직접 관찰, <strong>△ Inferred</strong>는 제한된 추론, <strong>? Unobserved</strong>는 관찰하지 못함입니다. 색 대신 기호와 글자를 함께 씁니다.</p></section>
+            </div>
+
+            <footer class="screen-footer"><span>Schema candidate · ADR-0002 Proposed</span><span>Configured ≠ Enforced</span></footer>
+          </section>
+
+          <section class="screen" id="evidence-panel" tabindex="-1" aria-labelledby="evidence-title">
+            <header class="page-header">
+              <div>
+                <p class="eyebrow">Evidence Detail / EV-M0-06-PROBE</p>
+                <h1 id="evidence-title">합성 저장 Probe에서 확인한 범위</h1>
+                <p class="lede">선택 Evidence의 결과·출처·한계를 한 화면에서 확인합니다. 원시 출력은 필요한 경우에만 펼칩니다.</p>
+              </div>
+              <div class="actions"><a class="button" href="#task-panel">Task Review로 돌아가기</a></div>
+            </header>
+
+            <div class="evidence-hero">
+              <section class="evidence-summary" aria-labelledby="evidence-conclusion">
+                <p class="eyebrow">결론 · ◉ Observed</p>
+                <h2 id="evidence-conclusion">여섯 합성 검사는 통과했습니다. Production 안전은 아직 주장할 수 없습니다.</h2>
+                <p>단일 process와 로컬 APFS에서 rollback·idempotency·hash·Projection·Git 제외·integrity를 관찰했습니다. 실제 장애 조건은 별도 Evidence가 필요합니다.</p>
+              </section>
+              <dl class="provenance">
+                <div><dt>Collected</dt><dd>2026-09-04 KST</dd></div>
+                <div><dt>Method</dt><dd>safe synthetic probe</dd></div>
+                <div><dt>SQLite</dt><dd>3.51.0 / journal=delete</dd></div>
+                <div><dt>Commit</dt><dd>ba7394f… local only</dd></div>
+                <div><dt>Raw</dt><dd>temporary / deleted</dd></div>
+              </dl>
+            </div>
+
+            <h2>검사 결과</h2>
+            <ul class="result-list">
+              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>미완료 transaction은 Event로 보이지 않음</strong><span>partial_write_rollback=passed</span></span><span class="result-basis">◉ Observed</span></li>
+              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>동일 Event ID 재전송은 중복 row를 만들지 않음</strong><span>duplicate_event_idempotency=passed</span></span><span class="result-basis">◉ Observed</span></li>
+              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>Raw Evidence file과 catalog hash가 일치</strong><span>evidence_content_hash=passed</span></span><span class="result-basis">◉ Observed</span></li>
+              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>Canonical Event에서 Projection을 재생성함</strong><span>projection_rebuild=passed</span></span><span class="result-basis">◉ Observed</span></li>
+              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>지정 Raw Evidence 경로가 Git에서 제외됨</strong><span>raw_evidence_git_exclusion=passed</span></span><span class="result-basis">◉ Observed</span></li>
+              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>합성 SQLite catalog integrity 검사 통과</strong><span>integrity_check=ok</span></span><span class="result-basis">◉ Observed</span></li>
+            </ul>
+
+            <h2>아직 확인하지 않은 경로</h2>
+            <div class="limits">
+              <div class="limit-item"><strong>? 실제 전원 손실</strong>process 종료가 아닌 host-level interruption은 미관찰입니다.</div>
+              <div class="limit-item"><strong>? Disk full</strong>database와 object 사이 실패 순서는 미관찰입니다.</div>
+              <div class="limit-item"><strong>? Concurrent writer</strong>single-writer queue 구현 전이므로 미관찰입니다.</div>
+              <div class="limit-item"><strong>? Large blob</strong>대형 Raw Evidence의 성능·복구는 미관찰입니다.</div>
+              <div class="limit-item"><strong>? Retention race</strong>공유 hash의 보존·삭제 경합은 미관찰입니다.</div>
+              <div class="limit-item"><strong>? Encryption</strong>at-rest 적용과 key lifecycle은 미결정입니다.</div>
+            </div>
+
+            <details>
+              <summary>Raw Probe 출력 펼치기</summary>
+              <pre>sqlite_version=3.51.0
+journal_mode=delete
+partial_write_rollback=passed
+duplicate_event_idempotency=passed
+evidence_content_hash=passed
+projection_rebuild=passed
+raw_evidence_git_exclusion=passed
+integrity_check=ok</pre>
+            </details>
+            <details>
+              <summary>Evidence 연결 펼치기</summary>
+              <div>
+                <p><strong>Diff:</strong> local commit <code>ba7394f…</code></p>
+                <p><strong>Trace:</strong> synthetic Event <code>event-001</code> / <code>event-002</code></p>
+                <p><strong>Test:</strong> <a href="../../spikes/probes/m0-06-store-probe.sh">m0-06-store-probe.sh</a></p>
+                <p><strong>Control:</strong> <code>.dev-harness/</code> and <code>docs/spikes/raw/</code> ignore rule</p>
+              </div>
+            </details>
+            <details>
+              <summary>판정 문구 제한 펼치기</summary>
+              <div>이 Evidence로 말할 수 있는 것은 “정의한 합성 검사 범위에서 통과”까지입니다. “안전함”, “회귀 없음”, “완전히 통제됨”은 말할 수 없습니다.</div>
+            </details>
+
+            <footer class="screen-footer"><span>Evidence basis: Observed</span><span>Raw Evidence remains local</span></footer>
+          </section>
+        </main>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

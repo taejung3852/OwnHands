@@ -13,6 +13,7 @@
 | M0-05 | Non-blocking, 실제 vendoring 제외 |
 | Guarantee Matrix | 최소 Claim 개수 대신 문서의 핵심 Claim 범주 전체 coverage 적용 |
 | 예상 소요 | 제거 |
+| M0-07 | M1~M4 Non-blocking, M5 Dashboard 전 필수 승인 Gate로 추가 |
 
 ## M0 필수 산출물
 
@@ -24,6 +25,7 @@
 | M0-04 | Guarantee Matrix v1과 Task Guarantee Report 예시 | 필수 |
 | M0-05 | Vendoring 원칙, license, namespace, upstream pin | Non-blocking |
 | M0-06 | Event & Evidence Store Spike와 ADR | 필수 |
+| M0-07 | Brand & Dashboard Design Foundation 조사·3안·Light/Dark 시안·접근성 Probe·ADR | M0 Non-blocking / M5 필수 Gate |
 
 ## 외부 변경 승인 범위
 
@@ -32,9 +34,9 @@
 | GitHub Repository | `taejung3852/devharness`, Private |
 | Default branch | `main` |
 | 최초 Push | 네 제품 문서 기준선만 |
-| GitHub 관리 객체 | M0~M8 Milestone, 승인된 Label, 전체 범위 상위 Issue, M0-01~M0-06 |
+| GitHub 관리 객체 | M0~M8 Milestone, 승인된 Label, 전체 범위 상위 Issue, M0-01~M0-07 |
 | 미승인 | 공개 전환, 배포, 패키지 게시 |
 
 ## 중단 조건
 
-M0 ADR이 사용자 검토를 통과하기 전에는 M1 기능 구현을 시작하지 않는다. 관찰되지 않은 Codex 동작이나 통제 경계는 `Unobserved`로 남긴다.
+M0 ADR이 사용자 검토를 통과하기 전에는 M1 기능 구현을 시작하지 않는다. M0-07은 M1~M4를 막지 않지만 ADR-0007 승인 전에는 M5 Production Dashboard를 시작하지 않는다. 관찰되지 않은 Codex 동작이나 통제 경계는 `Unobserved`로 남긴다.

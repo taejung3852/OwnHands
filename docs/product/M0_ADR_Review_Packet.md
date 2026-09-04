@@ -16,6 +16,7 @@ M0 필수 Spike와 schema 제안은 준비됐다. 현재 어떤 ADR도 승인된
 | Event/Evidence Store | SQLite catalog + content-addressed local files; 초기 rollback journal | SQLite/Apple 공식 문서, 합성 저장 Probe | ADR-0004 Proposed |
 | Superpowers | `dev-harness/*` 선택 subset; global router 제외; MIT; commit pin | upstream/local hash 비교 | ADR-0005 Proposed, Non-blocking |
 | 구현 순서 | M2 Preflight draft / M4 post-change assurance 분리; M1–M4 review packet 유지 | 문서 간 lifecycle·roadmap 비교 | ADR-0006 Proposed |
+| Brand·Dashboard 기반 | Graphite Neutral + Signal Teal/Cyan, Evidence-first 3단계 drill-down | 동일 M0-06 Fixture 3안, Light/Dark 18상태, 접근성·layout Probe | ADR-0007 Proposed, M5 Gate |
 
 ## M0 Gate 상태
 
@@ -27,6 +28,7 @@ M0 필수 Spike와 schema 제안은 준비됐다. 현재 어떤 ADR도 승인된
 | Event/Evidence 저장 결정 | ADR-0004, M0-06 Spike | 합성 Probe 통과, 사용자 검토 대기 |
 | Superpowers 원칙 | ADR-0005, M0-05 Spike | Non-blocking, 사용자 검토 대기 |
 | 문서 충돌 해소 | ADR-0006, Conflict 목록 | 사용자 검토 대기 |
+| Brand·Dashboard 디자인 기반 | ADR-0007, M0-07 시안 | M0 Non-blocking, M5 승인 Gate 대기 |
 
 M0 종료 Gate는 아직 통과로 표시하지 않는다. Proposed ADR의 사용자 결정과 그 결과의 문서 반영이 남아 있다.
 
@@ -35,7 +37,7 @@ M0 종료 Gate는 아직 통과로 표시하지 않는다. Proposed ADR의 사�
 ### Observed
 
 - 최초 Git commit과 원격 `main`은 네 제품 기준선 문서만 포함한다.
-- GitHub repository는 Private이며 M0–M8 Milestone, 승인 Label, 상위 추적 Issue, M0-01–06 Issue가 존재한다.
+- GitHub repository는 Private이며 M0–M8 Milestone, 승인 Label, 상위 추적 Issue, M0-01–07 Issue가 존재한다.
 - Milestone 설명은 한국어로 등록되어 있다.
 - 설치 Codex CLI version과 read-only help surface를 확인했다.
 - Guarantee 합성 fixture에서 불충분 Evidence는 `not_evaluated`, 충돌 Evidence는 `contradicted`가 됐다.
@@ -55,6 +57,7 @@ M0 종료 Gate는 아직 통과로 표시하지 않는다. Proposed ADR의 사�
 - 실제 power-loss, disk-full, concurrent writer, orphan recovery
 - 실제 사용자 작업의 Guarantee 결과
 - Superpowers 실제 vendoring, activation, behavior compatibility
+- Pretendard Variable 실제 font file metric, screen reader별 M0-07 시안 사용성, 실제 사용자 검토 시간 감소
 - 배포, 공개 전환, package 게시
 
 ## 사용자 검토가 필요한 결정
@@ -64,6 +67,7 @@ M0 종료 Gate는 아직 통과로 표시하지 않는다. Proposed ADR의 사�
 3. **ADR-0004:** hybrid 저장소와 rollback-journal 우선 원칙을 승인할지
 4. **ADR-0006:** Preflight/Post-change Assurance 2단계와 M1–M4 review artifact 계약을 승인할지
 5. **ADR-0005:** Non-blocking Superpowers 범위를 함께 승인·수정·보류할지
+6. **ADR-0007:** M5 디자인 기준으로 A Signal Graphite를 승인·수정·대안 선택할지. 이 결정은 M1~M4를 막지 않음
 
 ## ADR 승인 후에도 M1 전에 남는 제품 결정
 
@@ -77,6 +81,6 @@ M0 종료 Gate는 아직 통과로 표시하지 않는다. Proposed ADR의 사�
 
 ## 외부 변경 경계
 
-- 이미 수행한 승인 범위: Private repository 생성, 최초 기준선 push, Milestone/Label/Issue 생성, Milestone 설명 한국어화
+- 이미 수행한 승인 범위: Private repository 생성, 최초 기준선 push, Milestone/Label/Issue #1~#8 생성, Milestone 설명 한국어화
 - 아직 수행하지 않은 변경: M0 결과 문서 push, public 전환, deployment, package publish, Superpowers vendoring
 - M0 결과 문서의 원격 push는 최초 기준선 push와 별도이므로 사용자 승인 없이 수행하지 않는다.
