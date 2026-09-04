@@ -144,6 +144,15 @@ class Catalog:
             INSERT INTO retention_policy(singleton, mode, days)
             VALUES (1, 'keep_until_user_deletes', NULL)
             ON CONFLICT(singleton) DO NOTHING;
+
+            CREATE TABLE IF NOT EXISTS task_projections (
+                task_id TEXT PRIMARY KEY REFERENCES tasks(task_id),
+                projected_sequence INTEGER NOT NULL CHECK(projected_sequence >= 0),
+                state TEXT NOT NULL CHECK(state IN ('ready', 'failed')),
+                projection_json TEXT NOT NULL,
+                last_error TEXT,
+                updated_at TEXT NOT NULL
+            ) STRICT;
             COMMIT;
             """
         )
