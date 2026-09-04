@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,9 +18,23 @@ RESULTS = {"pass", "fail", "not_run", "inconclusive"}
 BASES = {"observed", "inferred", "unobserved"}
 REDACTION_STATUSES = {"not_needed", "redacted", "reference_only"}
 SENSITIVE_FIELD_FRAGMENTS = {
+    "api_key",
+    "apikey",
     "authorization",
     "cookie",
+    "credential",
     "password",
+    "private_key",
+    "secret",
+    "token",
+}
+SENSITIVE_FIELD_MARKERS = {
+    "apikey",
+    "authorization",
+    "cookie",
+    "credential",
+    "password",
+    "privatekey",
     "secret",
     "token",
 }
@@ -97,6 +112,7 @@ class EvidenceStore:
         self.events = events
         self.catalog.paths.objects.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(self.catalog.paths.objects, 0o700)
+        self.reconcile_objects()
 
     def put(
         self,
@@ -112,6 +128,8 @@ class EvidenceStore:
         redacted = redactor(bytes(draft.content))
         if not isinstance(redacted, bytes):
             raise ValueError("redactor must return bytes")
+        if not redacted:
+            raise ValueError("redacted content must not be empty")
 
         content_hash = hashlib.sha256(redacted).hexdigest()
         object_relpath = f"{content_hash[:2]}/{content_hash[2:]}"
@@ -119,18 +137,7 @@ class EvidenceStore:
         created_at = _now()
         fingerprint = self._fingerprint(draft, content_hash)
 
-        existing = self.catalog.connection.execute(
-            "SELECT * FROM evidence WHERE evidence_id=?", (draft.evidence_id,)
-        ).fetchone()
-        if existing is not None:
-            if existing["fingerprint"] != fingerprint:
-                raise EvidenceConflict(
-                    f"evidence_id {draft.evidence_id!r} already has different content"
-                )
-            return self._from_row(existing)
-
-        created_object = self._write_object(object_path, redacted, content_hash)
-
+        created_object = False
         try:
             with self.catalog.transaction() as connection:
                 existing = connection.execute(
@@ -141,7 +148,13 @@ class EvidenceStore:
                         raise EvidenceConflict(
                             f"evidence_id {draft.evidence_id!r} already has different content"
                         )
-                    return self._from_row(existing)
+                    record = self._from_row(existing)
+                    self._validate_object(record)
+                    return record
+
+                created_object = self._write_object(
+                    object_path, redacted, content_hash
+                )
 
                 connection.execute(
                     """
@@ -230,11 +243,19 @@ class EvidenceStore:
 
     def read_content(self, evidence_id: str) -> bytes:
         record = self.resolve(evidence_id)
+        return self._validate_object(record)
+
+    @staticmethod
+    def _validate_object(record: EvidenceRecord) -> bytes:
         content = record.object_path.read_bytes()
         actual_hash = hashlib.sha256(content).hexdigest()
         if actual_hash != record.content_hash:
             raise ValueError(
                 f"evidence hash mismatch: expected {record.content_hash}, got {actual_hash}"
+            )
+        if len(content) != record.content_size:
+            raise ValueError(
+                f"evidence size mismatch: expected {record.content_size}, got {len(content)}"
             )
         return content
 
@@ -262,48 +283,103 @@ class EvidenceStore:
     def purge(self, evidence_id: str, reason: str) -> None:
         reason = _required_text(reason, "reason")
         purged_at = _now()
-        with self.catalog.transaction() as connection:
-            row = connection.execute(
-                "SELECT * FROM evidence WHERE evidence_id=?", (evidence_id,)
-            ).fetchone()
-            if row is None:
-                raise ValueError(f"unknown evidence: {evidence_id}")
-            if row["purged_at"] is not None:
-                return
-            connection.execute(
-                "UPDATE evidence SET purged_at=?, purge_reason=? WHERE evidence_id=?",
-                (purged_at, reason, evidence_id),
-            )
-            self.events.append_in_transaction(
-                EventDraft(
-                    event_id=f"evidence-purged:{evidence_id}",
-                    task_id=row["task_id"],
-                    event_type="evidence.purged",
-                    event_version=1,
-                    occurred_at=purged_at,
-                    payload={
-                        "evidence_id": evidence_id,
-                        "content_hash": row["content_hash"],
-                        "reason": reason,
-                    },
-                    collection_method="explicit-user-purge",
-                    redaction_status="reference_only",
-                ),
-                _identity_payload,
-                connection,
-            )
+        trash_path: Path | None = None
+        object_path: Path | None = None
+        try:
+            with self.catalog.transaction() as connection:
+                row = connection.execute(
+                    "SELECT * FROM evidence WHERE evidence_id=?", (evidence_id,)
+                ).fetchone()
+                if row is None:
+                    raise ValueError(f"unknown evidence: {evidence_id}")
+                if row["purged_at"] is None:
+                    connection.execute(
+                        "UPDATE evidence SET purged_at=?, purge_reason=? WHERE evidence_id=?",
+                        (purged_at, reason, evidence_id),
+                    )
+                    self.events.append_in_transaction(
+                        EventDraft(
+                            event_id=f"evidence-purged:{evidence_id}",
+                            task_id=row["task_id"],
+                            event_type="evidence.purged",
+                            event_version=1,
+                            occurred_at=purged_at,
+                            payload={
+                                "evidence_id": evidence_id,
+                                "content_hash": row["content_hash"],
+                                "reason": reason,
+                            },
+                            collection_method="explicit-user-purge",
+                            redaction_status="reference_only",
+                        ),
+                        _identity_payload,
+                        connection,
+                    )
+                remaining_references = connection.execute(
+                    """
+                    SELECT COUNT(*) FROM evidence
+                    WHERE content_hash=? AND purged_at IS NULL
+                    """,
+                    (row["content_hash"],),
+                ).fetchone()[0]
+                object_path = self.catalog.paths.objects / row["object_relpath"]
+                trash_path = object_path.with_name(
+                    f".{object_path.name}.purging"
+                )
+                if remaining_references == 0:
+                    if object_path.exists() and not trash_path.exists():
+                        os.replace(object_path, trash_path)
+        except BaseException:
+            if (
+                trash_path is not None
+                and object_path is not None
+                and trash_path.exists()
+                and not object_path.exists()
+            ):
+                os.replace(trash_path, object_path)
+                os.chmod(object_path, 0o600)
+            raise
 
-        remaining_references = self.catalog.query_value(
-            """
-            SELECT COUNT(*) FROM evidence
-            WHERE content_hash=? AND purged_at IS NULL
-            """,
-            (row["content_hash"],),
-        )
-        if remaining_references == 0:
-            object_path = self.catalog.paths.objects / row["object_relpath"]
-            if object_path.exists():
-                object_path.unlink()
+        if trash_path is not None and trash_path.exists():
+            trash_path.unlink()
+
+    def reconcile_objects(self, grace_period_seconds: int = 300) -> list[Path]:
+        if (
+            not isinstance(grace_period_seconds, int)
+            or isinstance(grace_period_seconds, bool)
+            or grace_period_seconds < 0
+        ):
+            raise ValueError("grace_period_seconds must be a non-negative integer")
+        cutoff = time.time() - grace_period_seconds
+        removed: list[Path] = []
+        with self.catalog.transaction() as connection:
+            active_paths = {
+                self.catalog.paths.objects / row["object_relpath"]
+                for row in connection.execute(
+                    "SELECT object_relpath FROM evidence WHERE purged_at IS NULL"
+                ).fetchall()
+            }
+            for trash_path in sorted(self.catalog.paths.objects.rglob(".*.purging")):
+                original_name = trash_path.name[1 : -len(".purging")]
+                original_path = trash_path.with_name(original_name)
+                if original_path in active_paths and not original_path.exists():
+                    os.replace(trash_path, original_path)
+                    os.chmod(original_path, 0o600)
+                elif trash_path.stat().st_mtime <= cutoff:
+                    trash_path.unlink()
+                    removed.append(trash_path)
+            for path in sorted(self.catalog.paths.objects.rglob("*")):
+                if (
+                    not path.is_file()
+                    or path in active_paths
+                    or path.name.endswith(".purging")
+                ):
+                    continue
+                if path.stat().st_mtime > cutoff:
+                    continue
+                path.unlink()
+                removed.append(path)
+        return removed
 
     @staticmethod
     def _validate(draft: EvidenceDraft) -> None:
@@ -323,9 +399,15 @@ class EvidenceStore:
             raise ValueError("basis is invalid")
         if draft.redaction_status not in REDACTION_STATUSES:
             raise ValueError("redaction_status is invalid")
-        if len(draft.inference_from) != len(set(draft.inference_from)):
+        if (
+            any(not isinstance(ref, str) or not ref.strip() for ref in draft.inference_from)
+            or len(draft.inference_from) != len(set(draft.inference_from))
+        ):
             raise ValueError("inference_from must be unique")
-        if len(draft.conflict_refs) != len(set(draft.conflict_refs)):
+        if (
+            any(not isinstance(ref, str) or not ref.strip() for ref in draft.conflict_refs)
+            or len(draft.conflict_refs) != len(set(draft.conflict_refs))
+        ):
             raise ValueError("conflict_refs must be unique")
         if draft.basis == "inferred" and not draft.inference_from:
             raise ValueError("inferred Evidence requires inference_from")
@@ -333,10 +415,17 @@ class EvidenceStore:
             raise ValueError("fields must be a non-empty dictionary")
         for key in EvidenceStore._field_names(draft.fields):
             normalized = key.lower()
-            if any(fragment in normalized for fragment in SENSITIVE_FIELD_FRAGMENTS):
+            compact = "".join(
+                character for character in normalized if character.isalnum()
+            )
+            if any(fragment in normalized for fragment in SENSITIVE_FIELD_FRAGMENTS) or any(
+                marker in compact for marker in SENSITIVE_FIELD_MARKERS
+            ):
                 raise ValueError(f"sensitive field is not allowed in metadata: {key}")
         if not isinstance(draft.content, bytes):
             raise ValueError("content must be bytes")
+        if not draft.content:
+            raise ValueError("content must not be empty")
 
     @staticmethod
     def _field_names(value: object) -> list[str]:
@@ -359,6 +448,7 @@ class EvidenceStore:
             actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
             if actual_hash != expected_hash:
                 raise ValueError("existing evidence object hash mismatch")
+            os.chmod(path, 0o600)
             return False
 
         descriptor, temporary_name = tempfile.mkstemp(prefix=".incoming-", dir=path.parent)
@@ -401,6 +491,36 @@ class EvidenceStore:
             raise ValueError(f"metadata must be JSON serializable: {error}") from error
 
     def _from_row(self, row: object) -> EvidenceRecord:
+        try:
+            fields = json.loads(row["fields_json"])
+            inference_from = tuple(json.loads(row["inference_from_json"]))
+            conflict_refs = tuple(json.loads(row["conflict_refs_json"]))
+        except (json.JSONDecodeError, TypeError) as error:
+            raise ValueError("evidence metadata is not valid JSON") from error
+        expected_fingerprint = self._fingerprint(
+            EvidenceDraft(
+                evidence_id=row["evidence_id"],
+                task_id=row["task_id"],
+                requirement_id=row["requirement_id"],
+                evidence_type=row["evidence_type"],
+                subject_ref=row["subject_ref"],
+                exact_scope=row["exact_scope"],
+                result=row["result"],
+                basis=row["basis"],
+                fields=fields,
+                content=b"ignored-for-record-fingerprint",
+                collection_method=row["collection_method"],
+                redaction_status=row["redaction_status"],
+                inference_from=inference_from,
+                conflict_refs=conflict_refs,
+            ),
+            row["content_hash"],
+        )
+        if row["fingerprint"] != expected_fingerprint:
+            raise ValueError("evidence metadata fingerprint mismatch")
+        expected_relpath = f"{row['content_hash'][:2]}/{row['content_hash'][2:]}"
+        if row["object_relpath"] != expected_relpath:
+            raise ValueError("evidence object path does not match content hash")
         return EvidenceRecord(
             evidence_id=row["evidence_id"],
             task_id=row["task_id"],
@@ -410,14 +530,14 @@ class EvidenceStore:
             exact_scope=row["exact_scope"],
             result=row["result"],
             basis=row["basis"],
-            fields=json.loads(row["fields_json"]),
+            fields=fields,
             content_hash=row["content_hash"],
             object_path=self.catalog.paths.objects / row["object_relpath"],
             content_size=row["content_size"],
             collection_method=row["collection_method"],
             redaction_status=row["redaction_status"],
-            inference_from=tuple(json.loads(row["inference_from_json"])),
-            conflict_refs=tuple(json.loads(row["conflict_refs_json"])),
+            inference_from=inference_from,
+            conflict_refs=conflict_refs,
             created_at=row["created_at"],
             purged_at=row["purged_at"],
             purge_reason=row["purge_reason"],

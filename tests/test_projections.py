@@ -132,6 +132,40 @@ class ProjectionEngineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown task"):
             self.engine.project("missing-task")
 
+    def test_corrupt_projection_is_never_reported_fresh(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        self.engine.project(self.task.task_id)
+        self.catalog.connection.execute(
+            "UPDATE task_projections SET projection_json='not-json' WHERE task_id=?",
+            (self.task.task_id,),
+        )
+
+        freshness = self.engine.freshness(self.task.task_id)
+
+        self.assertFalse(freshness.is_fresh)
+        self.assertEqual("failed", freshness.projection_state)
+        status = self.engine.project(self.task.task_id)
+        self.assertEqual("failed", status.state)
+        self.assertFalse(self.engine.freshness(self.task.task_id).is_fresh)
+
+    def test_sequence_tampering_cannot_fake_projection_freshness(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        self.engine.project(self.task.task_id)
+        self.append_event(
+            "evidence.recorded",
+            {"evidence_id": "evidence-1", "evidence_type": "test_execution"},
+        )
+        self.catalog.connection.execute(
+            "UPDATE task_projections SET projected_sequence=2 WHERE task_id=?",
+            (self.task.task_id,),
+        )
+
+        freshness = self.engine.freshness(self.task.task_id)
+
+        self.assertFalse(freshness.is_fresh)
+        self.assertEqual("failed", freshness.projection_state)
+        self.assertIn("hash mismatch", freshness.last_error)
+
 
 if __name__ == "__main__":
     unittest.main()

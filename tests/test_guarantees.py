@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import sqlite3
 import tempfile
 import unittest
 from dataclasses import replace
@@ -64,6 +65,7 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
         result: str = "pass",
         basis: str = "observed",
         fields: dict | None = None,
+        conflict_refs: tuple[str, ...] = (),
     ):
         return self.store.put(
             EvidenceDraft(
@@ -78,7 +80,7 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
                 fields=fields
                 or {
                     "command": "python -m unittest tests.hwpx",
-                    "environment": "synthetic-local",
+                    "environment": "local-test",
                     "target_commit": "abc123",
                     "selection_scope": "HWPX package inspection",
                     "result": result,
@@ -87,6 +89,7 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
                 collection_method="synthetic-fixture",
                 redaction_status="not_needed",
                 inference_from=("evidence-observed-input",) if basis == "inferred" else (),
+                conflict_refs=conflict_refs,
             ),
             identity_bytes,
         )
@@ -280,6 +283,79 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
             ][0]["verdict"],
         )
 
+    def test_catalog_tampering_cannot_turn_fail_into_supported(self) -> None:
+        evidence = self.add_test_evidence(result="fail")
+        self.assertEqual(
+            "contradicted",
+            self.evaluator.evaluate(self.managed.task_id, ["GM-013"])[
+                "claim_results"
+            ][0]["verdict"],
+        )
+        self.catalog.connection.execute(
+            "DROP TRIGGER evidence_canonical_fields_immutable"
+        )
+        self.catalog.connection.execute(
+            "UPDATE evidence SET result='pass' WHERE evidence_id=?",
+            (evidence.evidence_id,),
+        )
+
+        with self.assertRaisesRegex(GuaranteeValidationError, "integrity"):
+            self.evaluator.evaluate(self.managed.task_id, ["GM-013"])
+
+    def test_explicit_evidence_conflict_is_contradicted(self) -> None:
+        self.add_test_evidence(conflict_refs=("declared-conflict",))
+
+        result = self.evaluator.evaluate(self.managed.task_id, ["GM-013"])[
+            "claim_results"
+        ][0]
+
+        self.assertEqual("contradicted", result["verdict"])
+        self.assertIn("declared-conflict", result["conflict_refs"])
+
+    def test_required_evidence_fields_bind_to_task_and_record(self) -> None:
+        mutations = {
+            "target_commit": {
+                "command": "python -m unittest tests.hwpx",
+                "environment": "local-test",
+                "target_commit": "FOREIGN",
+                "selection_scope": "HWPX package inspection",
+                "result": "pass",
+            },
+            "environment": {
+                "command": "python -m unittest tests.hwpx",
+                "environment": "FOREIGN",
+                "target_commit": "abc123",
+                "selection_scope": "HWPX package inspection",
+                "result": "pass",
+            },
+            "result": {
+                "command": "python -m unittest tests.hwpx",
+                "environment": "local-test",
+                "target_commit": "abc123",
+                "selection_scope": "HWPX package inspection",
+                "result": "fail",
+            },
+            "numeric material": {
+                "command": 1,
+                "environment": 2,
+                "target_commit": 3,
+                "selection_scope": 4,
+                "result": 5,
+            },
+        }
+        for index, (name, fields) in enumerate(mutations.items(), start=1):
+            with self.subTest(mutation=name):
+                self.add_test_evidence(
+                    task_id=self.managed.task_id,
+                    evidence_id=f"semantic-{index}",
+                    fields=fields,
+                )
+                result = self.evaluator.evaluate(self.managed.task_id, ["GM-013"])[
+                    "claim_results"
+                ][0]
+                self.assertNotEqual("supported", result["verdict"])
+                self.store.purge(f"semantic-{index}", "test isolation")
+
     def test_control_instance_scope_and_all_records_are_evaluated(self) -> None:
         self.add_profile_evidence()
         self.evaluator.record_control_validation(
@@ -306,6 +382,38 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
             ["control-profile-pass", "control-profile-fail"],
             result["control_validation_refs"],
         )
+
+    def test_unrelated_evidence_cannot_close_an_observed_control_check(self) -> None:
+        self.add_profile_evidence()
+        unrelated = self.add_test_evidence()
+        record = self.control_record()
+        record["checks"]["configured"]["evidence_refs"] = [unrelated.evidence_id]
+        self.evaluator.record_control_validation(self.managed.task_id, record)
+
+        result = self.evaluator.evaluate(self.managed.task_id, ["GM-001"])[
+            "claim_results"
+        ][0]
+
+        self.assertEqual("not_evaluated", result["verdict"])
+
+    def test_control_validation_is_immutable_and_fingerprint_checked(self) -> None:
+        self.add_profile_evidence()
+        record = self.control_record()
+        self.evaluator.record_control_validation(self.managed.task_id, record)
+
+        with self.assertRaisesRegex(sqlite3.DatabaseError, "immutable"):
+            self.catalog.connection.execute(
+                "UPDATE control_validations SET record_json='{}' WHERE record_id=?",
+                (record["record_id"],),
+            )
+
+        self.catalog.connection.execute("DROP TRIGGER control_validations_no_update")
+        self.catalog.connection.execute(
+            "UPDATE control_validations SET record_json='{}' WHERE record_id=?",
+            (record["record_id"],),
+        )
+        with self.assertRaisesRegex(GuaranteeValidationError, "integrity"):
+            self.evaluator.evaluate(self.managed.task_id, ["GM-001"])
 
     def test_different_control_instance_cannot_support(self) -> None:
         self.add_profile_evidence()
@@ -423,11 +531,20 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
         residual = copy.deepcopy(valid)
         residual["claim_results"][0]["residual_risks"] = []
         mutations["required residual risk missing"] = residual
+        report_timestamp = copy.deepcopy(valid)
+        report_timestamp["generated_at"] = "2026-09-04T00:00:00+00:00"
+        mutations["report timestamp detached from claim"] = report_timestamp
+        claim_timestamp = copy.deepcopy(valid)
+        claim_timestamp["claim_results"][0]["evaluated_at"] = (
+            "2026-09-04T00:00:00+00:00"
+        )
+        mutations["claim timestamp detached from report"] = claim_timestamp
 
         expected_rejections = {
             attack["name"]
             for attack in json.loads(ATTACKS_PATH.read_text(encoding="utf-8"))
-            if attack["expected"] == "rejected"
+            if attack["probe"]
+            == "test_mutated_reports_are_rejected_against_recomputed_result"
         }
         self.assertEqual(expected_rejections, set(mutations))
         executed_rejections = []
@@ -465,13 +582,63 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
         with self.assertRaisesRegex(GuaranteeValidationError, "residual risk"):
             GuaranteeEvaluator(self.catalog, self.store, missing_risk_path)
 
+        invalid_required_fields = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
+        invalid_required_fields["claims"][12]["required_evidence"][0][
+            "required_fields"
+        ] = []
+        invalid_required_fields_path = (
+            Path(self.temporary_directory.name) / "invalid-required-fields-matrix.json"
+        )
+        invalid_required_fields_path.write_text(
+            json.dumps(invalid_required_fields), encoding="utf-8"
+        )
+        with self.assertRaisesRegex(GuaranteeValidationError, "required_fields"):
+            GuaranteeEvaluator(
+                self.catalog, self.store, invalid_required_fields_path
+            )
+
+    def test_forbidden_wording_in_evidence_scope_cannot_be_supported(self) -> None:
+        self.store.put(
+            EvidenceDraft(
+                evidence_id="forbidden-scope",
+                task_id=self.managed.task_id,
+                requirement_id="test-run",
+                evidence_type="test_execution",
+                subject_ref="test-selection.synthetic",
+                exact_scope="전체 시스템이 안전하다",
+                result="pass",
+                basis="observed",
+                fields={
+                    "command": "python -m unittest tests.hwpx",
+                    "environment": "local-test",
+                    "target_commit": "abc123",
+                    "selection_scope": "HWPX package inspection",
+                    "result": "pass",
+                },
+                content=b"test result pass",
+                collection_method="synthetic-fixture",
+                redaction_status="not_needed",
+            ),
+            identity_bytes,
+        )
+
+        report = self.evaluator.evaluate(self.managed.task_id, ["GM-013"])
+
+        self.assertEqual("not_evaluated", report["claim_results"][0]["verdict"])
+        self.assertNotIn(
+            "전체 시스템이 안전하다", report["claim_results"][0]["scope"]
+        )
+        self.evaluator.validate_report(report)
+
     def test_attack_fixture_names_are_unique_and_expected(self) -> None:
         attacks = json.loads(ATTACKS_PATH.read_text(encoding="utf-8"))
         names = [attack["name"] for attack in attacks]
+        probes = [attack["probe"] for attack in attacks]
 
         self.assertGreater(len(names), 0)
         self.assertEqual(len(names), len(set(names)))
         self.assertTrue(all(attack["expected"] in {"rejected", "not_evaluated", "contradicted"} for attack in attacks))
+        self.assertTrue(all(probe in dir(self) for probe in probes))
 
 
 if __name__ == "__main__":

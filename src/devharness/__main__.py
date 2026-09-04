@@ -10,7 +10,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog="devharness")
     subparsers = parser.add_subparsers(dest="command", required=True)
     demo = subparsers.add_parser("m1-demo", help="render the M1 evidence vertical slice")
-    demo.add_argument("--data-root", type=Path, required=True)
+    demo.add_argument(
+        "--data-root",
+        type=Path,
+        help="local data root (defaults to the operating-system application data path)",
+    )
     demo.add_argument("--output", type=Path, required=True)
     demo.add_argument(
         "--fixture",

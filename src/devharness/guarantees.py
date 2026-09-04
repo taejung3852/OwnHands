@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
@@ -18,6 +19,34 @@ EXPECTED_MATRIX_VERSION = "1.0"
 CONTROL_RESULTS = {"pass", "fail", "not_run", "not_applicable"}
 CONTROL_BASES = {"observed", "inferred", "unobserved"}
 CHECK_NAMES = {"configured", "loaded", "enforced"}
+TASK_MODES = {"managed", "imported"}
+EVIDENCE_BASES = {"observed", "inferred"}
+CONTROL_TYPES = {
+    "control_profile",
+    "active_config",
+    "agents_instruction",
+    "rule",
+    "sandbox",
+    "approval_policy",
+}
+CATEGORIES = {
+    "control_profile_created",
+    "config_loaded",
+    "agents_instruction_loaded",
+    "rule_blocked_probe",
+    "hook_invoked_event",
+    "sandbox_blocked_boundary",
+    "approval_applied_action",
+    "config_conflict_identified",
+    "mcp_tool_callable",
+    "workspace_restore_point_created",
+    "actual_changes_identified",
+    "related_features_analyzed",
+    "related_tests_executed",
+    "defined_regression_scope_passed",
+    "feature_directly_validated",
+    "dashboard_fresh",
+}
 
 
 class GuaranteeValidationError(ValueError):
@@ -48,11 +77,18 @@ def _required_text(value: object, name: str) -> str:
 
 
 def _material(value: object) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, (str, bytes, list, tuple, dict, set)):
-        return len(value) > 0
-    return True
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, bytes):
+        return bool(value)
+    if isinstance(value, (list, tuple, set)):
+        return bool(value) and all(_material(item) for item in value)
+    if isinstance(value, dict):
+        return bool(value) and all(
+            isinstance(key, str) and key.strip() and _material(item)
+            for key, item in value.items()
+        )
+    return False
 
 
 def _identity_dict(payload: dict) -> dict:
@@ -99,7 +135,12 @@ class GuaranteeEvaluator:
             raise GuaranteeValidationError(f"unknown claim: {unknown[0]}")
 
         evaluated_at = _now()
-        evidence_records = self.evidence.list_for_task(task_id)
+        try:
+            evidence_records = self.evidence.list_for_task(task_id)
+        except (OSError, ValueError) as error:
+            raise GuaranteeValidationError(
+                "authoritative evidence integrity failure"
+            ) from error
         control_records = self._list_control_validations(task_id)
         claim_results = [
             self._evaluate_claim(
@@ -165,12 +206,29 @@ class GuaranteeEvaluator:
 
         for result in results:
             statement = result.get("permitted_statement")
-            if isinstance(statement, str):
-                forbidden = set(self.matrix["global_forbidden_wording"])
-                forbidden.update(self.claims[result["claim_id"]]["forbidden_wording"])
-                if any(phrase in statement for phrase in forbidden):
-                    raise GuaranteeValidationError("global forbidden wording is not permitted")
+            claim = self.claims[result["claim_id"]]
+            if isinstance(statement, str) and self._contains_forbidden(
+                statement, claim
+            ):
+                raise GuaranteeValidationError("global forbidden wording is not permitted")
+            if self._contains_forbidden(result.get("scope"), claim):
+                raise GuaranteeValidationError(
+                    "forbidden wording is not permitted in report scope"
+                )
+            requirement_results = result.get("requirement_results")
+            if isinstance(requirement_results, list) and any(
+                isinstance(requirement, dict)
+                and self._contains_forbidden(requirement.get("exact_scope"), claim)
+                for requirement in requirement_results
+            ):
+                raise GuaranteeValidationError(
+                    "forbidden wording is not permitted in requirement scope"
+                )
             self._validate_timestamp(result.get("evaluated_at"), "evaluated_at")
+            if result.get("evaluated_at") != report["generated_at"]:
+                raise GuaranteeValidationError(
+                    "claim evaluated_at must match report generated_at"
+                )
 
         recomputed = self.evaluate(task_id, claim_ids)
         actual_by_claim = {result["claim_id"]: result for result in results}
@@ -234,53 +292,193 @@ class GuaranteeEvaluator:
     def _validate_matrix(self) -> None:
         if not isinstance(self.matrix, dict):
             raise GuaranteeValidationError("matrix must be an object")
+        if set(self.matrix) != {
+            "matrix_version",
+            "source",
+            "global_forbidden_wording",
+            "claims",
+        }:
+            raise GuaranteeValidationError("matrix fields do not match schema")
         if self.matrix.get("matrix_version") != EXPECTED_MATRIX_VERSION:
             raise GuaranteeValidationError("matrix version mismatch")
+        source = self.matrix.get("source")
+        if not isinstance(source, dict) or set(source) != {
+            "document",
+            "section",
+            "coverage_rule",
+        }:
+            raise GuaranteeValidationError("matrix source does not match schema")
+        _required_text(source["document"], "matrix source document")
+        _required_text(source["section"], "matrix source section")
+        if source["coverage_rule"] != "all_documented_core_claim_categories":
+            raise GuaranteeValidationError("matrix coverage rule mismatch")
         claims = self.matrix.get("claims")
         if not isinstance(claims, list) or not claims:
             raise GuaranteeValidationError("matrix claims must not be empty")
-        if not isinstance(self.matrix.get("global_forbidden_wording"), list):
-            raise GuaranteeValidationError("matrix global forbidden wording is required")
+        self._validate_nonempty_unique_strings(
+            self.matrix.get("global_forbidden_wording"),
+            "matrix global forbidden wording",
+        )
+        if not all(isinstance(claim, dict) for claim in claims):
+            raise GuaranteeValidationError("matrix claim must be an object")
         claim_ids = [claim.get("claim_id") for claim in claims]
+        if any(
+            not isinstance(claim_id, str)
+            or re.fullmatch(r"GM-[0-9]{3}", claim_id) is None
+            for claim_id in claim_ids
+        ):
+            raise GuaranteeValidationError("matrix claim_id does not match schema")
         if len(claim_ids) != len(set(claim_ids)):
             raise GuaranteeValidationError("matrix duplicate claim_id")
         all_requirement_ids: list[str] = []
         for claim in claims:
-            for key in (
+            required_claim_fields = {
                 "claim_id",
+                "category",
                 "claim",
                 "applicable_task_modes",
+                "required_realization_checks",
                 "required_control_selectors",
                 "required_evidence",
                 "allowed_basis",
+                "evaluation_rule",
                 "forbidden_wording",
                 "residual_risks",
+            }
+            if set(claim) != required_claim_fields:
+                raise GuaranteeValidationError("matrix claim fields do not match schema")
+            if (
+                not isinstance(claim["category"], str)
+                or claim["category"] not in CATEGORIES
             ):
-                if key not in claim:
-                    raise GuaranteeValidationError(f"matrix claim missing {key}")
+                raise GuaranteeValidationError("matrix category is invalid")
             _required_text(claim["claim"], "canonical claim")
-            if not claim["residual_risks"]:
-                raise GuaranteeValidationError("matrix required residual risk is missing")
+            self._validate_enum_list(
+                claim["applicable_task_modes"], TASK_MODES, "applicable_task_modes"
+            )
+            self._validate_enum_list(
+                claim["required_realization_checks"],
+                CHECK_NAMES,
+                "required_realization_checks",
+                allow_empty=True,
+            )
+            self._validate_enum_list(
+                claim["allowed_basis"], EVIDENCE_BASES, "allowed_basis"
+            )
+            self._validate_nonempty_unique_strings(
+                claim["forbidden_wording"], "forbidden_wording"
+            )
+            self._validate_nonempty_unique_strings(
+                claim["residual_risks"], "matrix required residual risk"
+            )
+            if claim["evaluation_rule"] != "all_required_pass_without_conflict":
+                raise GuaranteeValidationError("matrix evaluation_rule is invalid")
             forbidden = set(self.matrix["global_forbidden_wording"])
             forbidden.update(claim["forbidden_wording"])
             if any(phrase in claim["claim"] for phrase in forbidden):
                 raise GuaranteeValidationError(
                     "matrix canonical claim contains forbidden wording"
                 )
+            requirements = claim["required_evidence"]
+            if not isinstance(requirements, list) or not requirements:
+                raise GuaranteeValidationError("matrix required_evidence is empty")
+            for requirement in requirements:
+                if not isinstance(requirement, dict) or set(requirement) != {
+                    "requirement_id",
+                    "type",
+                    "required_fields",
+                }:
+                    raise GuaranteeValidationError(
+                        "matrix Evidence requirement does not match schema"
+                    )
+                _required_text(requirement["requirement_id"], "requirement_id")
+                _required_text(requirement["type"], "Evidence type")
+                self._validate_nonempty_unique_strings(
+                    requirement["required_fields"], "required_fields"
+                )
             requirement_ids = [
-                requirement.get("requirement_id")
-                for requirement in claim["required_evidence"]
+                requirement["requirement_id"] for requirement in requirements
             ]
             if not requirement_ids or len(requirement_ids) != len(set(requirement_ids)):
                 raise GuaranteeValidationError("matrix requirement IDs are missing or duplicate")
             all_requirement_ids.extend(requirement_ids)
-            for selector in claim["required_control_selectors"]:
+            selectors = claim["required_control_selectors"]
+            if not isinstance(selectors, list):
+                raise GuaranteeValidationError("required_control_selectors must be a list")
+            selector_documents: list[str] = []
+            for selector in selectors:
+                if not isinstance(selector, dict) or set(selector) != {
+                    "control_type",
+                    "check",
+                    "subject_requirement_id",
+                }:
+                    raise GuaranteeValidationError(
+                        "control selector does not match schema"
+                    )
+                if (
+                    not isinstance(selector["control_type"], str)
+                    or selector["control_type"] not in CONTROL_TYPES
+                ):
+                    raise GuaranteeValidationError("selector control_type is invalid")
+                if (
+                    not isinstance(selector["check"], str)
+                    or selector["check"] not in CHECK_NAMES
+                ):
+                    raise GuaranteeValidationError("selector check is invalid")
+                _required_text(
+                    selector["subject_requirement_id"],
+                    "selector subject_requirement_id",
+                )
                 if selector.get("subject_requirement_id") not in requirement_ids:
                     raise GuaranteeValidationError(
                         "selector subject requirement does not exist"
                     )
+                selector_documents.append(_canonical_json(selector))
+            if len(selector_documents) != len(set(selector_documents)):
+                raise GuaranteeValidationError("control selectors must be unique")
+            if set(claim["required_realization_checks"]) != {
+                selector["check"] for selector in selectors
+            }:
+                raise GuaranteeValidationError(
+                    "realization checks do not match control selectors"
+                )
         if len(all_requirement_ids) != len(set(all_requirement_ids)):
             raise GuaranteeValidationError("matrix requirement IDs must be globally unique")
+
+    @staticmethod
+    def _validate_nonempty_unique_strings(value: object, name: str) -> None:
+        if (
+            not isinstance(value, list)
+            or not value
+            or any(not isinstance(item, str) or not item.strip() for item in value)
+            or len(value) != len(set(value))
+        ):
+            raise GuaranteeValidationError(
+                f"{name} must be a non-empty unique string list"
+            )
+
+    @staticmethod
+    def _validate_enum_list(
+        value: object,
+        allowed: set[str],
+        name: str,
+        *,
+        allow_empty: bool = False,
+    ) -> None:
+        if (
+            not isinstance(value, list)
+            or (not allow_empty and not value)
+            or any(not isinstance(item, str) or item not in allowed for item in value)
+            or len(value) != len(set(value))
+        ):
+            raise GuaranteeValidationError(f"{name} does not match schema")
+
+    def _contains_forbidden(self, value: object, claim: dict) -> bool:
+        if not isinstance(value, str):
+            return False
+        forbidden = set(self.matrix["global_forbidden_wording"])
+        forbidden.update(claim["forbidden_wording"])
+        return any(phrase in value for phrase in forbidden)
 
     def _evaluate_claim(
         self,
@@ -360,7 +558,13 @@ class GuaranteeEvaluator:
             elif not all(
                 check["result"] == "pass"
                 and check["basis"] in claim["allowed_basis"]
-                and self._control_check_material_valid(check, task.task_id)
+                and self._control_check_material_valid(
+                    check,
+                    task.task_id,
+                    selector["subject_requirement_id"],
+                    requirement_result["subject_ref"],
+                    requirement_result["exact_scope"],
+                )
                 for check in checks
             ):
                 if control_state != "contradicted":
@@ -437,6 +641,12 @@ class GuaranteeEvaluator:
         scopes = sorted({record.exact_scope for record in candidates})
         subject_ref = subjects[0] if len(subjects) == 1 else "multiple-subjects"
         exact_scope = scopes[0] if len(scopes) == 1 else "multiple-scopes"
+        forbidden_scope = any(
+            self._contains_forbidden(record.exact_scope, claim)
+            for record in candidates
+        )
+        if forbidden_scope:
+            exact_scope = ""
         record_results = {record.result for record in candidates}
         observed_fail = any(
             record.result == "fail" and record.basis == "observed"
@@ -446,7 +656,7 @@ class GuaranteeEvaluator:
         explicit_conflicts = {
             ref for record in candidates for ref in record.conflict_refs
         }
-        if observed_fail or conflict:
+        if observed_fail or conflict or explicit_conflicts:
             conflict_refs = sorted(
                 explicit_conflicts
                 | {
@@ -472,10 +682,13 @@ class GuaranteeEvaluator:
             and len(scopes) == 1
             and all(record.result == "pass" for record in candidates)
             and all(record.basis in claim["allowed_basis"] for record in candidates)
+            and not explicit_conflicts
+            and not forbidden_scope
             and all(
                 all(_material(record.fields.get(field)) for field in requirement["required_fields"])
                 for record in candidates
             )
+            and all(self._evidence_matches_task(record, task) for record in candidates)
             and all(self._evidence_object_valid(record) for record in candidates)
         )
         if complete:
@@ -508,16 +721,49 @@ class GuaranteeEvaluator:
             return False
         return True
 
-    def _control_check_material_valid(self, check: dict, task_id: str) -> bool:
+    @staticmethod
+    def _evidence_matches_task(record: EvidenceRecord, task: TaskIdentity) -> bool:
+        bindings = {
+            "target_commit": task.commit,
+            "environment": task.environment_ref,
+            "environment_ref": task.environment_ref,
+            "task_ref": task.task_id,
+            "result": record.result,
+            "basis": record.basis,
+        }
+        return all(
+            key not in record.fields or record.fields[key] == expected
+            for key, expected in bindings.items()
+        )
+
+    def _control_check_material_valid(
+        self,
+        check: dict,
+        task_id: str,
+        requirement_id: str,
+        subject_ref: str,
+        exact_scope: str,
+    ) -> bool:
         if check["basis"] == "observed":
             if not check["evidence_refs"] or not check["checked_at"]:
                 return False
             try:
-                return all(
-                    self.evidence.resolve(evidence_id).task_id == task_id
+                records = [
+                    self.evidence.resolve(evidence_id)
                     for evidence_id in check["evidence_refs"]
+                ]
+                return all(
+                    record.task_id == task_id
+                    and record.requirement_id == requirement_id
+                    and record.subject_ref == subject_ref
+                    and record.exact_scope == exact_scope
+                    and record.result == check["result"]
+                    and record.basis == "observed"
+                    and not record.conflict_refs
+                    and bool(self.evidence.read_content(record.evidence_id))
+                    for record in records
                 )
-            except ValueError:
+            except (OSError, ValueError):
                 return False
         if check["basis"] == "inferred":
             return bool(check["inference_from"] and check["checked_at"])
@@ -533,6 +779,8 @@ class GuaranteeEvaluator:
         conflict_refs: list[str],
         evaluated_at: str,
     ) -> dict:
+        if self._contains_forbidden(scope, claim):
+            scope = "scope withheld by wording policy"
         return {
             "claim_id": claim["claim_id"],
             "verdict": verdict,
@@ -561,7 +809,10 @@ class GuaranteeEvaluator:
             raise GuaranteeValidationError("control schema version mismatch")
         _required_text(record["record_id"], "record_id")
         _required_text(record["control_id"], "control_id")
-        if record["control_type"] not in self.allowed_control_types:
+        if (
+            not isinstance(record["control_type"], str)
+            or record["control_type"] not in self.allowed_control_types
+        ):
             raise GuaranteeValidationError(
                 "control_type is not part of the M0 execution-control schema"
             )
@@ -597,11 +848,20 @@ class GuaranteeEvaluator:
         }
         if not isinstance(check, dict) or set(check) != required_keys:
             raise GuaranteeValidationError(f"{check_name} check fields do not match schema")
-        if check["result"] not in CONTROL_RESULTS or check["basis"] not in CONTROL_BASES:
+        if (
+            not isinstance(check["result"], str)
+            or check["result"] not in CONTROL_RESULTS
+            or not isinstance(check["basis"], str)
+            or check["basis"] not in CONTROL_BASES
+        ):
             raise GuaranteeValidationError(f"{check_name} result or basis is invalid")
         for field in ("evidence_refs", "inference_from", "residual_risks"):
             values = check[field]
-            if not isinstance(values, list) or len(values) != len(set(values)):
+            if (
+                not isinstance(values, list)
+                or any(not isinstance(value, str) or not value.strip() for value in values)
+                or len(values) != len(set(values))
+            ):
                 raise GuaranteeValidationError(f"{check_name} {field} must be a unique list")
         if check["result"] == "not_run":
             if (
@@ -627,6 +887,12 @@ class GuaranteeEvaluator:
                     raise GuaranteeValidationError(
                         f"{check_name} evidence ref belongs to another task"
                     )
+                try:
+                    self.evidence.read_content(evidence_id)
+                except (OSError, ValueError) as error:
+                    raise GuaranteeValidationError(
+                        f"{check_name} evidence ref failed integrity validation"
+                    ) from error
         elif check["basis"] == "inferred":
             if not check["inference_from"] or check["checked_at"] is None:
                 raise GuaranteeValidationError(f"{check_name} inference material is missing")
@@ -639,14 +905,38 @@ class GuaranteeEvaluator:
             _required_text(check["exact_scope"], f"{check_name}.exact_scope")
 
     def _list_control_validations(self, task_id: str) -> list[dict]:
+        task = self.identities.get_task(task_id)
         rows = self.catalog.connection.execute(
             """
-            SELECT record_json FROM control_validations
+            SELECT record_id, task_id, record_json, fingerprint
+            FROM control_validations
             WHERE task_id=? ORDER BY record_id
             """,
             (task_id,),
         ).fetchall()
-        return [json.loads(row["record_json"]) for row in rows]
+        records: list[dict] = []
+        for row in rows:
+            document = row["record_json"]
+            expected_fingerprint = hashlib.sha256(
+                document.encode("utf-8")
+            ).hexdigest()
+            if row["fingerprint"] != expected_fingerprint:
+                raise GuaranteeValidationError(
+                    "authoritative control validation integrity failure"
+                )
+            try:
+                record = json.loads(document)
+            except json.JSONDecodeError as error:
+                raise GuaranteeValidationError(
+                    "authoritative control validation is not valid JSON"
+                ) from error
+            if row["task_id"] != task_id or record.get("record_id") != row["record_id"]:
+                raise GuaranteeValidationError(
+                    "authoritative control validation scope mismatch"
+                )
+            self._validate_control_record(task, record)
+            records.append(record)
+        return records
 
     @staticmethod
     def _task_document(task: TaskIdentity) -> dict:

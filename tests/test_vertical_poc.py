@@ -28,6 +28,8 @@ class M1VerticalPocTests(unittest.TestCase):
             self.assertIn("관련 테스트를 실행했다", html)
             self.assertIn(result.evidence_id, html)
             self.assertIn("수집 완전성: Unobserved", html)
+            self.assertIn("Task mode: imported", html)
+            self.assertIn("Imported Task", html)
             self.assertIn("Event head 3 / Projection 3", html)
             self.assertNotIn("raw package bytes", html)
             self.assertNotIn("m1-demo-secret", html)

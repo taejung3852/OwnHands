@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable
 
-from .catalog import Catalog
+from .catalog import Catalog, projection_fingerprint
 from .events import EventLog, EventRecord
 
 
@@ -71,7 +71,27 @@ class ProjectionEngine:
                 projection = _initial_projection()
             else:
                 projected_sequence = stored["projected_sequence"]
-                projection = json.loads(stored["projection_json"])
+                try:
+                    projection = self._validated_stored_projection(stored)
+                except ValueError as error:
+                    updated_at = _now()
+                    last_error = f"stored projection integrity failure: {error}"
+                    connection.execute(
+                        """
+                        UPDATE task_projections
+                        SET state='failed', last_error=?, updated_at=?
+                        WHERE task_id=?
+                        """,
+                        (last_error, updated_at, task_id),
+                    )
+                    return ProjectionStatus(
+                        task_id=task_id,
+                        state="failed",
+                        projected_sequence=projected_sequence,
+                        projection=_initial_projection(),
+                        last_error=last_error,
+                        updated_at=updated_at,
+                    )
 
             rows = connection.execute(
                 """
@@ -96,16 +116,22 @@ class ProjectionEngine:
                 projected_sequence = event.sequence
 
             updated_at = _now()
+            self._validate_projection(projection)
+            projection_json = self._canonical_json(projection)
+            projection_hash = projection_fingerprint(
+                task_id, projected_sequence, state, projection_json
+            )
             connection.execute(
                 """
                 INSERT INTO task_projections(
                     task_id, projected_sequence, state, projection_json,
-                    last_error, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    projection_hash, last_error, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(task_id) DO UPDATE SET
                     projected_sequence=excluded.projected_sequence,
                     state=excluded.state,
                     projection_json=excluded.projection_json,
+                    projection_hash=excluded.projection_hash,
                     last_error=excluded.last_error,
                     updated_at=excluded.updated_at
                 """,
@@ -113,7 +139,8 @@ class ProjectionEngine:
                     task_id,
                     projected_sequence,
                     state,
-                    self._canonical_json(projection),
+                    projection_json,
+                    projection_hash,
                     last_error,
                     updated_at,
                 ),
@@ -152,6 +179,18 @@ class ProjectionEngine:
                 is_fresh=False,
                 collection_completeness="unobserved",
                 last_error=None,
+            )
+        try:
+            self._validated_stored_projection(row)
+        except ValueError as error:
+            return Freshness(
+                task_id=task_id,
+                event_head=event_head,
+                projected_sequence=row["projected_sequence"],
+                projection_state="failed",
+                is_fresh=False,
+                collection_completeness="unobserved",
+                last_error=f"stored projection integrity failure: {error}",
             )
         return Freshness(
             task_id=task_id,
@@ -222,3 +261,66 @@ class ProjectionEngine:
             separators=(",", ":"),
             allow_nan=False,
         )
+
+    def _validated_stored_projection(self, row: object) -> dict:
+        document = row["projection_json"]
+        actual_hash = projection_fingerprint(
+            row["task_id"], row["projected_sequence"], row["state"], document
+        )
+        if actual_hash != row["projection_hash"]:
+            raise ValueError("projection hash mismatch")
+        try:
+            projection = json.loads(document)
+        except json.JSONDecodeError as error:
+            raise ValueError("projection JSON is invalid") from error
+        self._validate_projection(projection)
+        return projection
+
+    @staticmethod
+    def _validate_projection(projection: object) -> None:
+        if not isinstance(projection, dict) or set(projection) != {
+            "task",
+            "evidence",
+            "guarantee",
+            "event_counts",
+        }:
+            raise ValueError("projection fields are invalid")
+        task = projection["task"]
+        if not isinstance(task, dict) or (
+            task and (set(task) != {"mode"} or task["mode"] not in {"managed", "imported"})
+        ):
+            raise ValueError("projection task state is invalid")
+        evidence = projection["evidence"]
+        if not isinstance(evidence, dict) or set(evidence) != {
+            "active_ids",
+            "purged_ids",
+        }:
+            raise ValueError("projection Evidence state is invalid")
+        for name in ("active_ids", "purged_ids"):
+            values = evidence[name]
+            if (
+                not isinstance(values, list)
+                or any(not isinstance(value, str) or not value for value in values)
+                or len(values) != len(set(values))
+            ):
+                raise ValueError("projection Evidence IDs are invalid")
+        guarantee = projection["guarantee"]
+        if not isinstance(guarantee, dict) or set(guarantee) != {"report_ids"}:
+            raise ValueError("projection Guarantee state is invalid")
+        report_ids = guarantee["report_ids"]
+        if (
+            not isinstance(report_ids, list)
+            or any(not isinstance(value, str) or not value for value in report_ids)
+            or len(report_ids) != len(set(report_ids))
+        ):
+            raise ValueError("projection report IDs are invalid")
+        counts = projection["event_counts"]
+        if not isinstance(counts, dict) or any(
+            not isinstance(name, str)
+            or not name
+            or not isinstance(count, int)
+            or isinstance(count, bool)
+            or count < 1
+            for name, count in counts.items()
+        ):
+            raise ValueError("projection event counts are invalid")

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -9,7 +11,21 @@ from typing import Any, Iterator, Sequence
 from .paths import DataPaths
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+
+def projection_fingerprint(
+    task_id: str,
+    projected_sequence: int,
+    state: str,
+    projection_json: str,
+) -> str:
+    envelope = json.dumps(
+        [task_id, projected_sequence, state, projection_json],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(envelope.encode("utf-8")).hexdigest()
 
 
 class Catalog:
@@ -37,6 +53,9 @@ class Catalog:
 
         catalog = cls(paths, connection)
         catalog._initialize()
+        if catalog.query_value("PRAGMA integrity_check") != "ok":
+            connection.close()
+            raise RuntimeError("SQLite catalog integrity check failed")
         os.chmod(paths.catalog, 0o600)
         return catalog
 
@@ -66,6 +85,18 @@ class Catalog:
                 UNIQUE(project_id, locator)
             ) STRICT;
 
+            CREATE TRIGGER IF NOT EXISTS projects_no_update
+            BEFORE UPDATE ON projects
+            BEGIN
+                SELECT RAISE(ABORT, 'project identities are immutable');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS worktrees_no_update
+            BEFORE UPDATE ON worktrees
+            BEGIN
+                SELECT RAISE(ABORT, 'worktree identities are immutable');
+            END;
+
             CREATE TABLE IF NOT EXISTS tasks (
                 task_id TEXT PRIMARY KEY,
                 project_id TEXT NOT NULL REFERENCES projects(project_id),
@@ -77,6 +108,18 @@ class Catalog:
                 environment_ref TEXT NOT NULL,
                 created_at TEXT NOT NULL
             ) STRICT;
+
+            CREATE TRIGGER IF NOT EXISTS tasks_no_update
+            BEFORE UPDATE ON tasks
+            BEGIN
+                SELECT RAISE(ABORT, 'task snapshots are immutable');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS tasks_no_delete
+            BEFORE DELETE ON tasks
+            BEGIN
+                SELECT RAISE(ABORT, 'task snapshots are immutable');
+            END;
 
             CREATE TABLE IF NOT EXISTS events (
                 event_id TEXT PRIMARY KEY,
@@ -138,6 +181,47 @@ class Catalog:
             CREATE INDEX IF NOT EXISTS evidence_task_requirement
             ON evidence(task_id, requirement_id, evidence_type);
 
+            CREATE TRIGGER IF NOT EXISTS evidence_canonical_fields_immutable
+            BEFORE UPDATE ON evidence
+            WHEN
+                NEW.evidence_id != OLD.evidence_id OR
+                NEW.task_id != OLD.task_id OR
+                NEW.requirement_id != OLD.requirement_id OR
+                NEW.evidence_type != OLD.evidence_type OR
+                NEW.subject_ref != OLD.subject_ref OR
+                NEW.exact_scope != OLD.exact_scope OR
+                NEW.result != OLD.result OR
+                NEW.basis != OLD.basis OR
+                NEW.fields_json != OLD.fields_json OR
+                NEW.content_hash != OLD.content_hash OR
+                NEW.object_relpath != OLD.object_relpath OR
+                NEW.content_size != OLD.content_size OR
+                NEW.collection_method != OLD.collection_method OR
+                NEW.redaction_status != OLD.redaction_status OR
+                NEW.inference_from_json != OLD.inference_from_json OR
+                NEW.conflict_refs_json != OLD.conflict_refs_json OR
+                NEW.fingerprint != OLD.fingerprint OR
+                NEW.created_at != OLD.created_at
+            BEGIN
+                SELECT RAISE(ABORT, 'canonical evidence fields are immutable');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS evidence_purge_is_monotonic
+            BEFORE UPDATE ON evidence
+            WHEN
+                NOT (
+                    NEW.purged_at IS OLD.purged_at AND
+                    NEW.purge_reason IS OLD.purge_reason
+                ) AND (
+                    OLD.purged_at IS NOT NULL OR
+                    NEW.purged_at IS NULL OR
+                    NEW.purge_reason IS NULL OR
+                    trim(NEW.purge_reason) = ''
+                )
+            BEGIN
+                SELECT RAISE(ABORT, 'evidence purge transition is immutable');
+            END;
+
             CREATE TABLE IF NOT EXISTS retention_policy (
                 singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
                 mode TEXT NOT NULL CHECK(mode IN ('keep_until_user_deletes', 'days')),
@@ -152,6 +236,7 @@ class Catalog:
                 projected_sequence INTEGER NOT NULL CHECK(projected_sequence >= 0),
                 state TEXT NOT NULL CHECK(state IN ('ready', 'failed')),
                 projection_json TEXT NOT NULL,
+                projection_hash TEXT NOT NULL DEFAULT '',
                 last_error TEXT,
                 updated_at TEXT NOT NULL
             ) STRICT;
@@ -164,6 +249,18 @@ class Catalog:
                 created_at TEXT NOT NULL
             ) STRICT;
 
+            CREATE TRIGGER IF NOT EXISTS control_validations_no_update
+            BEFORE UPDATE ON control_validations
+            BEGIN
+                SELECT RAISE(ABORT, 'control validations are immutable');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS control_validations_no_delete
+            BEFORE DELETE ON control_validations
+            BEGIN
+                SELECT RAISE(ABORT, 'control validations are immutable');
+            END;
+
             CREATE INDEX IF NOT EXISTS control_validations_task
             ON control_validations(task_id);
             COMMIT;
@@ -172,9 +269,53 @@ class Catalog:
         version = self.query_value(
             "SELECT value FROM schema_metadata WHERE key='schema_version'"
         )
+        if version == "1":
+            self._migrate_v1_to_v2()
+            version = self.query_value(
+                "SELECT value FROM schema_metadata WHERE key='schema_version'"
+            )
         if version != str(SCHEMA_VERSION):
             raise RuntimeError(
                 f"unsupported catalog schema version: {version!r}; expected {SCHEMA_VERSION}"
+            )
+
+    def _migrate_v1_to_v2(self) -> None:
+        columns = {
+            row["name"]
+            for row in self.connection.execute(
+                "PRAGMA table_info(task_projections)"
+            ).fetchall()
+        }
+        with self.transaction() as connection:
+            if "projection_hash" not in columns:
+                connection.execute(
+                    """
+                    ALTER TABLE task_projections
+                    ADD COLUMN projection_hash TEXT NOT NULL DEFAULT ''
+                    """
+                )
+            rows = connection.execute(
+                """
+                SELECT task_id, projected_sequence, state, projection_json
+                FROM task_projections
+                """
+            ).fetchall()
+            for row in rows:
+                projection_hash = projection_fingerprint(
+                    row["task_id"],
+                    row["projected_sequence"],
+                    row["state"],
+                    row["projection_json"],
+                )
+                connection.execute(
+                    """
+                    UPDATE task_projections SET projection_hash=?
+                    WHERE task_id=?
+                    """,
+                    (projection_hash, row["task_id"]),
+                )
+            connection.execute(
+                "UPDATE schema_metadata SET value='2' WHERE key='schema_version'"
             )
 
     @contextmanager

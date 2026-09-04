@@ -27,7 +27,7 @@ class DemoResult:
 
 
 def run_m1_demo(
-    data_root: Path | str,
+    data_root: Path | str | None,
     output_path: Path | str,
     fixture_path: Path | str,
     matrix_path: Path | str,
@@ -163,6 +163,13 @@ def render_task_review(
         for risk in result["residual_risks"]
     )
     freshness_label = "Fresh" if freshness.is_fresh else "Stale"
+    task_mode = report["task"]["mode"]
+    imported_notice = (
+        "<p class=\"boundary\"><strong>Imported Task:</strong> "
+        "DevHarness 관리 시작 전의 Control 상태와 집행 여부는 Unobserved입니다.</p>"
+        if task_mode == "imported"
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="ko">
 <head>
@@ -181,6 +188,8 @@ def render_task_review(
   <main>
     <h1>DevHarness M1 최소 검토 화면</h1>
     <p class="boundary">이 파일은 M1 데이터 흐름 확인용 산출물이며 M5 Production UI가 아닙니다.</p>
+    <p>Task mode: {html.escape(task_mode)}</p>
+    {imported_notice}
     <h2>판정 요약</h2>
     <table>
       <thead><tr><th>Claim</th><th>허용 문장</th><th>판정</th><th>범위</th></tr></thead>

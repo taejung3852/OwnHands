@@ -12,6 +12,8 @@ M1은 SQLite transaction, SHA-256 object, 운영체제 data path, 파일 권한�
 
 M1–M4 Local Core는 Python 3.12 이상과 표준 라이브러리만 사용한다.
 
+SQLite catalog schema는 명시적으로 versioning한다. M1 독립 리뷰에서 Projection integrity hash가 추가되어 schema v2가 되었으며, v1 catalog는 저장된 Projection JSON의 SHA-256을 계산하는 rollback-journal transaction으로 v2에 migration한다. 알 수 없는 schema version은 열지 않는다.
+
 - `sqlite3`: catalog와 명시적 transaction
 - `pathlib`, `os`: 운영체제 data path와 파일 권한
 - `hashlib`: SHA-256 content address

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import stat
+import sqlite3
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from devharness.catalog import Catalog
+from devharness.catalog import Catalog, projection_fingerprint
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
 
@@ -103,6 +105,115 @@ class IdentityRegistryTests(unittest.TestCase):
         self.assertEqual("delete", self.catalog.query_value("PRAGMA journal_mode"))
         self.assertEqual(2, self.catalog.query_value("PRAGMA synchronous"))
         self.assertEqual(1, self.catalog.query_value("PRAGMA foreign_keys"))
+
+    def test_explicit_data_root_inside_git_worktree_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repository = Path(temporary_directory) / "repo"
+            repository.mkdir()
+            (repository / ".git").mkdir()
+
+            with self.assertRaisesRegex(ValueError, "Git worktree"):
+                DataPaths.resolve(repository / "raw-evidence")
+
+    def test_concurrent_same_locator_registration_is_idempotent(self) -> None:
+        root = Path(self.temporary_directory.name) / "concurrent-data"
+
+        def register() -> str:
+            with Catalog.open(DataPaths.resolve(root)) as catalog:
+                return IdentityRegistry(catalog).register_project(
+                    "file:///same-repository"
+                ).project_id
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            project_ids = list(executor.map(lambda _index: register(), range(2)))
+
+        self.assertEqual(1, len(set(project_ids)))
+
+    def test_concurrent_same_worktree_registration_is_idempotent(self) -> None:
+        root = Path(self.temporary_directory.name) / "concurrent-worktree-data"
+        with Catalog.open(DataPaths.resolve(root)) as catalog:
+            project_id = IdentityRegistry(catalog).register_project(
+                "file:///same-repository"
+            ).project_id
+
+        def register() -> str:
+            with Catalog.open(DataPaths.resolve(root)) as catalog:
+                return IdentityRegistry(catalog).register_worktree(
+                    project_id, "file:///same-repository/main"
+                ).worktree_id
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            worktree_ids = list(executor.map(lambda _index: register(), range(2)))
+
+        self.assertEqual(1, len(set(worktree_ids)))
+
+    def test_task_snapshot_is_immutable(self) -> None:
+        project = self.registry.register_project("file:///immutable")
+        worktree = self.registry.register_worktree(
+            project.project_id, "file:///immutable/main"
+        )
+        task = self.registry.create_task(
+            worktree.worktree_id,
+            mode="managed",
+            commit="abc123",
+            branch="main",
+            cwd="/repo/main",
+            environment_ref="local",
+        )
+
+        with self.assertRaisesRegex(sqlite3.DatabaseError, "immutable"):
+            self.catalog.connection.execute(
+                "UPDATE tasks SET commit_hash='tampered' WHERE task_id=?",
+                (task.task_id,),
+            )
+
+    def test_v1_projection_catalog_migrates_with_integrity_hash(self) -> None:
+        root = Path(self.temporary_directory.name) / "legacy-v1"
+        root.mkdir()
+        database = root / "catalog.sqlite3"
+        projection_json = (
+            '{"event_counts":{},"evidence":{"active_ids":[],"purged_ids":[]},'
+            '"guarantee":{"report_ids":[]},"task":{}}'
+        )
+        connection = sqlite3.connect(database)
+        connection.executescript(
+            """
+            CREATE TABLE schema_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
+            INSERT INTO schema_metadata(key, value) VALUES ('schema_version', '1');
+            CREATE TABLE task_projections (
+                task_id TEXT PRIMARY KEY,
+                projected_sequence INTEGER NOT NULL,
+                state TEXT NOT NULL,
+                projection_json TEXT NOT NULL,
+                last_error TEXT,
+                updated_at TEXT NOT NULL
+            ) STRICT;
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO task_projections(
+                task_id, projected_sequence, state, projection_json, last_error, updated_at
+            ) VALUES (?, 0, 'ready', ?, NULL, '2026-09-04T00:00:00+00:00')
+            """,
+            ("legacy-task", projection_json),
+        )
+        connection.commit()
+        connection.close()
+
+        with Catalog.open(DataPaths.resolve(root)) as catalog:
+            row = catalog.connection.execute(
+                "SELECT projection_hash FROM task_projections WHERE task_id='legacy-task'"
+            ).fetchone()
+            self.assertEqual("2", catalog.query_value(
+                "SELECT value FROM schema_metadata WHERE key='schema_version'"
+            ))
+            self.assertEqual(
+                projection_fingerprint(
+                    "legacy-task", 0, "ready", projection_json
+                ),
+                row["projection_hash"],
+            )
 
 
 if __name__ == "__main__":

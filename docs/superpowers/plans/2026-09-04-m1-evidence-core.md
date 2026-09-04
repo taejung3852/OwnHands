@@ -156,6 +156,7 @@ Commit message: `feat: add canonical event log`.
 - Produces: `EvidenceStore.list_for_task(task_id: str) -> list[EvidenceRecord]`
 - Produces: `EvidenceStore.set_retention(policy: RetentionPolicy) -> None`
 - Produces: `EvidenceStore.purge(evidence_id: str, reason: str) -> None`
+- Produces: `EvidenceStore.reconcile_objects(grace_period_seconds: int = 300) -> list[Path]`
 
 - [ ] **Step 1: Write failing permission, hash, dedupe, metadata, retention, and purge tests**
 
@@ -179,7 +180,7 @@ Expected: import failure because `devharness.evidence` does not exist.
 
 - [ ] **Step 3: Implement file-first content-addressed storage**
 
-Redact bytes first, hash the redacted content, write a same-directory temporary file with 0600, flush and fsync, then atomically replace the final object. Store metadata only after the final object exists. Use `<root>/objects/<first-two-hash-chars>/<remaining-hash>` and verify the hash on read. Default retention is `keep_until_user_deletes`; no timer or startup cleanup exists. Purge requires a non-empty reason, deletes only the resolved object, marks metadata purged, and appends an `evidence.purged` Event.
+Redact bytes first, hash the redacted content, write a same-directory temporary file with 0600, flush and fsync, then atomically replace the final object inside the single-writer transaction. Store metadata only after the final object exists. Use `<root>/objects/<first-two-hash-chars>/<remaining-hash>` and verify the hash on read. Default retention is `keep_until_user_deletes`; no retention timer or automatic user-Evidence expiry exists. Startup reconciliation removes only unreferenced objects after a grace period and restores an interrupted purge staging file when canonical metadata still references it. Purge requires a non-empty reason, stages the last object reference, marks metadata purged, and appends one `evidence.purged` Event; failed deletion remains explicitly retryable.
 
 - [ ] **Step 4: Run Evidence and Git-leak checks**
 
@@ -234,7 +235,7 @@ Expected: import failure because `devharness.projections` does not exist.
 
 - [ ] **Step 3: Implement deterministic replay**
 
-Support version 1 handlers for `task.created`, `evidence.recorded`, `evidence.purged`, and `guarantee.evaluated`. Store projection JSON, projected sequence, state, and last error. Process Events in sequence order within one transaction. Unknown type/version or handler exception records failure without advancing past the failing Event. `freshness()` returns Event head, projected sequence, projection state, `is_fresh`, and separately keeps `collection_completeness="unobserved"`.
+Support version 1 handlers for `task.created`, `evidence.recorded`, `evidence.purged`, and `guarantee.evaluated`. Store projection JSON, its integrity hash, projected sequence, state, and last error. Process Events in sequence order within one transaction. Unknown type/version, handler exception, malformed stored JSON, or hash mismatch records/returns failure without presenting the Projection as fresh. `freshness()` returns Event head, projected sequence, projection state, `is_fresh`, and separately keeps `collection_completeness="unobserved"`.
 
 - [ ] **Step 4: Run Projection and full tests**
 
@@ -288,7 +289,7 @@ Expected: import failure because `devharness.guarantees` does not exist.
 
 - [ ] **Step 3: Implement evaluator from authoritative Store queries**
 
-Load exactly one Matrix version and reject duplicate Claim or requirement IDs. Query all non-purged Evidence for the Task; do not accept caller-supplied verdicts or Evidence objects. Resolve every required type and field, preserve exact subject/scope, and query every matching canonical Control record. Apply precedence: observed fail or pass/fail conflict → `contradicted`; inapplicable mode, missing material, not_run, unobserved, disallowed basis, mismatched selector, or unresolved reference → `not_evaluated`; only complete observed pass Evidence and complete Control closure → `supported`. Emit Matrix claim wording and residual risks only.
+Load exactly one Matrix version and enforce the complete Matrix schema contract before evaluation. Query all non-purged Evidence for the Task; do not accept caller-supplied verdicts or Evidence objects. Resolve every required type and non-empty typed field, bind commit/environment/result fields to the immutable Task and Evidence record, preserve safe exact subject/scope, and query every matching canonical Control record. Apply precedence: observed fail, an explicit conflict, or pass/fail conflict → `contradicted`; inapplicable mode, missing material, not_run, unobserved, disallowed basis, mismatched selector, unrelated/unresolved Control Evidence, forbidden scope wording, or failed Store integrity → never `supported`; only complete observed pass Evidence and complete Control closure → `supported`. Emit Matrix claim wording and residual risks only.
 
 - [ ] **Step 4: Run Guarantee attacks and all tests**
 
@@ -341,7 +342,7 @@ Expected: import failure because `devharness.review` and the CLI do not exist.
 
 - [ ] **Step 3: Implement the fixture pipeline and escaped HTML**
 
-The fixture describes a synthetic HWPX ZIP-part inspection command, environment, target commit, selection scope, and observed result. The demo registers identities, appends Task/Event records, stores redacted Evidence, projects Events, evaluates GM-013, appends `guarantee.evaluated`, refreshes the Projection, and renders escaped summary HTML. The HTML includes verdict, Evidence ID, hash, scope, freshness, residual risk, and Unobserved collection completeness, but not Raw Evidence bytes or a Production UI layout.
+The fixture describes a synthetic HWPX ZIP-part inspection command, environment, target commit, selection scope, and observed result. The demo registers identities, appends Task/Event records, stores redacted Evidence, projects Events, evaluates GM-013, appends `guarantee.evaluated`, refreshes the Projection, and renders escaped summary HTML. The HTML includes Task mode, the Imported Task historical-Control limitation, verdict, Evidence ID, hash, scope, freshness, residual risk, and Unobserved collection completeness, but not Raw Evidence bytes or a Production UI layout.
 
 - [ ] **Step 4: Run the exact M1 Gate**
 

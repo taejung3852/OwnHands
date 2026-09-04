@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import sqlite3
 import stat
 import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 from devharness.catalog import Catalog
 from devharness.evidence import (
@@ -82,12 +85,14 @@ class EvidenceStoreTests(unittest.TestCase):
 
     def test_content_hash_deduplicates_objects_but_keeps_distinct_metadata(self) -> None:
         first = self.store.put(self.draft, redact_bytes)
+        first.object_path.chmod(0o644)
         second = self.store.put(
             replace(self.draft, evidence_id="evidence-2"), redact_bytes
         )
 
         self.assertEqual(first.content_hash, second.content_hash)
         self.assertEqual(first.object_path, second.object_path)
+        self.assertEqual(0o600, stat.S_IMODE(second.object_path.stat().st_mode))
         self.assertEqual(1, len([path for path in self.paths.objects.rglob("*") if path.is_file()]))
         self.assertEqual(2, len(self.store.list_for_task(self.task.task_id)))
 
@@ -125,6 +130,20 @@ class EvidenceStoreTests(unittest.TestCase):
                     evidence_id="sensitive-fields",
                     fields={"api_token": "do-not-store"},
                 ),
+                redact_bytes,
+            )
+        with self.assertRaisesRegex(ValueError, "sensitive field"):
+            self.store.put(
+                replace(
+                    self.draft,
+                    evidence_id="api-key-field",
+                    fields={"api_key": "plain-secret"},
+                ),
+                redact_bytes,
+            )
+        with self.assertRaisesRegex(ValueError, "content"):
+            self.store.put(
+                replace(self.draft, evidence_id="empty-content", content=b""),
                 redact_bytes,
             )
         with self.assertRaisesRegex(ValueError, "sensitive field"):
@@ -179,6 +198,105 @@ class EvidenceStoreTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "reason"):
             self.store.purge("missing", "")
+
+    def test_failed_object_delete_can_be_retried_after_tombstone(self) -> None:
+        record = self.store.put(self.draft, redact_bytes)
+        original_unlink = Path.unlink
+        attempts = 0
+
+        def fail_once(path: Path, *args, **kwargs) -> None:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise OSError("injected unlink failure")
+            original_unlink(path, *args, **kwargs)
+
+        with mock.patch("pathlib.Path.unlink", new=fail_once):
+            with self.assertRaisesRegex(OSError, "injected"):
+                self.store.purge(record.evidence_id, "user request")
+            self.assertTrue(
+                record.object_path.exists()
+                or record.object_path.with_name(
+                    f".{record.object_path.name}.purging"
+                ).exists()
+            )
+            self.store.purge(record.evidence_id, "user request")
+
+        self.assertFalse(record.object_path.exists())
+        purge_events = [
+            event
+            for event in self.events.list_for_task(self.task.task_id)
+            if event.event_type == "evidence.purged"
+        ]
+        self.assertEqual(1, len(purge_events))
+
+    def test_reconciliation_removes_old_unreferenced_objects_only(self) -> None:
+        referenced = self.store.put(self.draft, redact_bytes)
+        orphan = self.paths.objects / "ff" / ("0" * 62)
+        orphan.parent.mkdir(parents=True)
+        orphan.write_bytes(b"orphan")
+        os.utime(orphan, (0, 0))
+
+        removed = self.store.reconcile_objects(grace_period_seconds=1)
+
+        self.assertEqual([orphan], removed)
+        self.assertTrue(referenced.object_path.exists())
+
+    @unittest.skipUnless(hasattr(os, "fork"), "requires POSIX process crash probe")
+    def test_process_crash_orphan_is_reconciled_after_grace_period(self) -> None:
+        self.catalog.close()
+        child = os.fork()
+        if child == 0:
+            catalog = Catalog.open(self.paths)
+            events = EventLog(catalog)
+            store = EvidenceStore(catalog, events)
+            original_write = store._write_object
+
+            def write_then_crash(path: Path, content: bytes, expected_hash: str) -> bool:
+                original_write(path, content, expected_hash)
+                os._exit(73)
+
+            store._write_object = write_then_crash
+            store.put(self.draft, redact_bytes)
+            os._exit(74)
+
+        _pid, status = os.waitpid(child, 0)
+        self.assertEqual(73, os.waitstatus_to_exitcode(status))
+        self.catalog = Catalog.open(self.paths)
+        self.events = EventLog(self.catalog)
+        self.assertEqual(
+            0, self.catalog.query_value("SELECT COUNT(*) FROM evidence")
+        )
+        orphans = [
+            path for path in self.paths.objects.rglob("*") if path.is_file()
+        ]
+        self.assertEqual(1, len(orphans))
+        os.utime(orphans[0], (0, 0))
+
+        self.store = EvidenceStore(self.catalog, self.events)
+
+        self.assertEqual(
+            [], [path for path in self.paths.objects.rglob("*") if path.is_file()]
+        )
+
+    def test_catalog_metadata_tampering_is_rejected(self) -> None:
+        record = self.store.put(self.draft, redact_bytes)
+        with self.assertRaisesRegex(sqlite3.DatabaseError, "immutable"):
+            self.catalog.connection.execute(
+                "UPDATE evidence SET result='fail' WHERE evidence_id=?",
+                (record.evidence_id,),
+            )
+
+        self.catalog.connection.execute(
+            "DROP TRIGGER evidence_canonical_fields_immutable"
+        )
+        self.catalog.connection.execute(
+            "UPDATE evidence SET result='fail' WHERE evidence_id=?",
+            (record.evidence_id,),
+        )
+
+        with self.assertRaisesRegex(ValueError, "fingerprint"):
+            self.store.resolve(record.evidence_id)
 
     def test_hash_mismatch_is_detected_on_read(self) -> None:
         record = self.store.put(self.draft, redact_bytes)

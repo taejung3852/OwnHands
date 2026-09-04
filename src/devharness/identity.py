@@ -51,35 +51,34 @@ class IdentityRegistry:
 
     def register_project(self, locator: str) -> ProjectIdentity:
         locator = _required(locator, "locator")
-        row = self.catalog.connection.execute(
-            "SELECT * FROM projects WHERE locator=?", (locator,)
-        ).fetchone()
-        if row is None:
-            with self.catalog.transaction() as connection:
+        with self.catalog.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM projects WHERE locator=?", (locator,)
+            ).fetchone()
+            if row is None:
                 connection.execute(
                     "INSERT INTO projects(project_id, locator, created_at) VALUES (?, ?, ?)",
                     (str(uuid4()), locator, _now()),
                 )
-            row = self.catalog.connection.execute(
-                "SELECT * FROM projects WHERE locator=?", (locator,)
-            ).fetchone()
+                row = connection.execute(
+                    "SELECT * FROM projects WHERE locator=?", (locator,)
+                ).fetchone()
         return ProjectIdentity(**dict(row))
 
     def register_worktree(self, project_id: str, locator: str) -> WorktreeIdentity:
         project_id = _required(project_id, "project_id")
         locator = _required(locator, "locator")
-        project_exists = self.catalog.query_value(
-            "SELECT 1 FROM projects WHERE project_id=?", (project_id,)
-        )
-        if project_exists is None:
-            raise ValueError(f"unknown project: {project_id}")
-
-        row = self.catalog.connection.execute(
-            "SELECT * FROM worktrees WHERE project_id=? AND locator=?",
-            (project_id, locator),
-        ).fetchone()
-        if row is None:
-            with self.catalog.transaction() as connection:
+        with self.catalog.transaction() as connection:
+            project_exists = connection.execute(
+                "SELECT 1 FROM projects WHERE project_id=?", (project_id,)
+            ).fetchone()
+            if project_exists is None:
+                raise ValueError(f"unknown project: {project_id}")
+            row = connection.execute(
+                "SELECT * FROM worktrees WHERE project_id=? AND locator=?",
+                (project_id, locator),
+            ).fetchone()
+            if row is None:
                 connection.execute(
                     """
                     INSERT INTO worktrees(worktree_id, project_id, locator, created_at)
@@ -87,10 +86,10 @@ class IdentityRegistry:
                     """,
                     (str(uuid4()), project_id, locator, _now()),
                 )
-            row = self.catalog.connection.execute(
-                "SELECT * FROM worktrees WHERE project_id=? AND locator=?",
-                (project_id, locator),
-            ).fetchone()
+                row = connection.execute(
+                    "SELECT * FROM worktrees WHERE project_id=? AND locator=?",
+                    (project_id, locator),
+                ).fetchone()
         return WorktreeIdentity(**dict(row))
 
     def create_task(

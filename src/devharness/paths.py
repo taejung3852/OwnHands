@@ -44,4 +44,11 @@ class DataPaths:
                 Path(xdg_data_home) if xdg_data_home else home / ".local" / "share"
             ) / "DevHarness"
 
+        root = root.resolve()
+        if _inside_git_worktree(root):
+            raise ValueError("DevHarness data root must not be inside a Git worktree")
         return cls(root=root, catalog=root / "catalog.sqlite3", objects=root / "objects")
+
+
+def _inside_git_worktree(path: Path) -> bool:
+    return any((candidate / ".git").exists() for candidate in (path, *path.parents))
