@@ -42,6 +42,7 @@ remote stylesheet 한 개는 Google Fonts CSS 후보이며 실행 script나 fram
 
 ```bash
 node docs/design/m0-07/probes/m0-07-browser-probe.mjs
+node docs/design/m0-07/probes/m0-07-browser-probe.mjs --write-screenshots
 ```
 
 관찰 결과:
@@ -53,11 +54,13 @@ viewport_widths=320,390,1440
 layout_checks=54
 document_horizontal_overflow=0
 screen_selection_failures=0
-focusable_elements_minimum=43
+initially_open_details=0
+progressive_disclosure_toggle=passed
+focusable_elements_minimum=46
 positive_tabindex=0
 ```
 
-허용한 내부 overflow는 좁은 화면의 Control table과 Before/After Diagram이다. document 자체의 가로 overflow는 허용하지 않는다.
+`--write-screenshots`를 사용하면 같은 검증 session의 1440 × 1800 상태 18개를 `screenshots/`에 갱신한다. 허용한 내부 overflow는 좁은 화면의 Control table과 Before/After Diagram이다. document 자체의 가로 overflow는 허용하지 않는다.
 
 첫 실행에서는 320 px의 Evidence Detail 여섯 상태에서 `evidence-summary`와 `provenance` grid item의 intrinsic minimum width 때문에 document overflow가 재현됐다. 두 grid item에 `min-inline-size: 0`을 적용한 뒤 같은 54개 상태 검사에서 재발하지 않았다.
 
@@ -83,11 +86,11 @@ OK docs/design/m0-07/index.html
 
 시각 검토에서 다음을 확인했다.
 
-- 1440 × 1800에서 headline, action, summary, table, Evidence disclosure가 겹치지 않음
+- 1440 × 1800에서 headline, action, 한눈에 보기, 질문형 disclosure가 겹치지 않음
 - Light/Dark에서 상태 text와 brand accent가 구분됨
-- Task Review의 Diagram connector가 대각선 없이 읽힘
-- Harness Status에서 실현 단계와 Evidence basis가 별도 행 정보로 읽힘
-- Evidence Detail에서 Raw output이 초기 화면에 노출되지 않음
+- Task Review의 Diagram은 처음에는 접혀 있고 선택 시 connector가 대각선 없이 읽힘
+- Harness Status는 쉬운 요약을 먼저 보여 주고 Control 표와 용어 설명을 별도로 펼침
+- Evidence Detail에서 검사 목록, 미확인 경로, Raw output이 초기 화면에 노출되지 않음
 
 ## 이 Probe가 증명하지 않는 것
 
@@ -96,4 +99,4 @@ OK docs/design/m0-07/index.html
 - Pretendard Variable 실제 file metric
 - Production component/API/backend 연결
 - M5 Dashboard 완료 또는 안전
-- 최종 Brand 승인
+- 최종 Brand Asset 또는 M5 UI/UX 승인

@@ -1,17 +1,17 @@
 # M0-07 브랜드·Dashboard 시안 평가
 
-- **상태:** 추천안 제출, 사용자 승인 대기
+- **상태:** B 색상 방향 승인, UI/UX는 M5로 이관
 - **Fixture:** M0-06 Event & Evidence Store 합성 Probe의 `ba7394f` 여섯-check snapshot (2026-09-04)
 - **비교 조건:** 세 방향 모두 같은 DOM, 문구, Fixture, 화면 구조, 상호작용을 사용하고 semantic token만 바꾼다.
-- **Gate:** 이 문서는 M1~M4를 막지 않는다. M5 Production Dashboard는 사용자 승인 전 시작하지 않는다.
+- **Gate:** 이 문서는 M1~M4를 막지 않는다. M5 Production Dashboard의 UI/UX는 별도 승인 전 시작하지 않는다.
 
-## 추천
+## 결정
 
-**A — Signal Graphite**를 M5 디자인 기준안으로 추천한다.
+**B — Ledger Indigo**의 색상 방향을 확정했다.
 
-Graphite neutral이 많은 검토 정보를 조용하게 받치고, teal/cyan은 탐색·선택·주요 행동 신호에만 사용된다. Pass의 green, Warning의 amber, Danger의 red와 hue가 분리되어 브랜드 강조와 판정 결과를 혼동할 가능성이 세 안 중 가장 낮다.
+초기 A/B/C 비교는 같은 DOM·문구·구조에 semantic color token만 바꿨기 때문에 A와 B의 차이는 사실상 색과 온도감뿐이었다. 사용자는 warm paper neutral과 indigo의 문서 검토 감각을 선택했다.
 
-사용자 승인 전에는 이 추천을 최종 Brand System으로 기록하지 않는다.
+이후 만든 `한눈에 보기 → 질문형 상세 공개` 수정안은 M5에서 이어서 설계할 **참고 시안**으로 남긴다. 화면 구조, 문구, disclosure, component는 이번 승인 범위가 아니다.
 
 ## 동일 Fixture
 
@@ -34,40 +34,42 @@ integrity_check=ok
 
 | 방향 | 디자인 근거 | 장점 | 단점·위험 | 예상 구현 비용 | 판단 |
 |---|---|---|---|---|---|
-| **A — Signal Graphite** | 무채색 graphite surface + teal/cyan brand signal | 고밀도 정보에서 위계가 안정적이고 상태색과 브랜드색이 가장 잘 분리됨. Light/Dark 일관성이 높음 | 지나치게 절제하면 차갑게 느껴질 수 있어 문구 tone이 중요함 | 낮음–중간 | **추천** |
-| **B — Ledger Indigo** | warm paper neutral + indigo accent | ADR·결정 기록 같은 문서 검토에 안정감이 있고 장문 가독성이 좋음 | runtime trace와 미검증 경로의 긴장감이 A보다 약함. 따뜻한 background가 상태색 조합을 더 복잡하게 할 수 있음 | 낮음 | 대안 |
+| **A — Signal Graphite** | 무채색 graphite surface + teal/cyan brand signal | 고밀도 정보에서 위계가 안정적이고 상태색과 브랜드색이 가장 잘 분리됨. Light/Dark 일관성이 높음 | 문서 검토 화면이 차갑게 느껴질 수 있음 | 낮음–중간 | 대안 |
+| **B — Ledger Indigo** | warm paper neutral + indigo accent | ADR·결정 기록 같은 문서 검토에 안정감이 있고 사용자 선택과 맞음 | runtime trace와 미검증 경로의 긴장감이 A보다 약함 | 낮음 | **색상 방향 승인** |
 | **C — Slate Violet** | cool slate neutral + violet accent | trace·instrumentation 제품의 기술적 성격이 분명하고 dark mode 구분감이 좋음 | warning/danger가 많은 화면에서 violet과 상태색의 경쟁이 커질 수 있음 | 중간 | 대안 |
 
 ## 화면별 판단
 
+아래 내용은 M5에서 검토를 재개할 때 사용할 가설이다. M0에서 승인된 UI/UX 계약이 아니다.
+
 ### Task Review
 
-- 첫 줄에서 “저장 결정안은 검토 준비됨”과 “ADR 승인 또는 수정 요청”을 보여 준다.
-- `무엇이 바뀜 / 왜 중요함 / 근거 / 다음 행동` 네 블록만 먼저 노출한다.
-- Before/After Diagram은 M0-06 범위만 표시하고, `= / + / − / ?` label로 색각과 무관하게 상태를 구분한다.
-- node와 edge의 Evidence 링크는 한 번의 선택으로 Evidence Detail에 도달한다.
+- 첫 줄에서 “두 곳에 나눠 저장”과 “실제 장애는 아직 모름”을 쉬운 말로 보여 준다.
+- 결론·확인·주의 세 칸만 먼저 노출한다.
+- 이유, 확인 범위, 미확인 범위, Before/After Diagram은 각각 질문형 disclosure로 연다.
+- 펼친 Diagram의 node와 edge Evidence link는 한 번의 선택으로 Evidence Detail에 도달한다.
 
 ### Harness Status
 
-- Configured / Loaded / Enforced를 세 개의 독립 column으로 표시한다.
-- 각 check 안에서 result와 basis를 분리한다.
+- `준비됨 / 실제 확인 / 아직 안 됨` 세 요약을 먼저 표시한다.
+- Configured / Loaded / Enforced 표와 Evidence basis 설명은 별도 disclosure로 연다.
 - Observed / Inferred / Unobserved는 여섯 색 Badge가 아니라 `◉ / △ / ?` 기호와 글자로 표현한다.
 - 첫 행동은 Enforced가 비어 있는 경로를 확인하는 것이다.
 
 ### Evidence Detail
 
-- 선택 Evidence의 결론, provenance, 범위 내 검사, 미관찰 경로 순서로 읽는다.
-- Raw output, Evidence 연결, 판정 문구 제한은 native disclosure 뒤에 둔다.
+- 결론·근거 방식·한계 세 요약만 먼저 읽는다.
+- provenance, 검사 6개, 미관찰 경로, Raw output과 판정 한계는 각각 native disclosure 뒤에 둔다.
 - 합성 통과와 Production 안전을 같은 의미로 표시하지 않는다.
 
 ## UX 우선 기준 평가
 
 | 평가 질문 | Probe/검토 결과 | 상태 |
 |---|---|---|
-| Raw Diff를 읽지 않고 작업 내용을 설명할 수 있는가 | Task Review의 결론과 네 설명 블록만으로 저장 제안, 중요성, 근거, 결정 행동을 설명할 수 있음 | 충족 |
-| 연관 기능과 미검증 영역을 빠르게 찾을 수 있는가 | Before/After의 `?` node와 Evidence Detail의 여섯 Unobserved 항목을 직접 노출 | 충족 |
+| Raw Diff를 읽지 않고 작업 내용을 설명할 수 있는가 | Task Review의 세 요약만으로 저장 제안, 확인 범위, 남은 위험을 설명할 수 있음 | 충족 |
+| 연관 기능과 미검증 영역을 빠르게 찾을 수 있는가 | `아직 모르는 것은 무엇인가요?` disclosure에서 여섯 Unobserved 항목을 확인 | 충족 |
 | 필요한 Evidence에 두 번 이하로 접근하는가 | Task Review/Harness Status → Evidence Detail 1회, Raw output까지 2회 | 충족 |
-| Dashboard 자체가 새 읽기 병목을 만드는가 | 초기 화면은 결론·행동·요약만 노출하고 원시 출력은 접음. 다만 실제 사용자 과업 시간은 도그푸딩 전 Unobserved | 시안 기준 충족, 실사용 검증 필요 |
+| Dashboard 자체가 새 읽기 병목을 만드는가 | 초기 화면은 세 요약과 다음 행동만 노출하고 표·그림·원시 출력은 모두 접음. 실제 사용자 과업 시간은 도그푸딩 전 Unobserved | 시안 기준 충족, 실사용 검증 필요 |
 
 세 방향은 정보 구조가 같으므로 위 네 기준의 경로 수는 같다. 추천 차이는 정보 밀도와 상태색 간 시각 경쟁에서 발생한다.
 
@@ -101,7 +103,7 @@ integrity_check=ok
 | Danger | red | red | red |
 | Evidence basis | neutral symbol + label | neutral symbol + label | neutral symbol + label |
 
-색상값은 시안 token이며 최종 Brand Asset이 아니다. 사용자가 방향을 승인하면 M5 전에 token 이름, contrast contract, font bundling, component usage를 ADR amendment로 고정한다.
+색상값은 승인된 B 방향의 출발 token이며 최종 Brand Asset이나 component 계약은 아니다. M5에서 contrast를 다시 확인하면서 세부값을 조정하고, token 이름·font bundling·component usage를 별도 설계한다.
 
 ## 구현 비용 범위
 
@@ -113,10 +115,8 @@ integrity_check=ok
 
 어느 방향을 선택해도 M5는 먼저 실제 Event/Evidence schema에 연결된 vertical slice로 구현해야 한다. 이 HTML을 Production component로 전환하거나 그대로 복사하지 않는다.
 
-## 승인 선택지
+## 결정 기록
 
-1. **A — Signal Graphite 승인:** M5 전 ADR-0007을 Accepted로 바꾸고 token/component 계약을 구체화한다.
-2. **B 또는 C 선택:** 선택 이유와 trade-off를 ADR-0007에 반영한다.
-3. **수정 요청:** 어떤 화면·정보 위계·색 역할을 바꿀지 기록하고 동일 Fixture로 다시 비교한다.
-
-승인 전 Issue #8은 닫지 않고 `status:in-progress`를 유지한다.
+- 2026-09-04: B — Warm Paper Neutral + Ledger Indigo 색상 방향 승인
+- M5로 이관: 화면 구조, 정보 위계, 글쓰기, disclosure, component, 사용자 검증
+- 외부 변경: 원격 push·PR·Issue #8 종료는 별도 승인 전 수행하지 않음

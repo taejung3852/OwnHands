@@ -10,4 +10,4 @@ M0부터 중요한 기술·제품 결정은 Context, Decision, Alternatives, Con
 | [ADR-0004](0004-event-evidence-store.md) | Event & Evidence Store | Proposed |
 | [ADR-0005](0005-superpowers-vendoring-boundary.md) | Superpowers Vendoring 경계 | Proposed, Non-blocking |
 | [ADR-0006](0006-assurance-dashboard-sequencing.md) | Assurance 단계와 review artifact 순서 | Proposed |
-| [ADR-0007](0007-brand-dashboard-design-foundation.md) | Brand와 Dashboard 디자인 기반 | Proposed, M5 Gate |
+| [ADR-0007](0007-brand-dashboard-design-foundation.md) | Brand 색상 기반 | Accepted(색상 범위), UI/UX는 M5 Gate |

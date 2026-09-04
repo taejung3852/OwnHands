@@ -11,6 +11,7 @@ const probeDir = path.dirname(fileURLToPath(import.meta.url));
 const htmlPath = path.resolve(probeDir, "../index.html");
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "devharness-m0-07-chrome-"));
+const writeScreenshots = process.argv.includes("--write-screenshots");
 const captures = [];
 
 for (const brand of ["signal", "ledger", "slate"]) {
@@ -106,6 +107,7 @@ async function main() {
   const widths = [320, 390, 1440];
   let rootOverflowFailures = 0;
   let hiddenScreenFailures = 0;
+  let initiallyOpenDetailFailures = 0;
   let focusableMinimum = Number.POSITIVE_INFINITY;
   const overflowDetails = [];
 
@@ -135,6 +137,7 @@ async function main() {
             clientWidth: root.clientWidth,
             expected,
             panels,
+            openDetails: document.querySelectorAll('details[open]').length,
             focusable: document.querySelectorAll('a[href], input:not([disabled]), summary').length,
             positiveTabindex: document.querySelectorAll('[tabindex]:not([tabindex="-1"]):not([tabindex="0"])').length,
             offenders: [...document.querySelectorAll('body *')]
@@ -150,19 +153,46 @@ async function main() {
         })()`
       });
       const measurement = result.value;
+      if (writeScreenshots && width === 1440) {
+        const { data } = await send("Page.captureScreenshot", {
+          format: "png",
+          fromSurface: true,
+          captureBeyondViewport: false
+        });
+        const filename = `${capture.replace("capture-", "")}.png`;
+        fs.writeFileSync(path.resolve(probeDir, `../screenshots/${filename}`), Buffer.from(data, "base64"));
+      }
       if (measurement.rootOverflow) {
         rootOverflowFailures += 1;
         overflowDetails.push(`${capture}@${width}:${measurement.scrollWidth}/${measurement.clientWidth}:${JSON.stringify(measurement.offenders)}`);
       }
       if (measurement.panels.length !== 1 || measurement.panels[0] !== measurement.expected) hiddenScreenFailures += 1;
+      if (measurement.openDetails !== 0) initiallyOpenDetailFailures += 1;
       if (measurement.positiveTabindex !== 0) throw new Error(`Positive tabindex found in ${capture}`);
       focusableMinimum = Math.min(focusableMinimum, measurement.focusable);
     }
   }
 
+  await send("Page.navigate", { url: pathToFileURL(htmlPath).href });
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  const { result: disclosureResult } = await send("Runtime.evaluate", {
+    returnByValue: true,
+    expression: `(() => {
+      const detail = document.querySelector('.progressive-detail');
+      const summary = detail?.querySelector('summary');
+      if (!detail || !summary) return { opened: false, closed: false };
+      summary.click();
+      const opened = detail.open;
+      summary.click();
+      return { opened, closed: !detail.open };
+    })()`
+  });
+
   socket.close();
   if (rootOverflowFailures > 0) throw new Error(`Document overflow failures: ${rootOverflowFailures} (${overflowDetails.join(", ")})`);
   if (hiddenScreenFailures > 0) throw new Error(`Screen selection failures: ${hiddenScreenFailures}`);
+  if (initiallyOpenDetailFailures > 0) throw new Error(`Initially open detail failures: ${initiallyOpenDetailFailures}`);
+  if (!disclosureResult.value.opened || !disclosureResult.value.closed) throw new Error("Progressive disclosure did not toggle");
 
   console.log("M0-07 browser probe: PASSED");
   console.log(`capture_states=${captures.length}`);
@@ -170,8 +200,11 @@ async function main() {
   console.log(`layout_checks=${captures.length * widths.length}`);
   console.log("document_horizontal_overflow=0");
   console.log("screen_selection_failures=0");
+  console.log("initially_open_details=0");
+  console.log("progressive_disclosure_toggle=passed");
   console.log(`focusable_elements_minimum=${focusableMinimum}`);
   console.log("positive_tabindex=0");
+  if (writeScreenshots) console.log(`screenshots_written=${captures.length}`);
 }
 
 process.on("SIGINT", () => cleanUp().finally(() => process.exit(130)));

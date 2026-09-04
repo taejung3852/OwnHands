@@ -90,16 +90,34 @@ for (const [variant, direction] of Object.entries(directionRules)) {
 }
 
 check(count(/id="brand-(signal|ledger|slate)"/g) === 3, "three brand direction controls required");
+check(source.includes('id="brand-ledger" checked'), "Ledger Indigo must be the default direction");
+check(!source.includes('id="brand-signal" checked'), "Signal Graphite must not remain the default direction");
+check(source.includes("색상 방향 승인 · UI/UX는 M5에서 이어서 설계"), "approved color scope and M5 UX deferral must be explicit");
 check(count(/id="theme-(light|dark)"/g) === 2, "two theme controls required");
 check(count(/class="screen" id="(task|harness|evidence)-panel"/g) === 3, "three dashboard screens required");
 check(count(/id="capture-(signal|ledger|slate)-(light|dark)-(task|harness|evidence)"/g) === 18, "18 capture states required");
 check(count(/data-fixture-id="m0-06-store-probe-ba7394f-2026-09-04"/g) === 1, "pinned fixture must exist once in a shared DOM");
 check(source.includes("partial_write_rollback=passed"), "fixture must include actual rollback result");
 check(source.includes("integrity_check=ok"), "fixture must include actual integrity result");
-check(source.includes("Production 안전은 아직 주장할 수 없습니다"), "fixture limitations must be explicit");
+check(source.includes("실제 제품 환경의 안전까지 확인한 것은 아닙니다"), "fixture limitations must be explicit");
 check(source.includes("Configured") && source.includes("Loaded") && source.includes("Enforced"), "control realization stages missing");
 check(source.includes("Observed") && source.includes("Inferred") && source.includes("Unobserved"), "evidence basis labels missing");
-check(source.includes("무엇이 바뀜") && source.includes("왜 중요함") && source.includes("다음 행동"), "ELI5 review structure missing");
+check(count(/class="at-a-glance"/g) === 3, "each screen needs one at-a-glance summary");
+check(
+  [
+    "왜 이런 결론인가요?",
+    "무엇을 확인했나요?",
+    "아직 모르는 것은 무엇인가요?",
+    "저장 흐름 그림 보기",
+    "전체 통제표 보기",
+    "용어 뜻 보기",
+    "검사 6개 모두 보기",
+    "출처와 실행 환경 보기",
+    "기술 세부정보 보기"
+  ].every((label) => source.includes(label)),
+  "progressive-disclosure labels missing"
+);
+check(!/<details[^>]*\sopen(?:\s|>)/.test(source), "detail sections must start collapsed");
 check(source.includes("+ 추가 제안") && source.includes("− 제외 제안") && source.includes("? 미검증·보류"), "non-color diagram labels missing");
 check(count(/href="#evidence-panel"/g) >= 10, "evidence drill-down links missing");
 check(source.includes("@media (prefers-reduced-motion: reduce)"), "reduced-motion rule missing");

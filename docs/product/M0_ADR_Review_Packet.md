@@ -6,7 +6,7 @@
 
 ## 한눈에 보는 결론
 
-M0 필수 Spike와 schema 제안은 준비됐다. 현재 어떤 ADR도 승인된 것으로 기록하지 않았으며, M1 구현을 시작하지 않았다.
+M0 필수 Spike와 schema 제안은 준비됐다. ADR-0007은 사용자의 결정에 따라 **B 색상 방향 범위만 Accepted**로 기록했고, 나머지 ADR은 Proposed다. M1 구현은 시작하지 않았다.
 
 | 항목 | 제안 결론 | 현재 Evidence | 결정 상태 |
 |---|---|---|---|
@@ -16,7 +16,7 @@ M0 필수 Spike와 schema 제안은 준비됐다. 현재 어떤 ADR도 승인된
 | Event/Evidence Store | SQLite catalog + content-addressed local files; 초기 rollback journal | SQLite/Apple 공식 문서, 합성 저장 Probe | ADR-0004 Proposed |
 | Superpowers | `dev-harness/*` 선택 subset; global router 제외; MIT; commit pin | upstream/local hash 비교 | ADR-0005 Proposed, Non-blocking |
 | 구현 순서 | M2 Preflight draft / M4 post-change assurance 분리; M1–M4 review packet 유지 | 문서 간 lifecycle·roadmap 비교 | ADR-0006 Proposed |
-| Brand·Dashboard 기반 | Graphite Neutral + Signal Teal/Cyan, Evidence-first 3단계 drill-down | 동일 M0-06 Fixture 3안, Light/Dark 18상태, 접근성·layout Probe | ADR-0007 Proposed, M5 Gate |
+| Brand 색상 기반 | B — Warm Paper Neutral + Ledger Indigo | 동일 M0-06 Fixture 3안, Light/Dark 18상태, 접근성·layout Probe | ADR-0007 Accepted(색상 범위), UI/UX는 M5 Gate |
 
 ## M0 Gate 상태
 
@@ -28,9 +28,9 @@ M0 필수 Spike와 schema 제안은 준비됐다. 현재 어떤 ADR도 승인된
 | Event/Evidence 저장 결정 | ADR-0004, M0-06 Spike | 합성 Probe 통과, 사용자 검토 대기 |
 | Superpowers 원칙 | ADR-0005, M0-05 Spike | Non-blocking, 사용자 검토 대기 |
 | 문서 충돌 해소 | ADR-0006, Conflict 목록 | 사용자 검토 대기 |
-| Brand·Dashboard 디자인 기반 | ADR-0007, M0-07 시안 | M0 Non-blocking, M5 승인 Gate 대기 |
+| Brand 색상 기반 | ADR-0007, M0-07 시안 | B 색상 범위 승인, UI/UX는 M5 승인 Gate 대기 |
 
-M0 종료 Gate는 아직 통과로 표시하지 않는다. Proposed ADR의 사용자 결정과 그 결과의 문서 반영이 남아 있다.
+M0 종료 Gate는 아직 통과로 표시하지 않는다. ADR-0001~0006과 OD-09의 사용자 결정 및 결과 반영이 남아 있다.
 
 ## Issue별 로컬 준비 상태
 
@@ -42,7 +42,7 @@ M0 종료 Gate는 아직 통과로 표시하지 않는다. Proposed ADR의 사�
 | M0-04 | 충족(로컬 Evidence) | 16개 기준 범주, Task mode, strict schema, fail-safe/adversarial fixture Probe | Matrix/Report 계약과 합성 판정이 검증됨 | ADR 결정; 실제 Task evaluator/runtime migration은 M1 |
 | M0-05 | 충족(로컬 Evidence) | include/exclude, MIT, immutable pin, hash 비교, ADR-0005 | vendoring 의사결정 자료가 준비됨 | Non-blocking ADR 결정; 실제 vendoring 금지 유지 |
 | M0-06 | 충족(로컬 Evidence) | hybrid store 비교, 복구 경계, 합성 저장 Probe, ADR-0004 | clean close와 killed writer rollback, idempotency/hash/rebuild 결과 | ADR 결정; power-loss/disk-full/concurrency 등은 Unobserved |
-| M0-07 | 부분 충족 | 3안, Light/Dark 18 capture, static/browser Probe, ADR-0007 | M5 디자인 선택을 위한 시안과 접근성/layout 검사 결과 | M0 Non-blocking; 사용자 Brand 선택 전 M5 Production UI 금지 |
+| M0-07 | 충족(로컬 Evidence) | 3안, Light/Dark 18 capture, static/browser Probe, ADR-0007 | B 색상 방향이 승인됐고 현재 UI/UX는 M5 참고 시안으로 보존됨 | 원격 PR·Issue 종료 승인; M5 UI/UX 별도 승인 전 Production UI 금지 |
 
 모든 Issue는 외부에서 open 상태다. 위 표의 “로컬 준비”는 Issue 완료, ADR 승인, M0 종료 또는 제품 동작 보장을 뜻하지 않는다.
 
@@ -58,6 +58,7 @@ M0 종료 Gate는 아직 통과로 표시하지 않는다. Proposed ADR의 사�
 - Guarantee 합성 fixture에서 불충분 Evidence는 `not_evaluated`, 충돌 Evidence는 `contradicted`가 됐다.
 - Imported Task에서 Managed-only claim은 합성 check가 pass여도 `not_evaluated`가 됐고, Matrix/Control/Task Report JSON은 strict draft 2020-12 validation을 통과했다.
 - SQLite 합성 fixture에서 clean close와 killed writer의 uncommitted row rollback, duplicate no-op, content hash, Projection rebuild, Git 제외를 확인했다.
+- 사용자가 M0-07의 B — Warm Paper Neutral + Ledger Indigo 색상 방향을 승인하고, UI/UX 설계는 M5에서 현재 시안을 이어서 진행하도록 결정했다.
 
 ### Documented but not locally enforced
 
@@ -84,7 +85,8 @@ M0 종료 Gate는 아직 통과로 표시하지 않는다. Proposed ADR의 사�
 4. **ADR-0004:** hybrid 저장소와 rollback-journal 우선 원칙을 승인할지
 5. **ADR-0006:** Preflight/Post-change Assurance 2단계와 M1–M4 review artifact 계약을 승인할지
 6. **ADR-0005:** Non-blocking Superpowers 범위를 함께 승인·수정·보류할지
-7. **ADR-0007:** M5 디자인 기준으로 A Signal Graphite를 승인·수정·대안 선택할지. 이 결정은 M1~M4를 막지 않음
+
+ADR-0007의 B 색상 방향은 결정됐다. 현재 시안의 한눈에 보기·상세 공개를 포함한 UI/UX는 M5에서 별도로 검토한다.
 
 ## ADR 승인 후에도 M1 전에 남는 제품 결정
 

@@ -16,7 +16,8 @@
 | Impact / Test Design / Regression Gate | 전체 | ADR-0006, M0-04 | M2, M4 | ADR Review |
 | Workspace Restore Point / Worktree 분리 | Control | M0-06 storage boundary | M1, M4 | Blocked by Evidence |
 | Task Review / Feature Validation / Harness Status | Dashboard | ADR-0006 review artifact contract | M1~M5 | ADR Review |
-| Brand·정보 위계·Light/Dark·접근성 기반 | Dashboard, Design Rationale | M0-07 3안·Probe, ADR-0007 | M5 | M5 Gate Review |
+| Brand 색상 방향 | Dashboard, Design Rationale | M0-07 3안·Probe, ADR-0007 Accepted(색상 범위) | M5 | B 색상 방향 승인 |
+| 정보 위계·글쓰기·상호작용·접근성 기반 | Dashboard, Design Rationale | M0-07 참고 시안·Probe | M5 | M5 UI/UX Gate Review |
 | Audit & History | Dashboard | Event/Evidence contracts | M5 | Blocked by Evidence |
 | HWPX 도그푸딩, Core 비종속 | 전체 | M0-01 기준선 | M6 | Blocked by Evidence |
 | Superpowers 선택적 Vendoring | Design Rationale, Control | M0-05, ADR-0005 Non-blocking | M7 | ADR Review |

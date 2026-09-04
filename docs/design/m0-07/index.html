@@ -551,7 +551,7 @@
 
     .state-line::before { content: "◇"; }
 
-    .metrics {
+    .at-a-glance {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       margin-bottom: 32px;
@@ -560,70 +560,36 @@
       border-bottom: 1px solid var(--border);
     }
 
-    .metric {
+    .glance-card {
       padding: 20px 24px;
       border-right: 1px solid var(--border);
     }
 
-    .metric:last-child { border-right: 0; }
+    .glance-card:last-child { border-right: 0; }
 
-    .metric-value {
+    .glance-label {
       display: block;
-      margin-bottom: 4px;
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 22px;
-      font-weight: 600;
-    }
-
-    .metric-label {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .review-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      margin-bottom: 32px;
-      border-top: 1px solid var(--border);
-    }
-
-    .review-item {
-      min-block-size: 160px;
-      padding: 24px;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .review-item:nth-child(2n) { border-right: 0; }
-
-    .review-kicker {
-      display: flex;
-      align-items: center;
-      margin-bottom: 12px;
-      gap: 8px;
+      margin-bottom: 8px;
       color: var(--brand-ink);
       font-family: var(--mono);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
 
-    .review-kicker span {
-      display: grid;
-      place-items: center;
-      inline-size: 20px;
-      block-size: 20px;
-      color: var(--surface);
-      background: var(--brand);
-      border-radius: 50%;
+    .glance-card strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 17px;
     }
 
-    .review-item p {
-      margin-bottom: 12px;
+    .glance-card p {
+      margin-bottom: 0;
       color: var(--muted);
-      font-size: 13px;
-      line-height: 1.7;
+      font-size: 12px;
+      line-height: 1.6;
     }
 
     .evidence-link {
@@ -794,32 +760,6 @@
     body:has([id^="capture-ledger-"]:target) .note-ledger,
     body:has([id^="capture-slate-"]:target) .note-slate { display: block !important; }
 
-    .status-summary {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      margin-bottom: 32px;
-      gap: 16px;
-    }
-
-    .summary-cell {
-      padding: 20px;
-      background: var(--surface);
-      border-top: 2px solid var(--border-strong);
-    }
-
-    .summary-cell strong {
-      display: block;
-      margin-bottom: 6px;
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 18px;
-    }
-
-    .summary-cell span {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
     .control-table-wrap {
       overflow-x: auto;
       background: var(--surface);
@@ -920,27 +860,6 @@
       margin-bottom: 0;
       color: var(--muted);
       font-size: 12px;
-      line-height: 1.7;
-    }
-
-    .evidence-hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(248px, 320px);
-      margin-bottom: 32px;
-      gap: 24px;
-    }
-
-    .evidence-summary {
-      min-inline-size: 0;
-      padding: 24px;
-      background: var(--surface);
-      border-top: 3px solid var(--brand);
-    }
-
-    .evidence-summary p {
-      margin-bottom: 0;
-      color: var(--muted);
-      font-size: 14px;
       line-height: 1.7;
     }
 
@@ -1054,13 +973,29 @@
     }
 
     summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       min-block-size: 48px;
       padding: 14px 16px;
+      gap: 16px;
       color: var(--text);
       cursor: pointer;
       font-size: 13px;
       font-weight: 600;
+      list-style: none;
     }
+
+    summary::-webkit-details-marker { display: none; }
+
+    .progressive-detail summary::after {
+      content: "+";
+      color: var(--brand-ink);
+      font-family: var(--mono);
+      font-size: 18px;
+    }
+
+    .progressive-detail[open] summary::after { content: "−"; }
 
     details > div,
     details > pre {
@@ -1101,22 +1036,17 @@
       .page-header,
       .decision-strip { grid-template-columns: 1fr; flex-direction: column; }
       .actions { justify-content: flex-start; }
-      .review-grid,
       .status-key,
-      .evidence-hero,
       .limits { grid-template-columns: 1fr; }
-      .review-item,
-      .review-item:nth-child(2n) { border-right: 0; }
     }
 
     @media (max-width: 640px) {
       .utility-bar { padding-inline: 16px; }
       .prototype-controls { align-items: flex-start; padding-inline: 16px; }
       .screen { padding: 24px 16px 48px; }
-      .metrics,
-      .status-summary { grid-template-columns: 1fr; }
-      .metric { border-right: 0; border-bottom: 1px solid var(--border); }
-      .metric:last-child { border-bottom: 0; }
+      .at-a-glance { grid-template-columns: 1fr; }
+      .glance-card { border-right: 0; border-bottom: 1px solid var(--border); }
+      .glance-card:last-child { border-bottom: 0; }
       .screen-footer { flex-direction: column; }
     }
 
@@ -1127,8 +1057,8 @@
   </style>
 </head>
 <body>
-  <input class="choice" type="radio" name="brand" id="brand-signal" checked>
-  <input class="choice" type="radio" name="brand" id="brand-ledger">
+  <input class="choice" type="radio" name="brand" id="brand-signal">
+  <input class="choice" type="radio" name="brand" id="brand-ledger" checked>
   <input class="choice" type="radio" name="brand" id="brand-slate">
   <input class="choice" type="radio" name="theme" id="theme-light" checked>
   <input class="choice" type="radio" name="theme" id="theme-dark">
@@ -1188,57 +1118,45 @@
             <header class="page-header">
               <div>
                 <p class="eyebrow">Task Review / M0-06</p>
-                <h1 id="task-title">저장 결정안은 검토 준비됨</h1>
-                <p class="lede">SQLite catalog와 로컬 hash object 조합을 제안합니다. 합성 검사는 통과했지만 실제 전원 손실·디스크 부족·동시 쓰기는 아직 확인하지 않았습니다.</p>
+                <h1 id="task-title">저장 방식, 이렇게 정하면 됩니다</h1>
+                <p class="lede">작업 기록은 SQLite에, 큰 원본 파일은 내 컴퓨터에 나눠 보관하는 안입니다.</p>
               </div>
               <div class="actions" aria-label="다음 행동">
-                <a class="button button-primary" href="../../adr/0004-event-evidence-store.md">ADR 검토</a>
-                <a class="button" href="#evidence-panel">근거 먼저 보기</a>
+                <a class="button button-primary" href="../../adr/0004-event-evidence-store.md">결정 문서 보기</a>
+                <a class="button" href="#evidence-panel">검사 근거 보기</a>
               </div>
             </header>
 
             <div class="decision-strip">
               <div>
-                <strong>지금 할 일: ADR-0004를 승인하거나 수정 요청하세요.</strong>
-                <p>이 결정은 M1 저장 구현의 방향을 정합니다. 이 시안 자체는 구현 승인을 뜻하지 않습니다.</p>
+                <strong>지금 할 일: 이 저장 방식을 승인하거나 고칠 점을 알려주세요.</strong>
+                <p>아직 실제 제품을 만든 것은 아닙니다.</p>
               </div>
               <span class="state-line">Proposed · 승인 대기</span>
             </div>
 
-            <div class="metrics" aria-label="검토 요약">
-              <div class="metric"><span class="metric-value">6</span><span class="metric-label">합성 범위 내 통과</span></div>
-              <div class="metric"><span class="metric-value">6</span><span class="metric-label">Production 경로 미관찰</span></div>
-              <div class="metric"><span class="metric-value">1</span><span class="metric-label">사용자 결정 필요</span></div>
-            </div>
+            <section class="at-a-glance" aria-label="한눈에 보기">
+              <article class="glance-card"><span class="glance-label">추천</span><strong>두 곳에 나눠 저장</strong><p>기록은 SQLite, 큰 원본은 로컬 파일에 둡니다.</p></article>
+              <article class="glance-card"><span class="glance-label">확인</span><strong>작은 시험 6개 통과</strong><p>되돌리기·중복 방지·원본 연결을 확인했습니다.</p></article>
+              <article class="glance-card"><span class="glance-label">주의</span><strong>실제 장애는 아직 모름</strong><p>전원 손실·디스크 부족·동시 쓰기는 다음 단계입니다.</p></article>
+            </section>
 
-            <div class="review-grid">
-              <article class="review-item">
-                <div class="review-kicker"><span aria-hidden="true">1</span>무엇이 바뀜</div>
-                <h2>저장 후보가 하나의 제안으로 좁혀졌습니다.</h2>
-                <p>Event와 metadata는 SQLite에, 크거나 민감한 Raw Evidence는 content hash로 찾는 로컬 파일에 둡니다.</p>
-                <a class="evidence-link" href="#evidence-panel">저장 Probe 보기</a>
-              </article>
-              <article class="review-item">
-                <div class="review-kicker"><span aria-hidden="true">2</span>왜 중요함</div>
-                <h2>주장과 원본 근거의 연결을 잃지 않습니다.</h2>
-                <p>Event 순서·중복 방지·Projection 재생성을 한 계약으로 다루면서 Raw Evidence는 Git 밖에 유지할 수 있습니다.</p>
-                <a class="evidence-link" href="#evidence-panel">근거 경계 보기</a>
-              </article>
-              <article class="review-item">
-                <div class="review-kicker"><span aria-hidden="true">3</span>근거</div>
-                <h2>합성 Fixture에서 여섯 검사가 통과했습니다.</h2>
-                <p>부분 쓰기 rollback, 중복 Event, hash, Projection rebuild, Git 제외, integrity check를 관찰했습니다.</p>
-                <a class="evidence-link" href="#evidence-panel">선택 Evidence 열기</a>
-              </article>
-              <article class="review-item">
-                <div class="review-kicker"><span aria-hidden="true">4</span>다음 행동</div>
-                <h2>결정과 남은 위험을 함께 검토합니다.</h2>
-                <p>Hybrid 저장과 rollback journal을 승인할지 결정하고, 실제 장애·동시성 검증은 M1 Gate에 남깁니다.</p>
-                <a class="evidence-link" href="../../adr/0004-event-evidence-store.md">ADR 원문 읽기</a>
-              </article>
-            </div>
+            <details class="progressive-detail">
+              <summary>왜 이런 결론인가요?</summary>
+              <div>작업 기록은 순서와 중복을 관리하기 쉬운 SQLite에 둡니다. 크거나 민감한 원본은 Git에 들어가지 않는 로컬 파일로 분리해, 결과와 근거를 잃지 않고 연결합니다.</div>
+            </details>
+            <details class="progressive-detail">
+              <summary>무엇을 확인했나요?</summary>
+              <div>중간에 멈춘 쓰기의 되돌리기, 같은 기록의 중복 방지, 원본 hash 일치, 화면용 요약 재생성, Git 제외, SQLite 무결성을 합성 환경에서 확인했습니다.</div>
+            </details>
+            <details class="progressive-detail">
+              <summary>아직 모르는 것은 무엇인가요?</summary>
+              <div>실제 전원 손실, 디스크가 가득 찬 상황, 동시에 여러 작업이 쓰는 상황, 대용량 파일, 보존 기간 경합, 암호화는 아직 확인하지 않았습니다.</div>
+            </details>
 
-            <section class="section-block" aria-labelledby="flow-heading">
+            <details class="progressive-detail section-block">
+              <summary>저장 흐름 그림 보기</summary>
+              <div>
               <h2 id="flow-heading">Before / After — 저장 흐름</h2>
               <div class="diagram-wrap">
                 <svg viewBox="0 0 960 416" role="img" aria-labelledby="m007-flow-title m007-flow-desc">
@@ -1336,10 +1254,11 @@
                   <li><a href="../../spikes/probes/m0-06-store-probe.sh">재현 Probe</a></li>
                 </ul>
               </div>
-            </section>
+              </div>
+            </details>
 
-            <div class="direction-note note-signal"><strong>A · Signal Graphite — 추천안.</strong> 가장 중립적인 graphite surface에 teal/cyan을 탐색·선택 신호로만 사용합니다. 상태색과 브랜드색이 충돌하지 않고, 고밀도 review 정보의 위계를 가장 조용하게 유지합니다. 구현 비용: 낮음–중간.</div>
-            <div class="direction-note note-ledger"><strong>B · Ledger Indigo.</strong> 따뜻한 paper neutral과 indigo가 문서 검토의 안정감을 줍니다. 장문 ADR에는 편하지만, runtime trace의 긴급도와 기술적 정밀감은 A보다 약합니다. 구현 비용: 낮음.</div>
+            <div class="direction-note note-signal"><strong>A · Signal Graphite.</strong> 가장 중립적인 graphite surface에 teal/cyan을 탐색·선택 신호로만 사용합니다. 상태색과 브랜드색이 충돌하지 않고, 고밀도 review 정보의 위계를 가장 조용하게 유지합니다. 구현 비용: 낮음–중간.</div>
+            <div class="direction-note note-ledger"><strong>B · Ledger Indigo — 색상 방향 승인 · UI/UX는 M5에서 이어서 설계.</strong> 따뜻한 paper neutral과 indigo가 문서 검토의 안정감을 줍니다. 현재 화면 구조와 글쓰기 방식은 M5 참고 시안이며 승인된 제품 계약이 아닙니다. 구현 비용: 낮음.</div>
             <div class="direction-note note-slate"><strong>C · Slate Violet.</strong> 차가운 slate와 violet이 trace·instrumentation 성격을 선명하게 만듭니다. 기술 화면에는 강하지만, warning/danger가 많은 화면에서는 색 경쟁이 커질 수 있습니다. 구현 비용: 중간.</div>
 
             <footer class="screen-footer"><span>Fixture: m0-06-store-probe-2026-09-04</span><span>Not a completion claim</span></footer>
@@ -1349,27 +1268,29 @@
             <header class="page-header">
               <div>
                 <p class="eyebrow">Harness Status / Contract checks</p>
-                <h1 id="harness-title">통제 단계와 근거 방식을 따로 봅니다</h1>
-                <p class="lede">Configured·Loaded·Enforced는 “어디까지 실현됐는가”이고, Observed·Inferred·Unobserved는 “무엇으로 아는가”입니다. 하나의 상태 Badge로 합치지 않습니다.</p>
+                <h1 id="harness-title">준비한 것과 실제 작동한 것을 나눠 봅니다</h1>
+                <p class="lede">규칙을 써 둔 것만으로 실제로 막았다고 말하지 않습니다.</p>
               </div>
-              <div class="actions"><a class="button" href="../../adr/0002-control-validation-evidence-model.md">Schema 검토</a></div>
+              <div class="actions"><a class="button" href="../../adr/0002-control-validation-evidence-model.md">판정 규칙 보기</a></div>
             </header>
 
             <div class="decision-strip">
               <div>
-                <strong>지금 할 일: Enforced가 비어 있는 경로부터 확인하세요.</strong>
-                <p>Configured가 통과해도 실제 경계가 강제됐다고 주장하지 않습니다.</p>
+                <strong>지금 할 일: 아직 실제로 막아 보지 않은 항목을 확인하세요.</strong>
+                <p>준비됨과 작동 확인을 같은 뜻으로 표시하지 않습니다.</p>
               </div>
-              <span class="state-line">3 independent checks</span>
+              <span class="state-line">세 단계로 확인</span>
             </div>
 
-            <div class="status-summary" aria-label="Harness 상태 요약">
-              <div class="summary-cell"><strong>4</strong><span>검토 중인 Control</span></div>
-              <div class="summary-cell"><strong>5 / 12</strong><span>Observed check result</span></div>
-              <div class="summary-cell"><strong>0</strong><span>Enforced로 확인된 경계</span></div>
-            </div>
+            <section class="at-a-glance" aria-label="한눈에 보기">
+              <article class="glance-card"><span class="glance-label">준비됨</span><strong>규칙 4개</strong><p>저장·원본·안전 설정·디자인 기준이 있습니다.</p></article>
+              <article class="glance-card"><span class="glance-label">실제 확인</span><strong>12개 중 5개</strong><p>직접 확인한 결과만 셌습니다.</p></article>
+              <article class="glance-card"><span class="glance-label">아직 안 됨</span><strong>실제 차단 0개</strong><p>제품 실행 전이라 강제 동작은 확인하지 않았습니다.</p></article>
+            </section>
 
-            <div class="control-table-wrap">
+            <details class="progressive-detail">
+              <summary>전체 통제표 보기</summary>
+              <div class="control-table-wrap">
               <table class="control-table">
                 <thead>
                   <tr><th>Control</th><th>Configured</th><th>Loaded</th><th>Enforced</th><th>다음 Probe</th></tr>
@@ -1397,7 +1318,7 @@
                     <td><a class="evidence-link" href="#evidence-panel">Version 근거</a></td>
                   </tr>
                   <tr>
-                    <td><span class="control-name">M5 Brand 승인 Gate</span><span class="control-id">CTL-DESIGN-004</span></td>
+                    <td><span class="control-name">M5 UI/UX 승인 Gate</span><span class="control-id">CTL-DESIGN-004</span></td>
                     <td><span class="check-result pass">✓ PASS</span><span class="basis"><span class="basis-symbol" aria-hidden="true">◉</span><span><strong>Observed</strong><br>Issue #8 계약</span></span></td>
                     <td><span class="check-result not-run">○ NOT RUN</span><span class="basis"><span class="basis-symbol" aria-hidden="true">?</span><span><strong>Unobserved</strong><br>M5 미착수</span></span></td>
                     <td><span class="check-result not-run">○ NOT RUN</span><span class="basis"><span class="basis-symbol" aria-hidden="true">?</span><span><strong>Unobserved</strong><br>자동 Gate 없음</span></span></td>
@@ -1405,12 +1326,16 @@
                   </tr>
                 </tbody>
               </table>
-            </div>
+              </div>
+            </details>
 
-            <div class="status-key">
-              <section class="key-panel"><h2>실현 단계</h2><p><strong>Configured</strong>는 정의됨, <strong>Loaded</strong>는 현재 실행이 읽음, <strong>Enforced</strong>는 위반 시도가 실제로 막힘을 뜻합니다.</p></section>
-              <section class="key-panel"><h2>근거 방식</h2><p><strong>◉ Observed</strong>는 직접 관찰, <strong>△ Inferred</strong>는 제한된 추론, <strong>? Unobserved</strong>는 관찰하지 못함입니다. 색 대신 기호와 글자를 함께 씁니다.</p></section>
-            </div>
+            <details class="progressive-detail">
+              <summary>용어 뜻 보기</summary>
+              <div class="status-key">
+                <section class="key-panel"><h2>어디까지 작동했나요?</h2><p><strong>Configured</strong>는 정의됨, <strong>Loaded</strong>는 현재 실행이 읽음, <strong>Enforced</strong>는 위반 시도가 실제로 막힘을 뜻합니다.</p></section>
+                <section class="key-panel"><h2>무엇을 보고 아나요?</h2><p><strong>◉ Observed</strong>는 직접 관찰, <strong>△ Inferred</strong>는 제한된 추론, <strong>? Unobserved</strong>는 아직 관찰하지 못했다는 뜻입니다.</p></section>
+              </div>
+            </details>
 
             <footer class="screen-footer"><span>Schema candidate · ADR-0002 Proposed</span><span>Configured ≠ Enforced</span></footer>
           </section>
@@ -1419,18 +1344,20 @@
             <header class="page-header">
               <div>
                 <p class="eyebrow">Evidence Detail / EV-M0-06-PROBE</p>
-                <h1 id="evidence-title">합성 저장 Probe에서 확인한 범위</h1>
-                <p class="lede">선택 Evidence의 결과·출처·한계를 한 화면에서 확인합니다. 원시 출력은 필요한 경우에만 펼칩니다.</p>
+                <h1 id="evidence-title">이 시험에서 확인된 것</h1>
+                <p class="lede">작은 시험은 통과했습니다. 실제 제품 환경의 안전까지 확인한 것은 아닙니다.</p>
               </div>
               <div class="actions"><a class="button" href="#task-panel">Task Review로 돌아가기</a></div>
             </header>
 
-            <div class="evidence-hero">
-              <section class="evidence-summary" aria-labelledby="evidence-conclusion">
-                <p class="eyebrow">결론 · ◉ Observed</p>
-                <h2 id="evidence-conclusion">여섯 합성 검사는 통과했습니다. Production 안전은 아직 주장할 수 없습니다.</h2>
-                <p>단일 process와 로컬 APFS에서 rollback·idempotency·hash·Projection·Git 제외·integrity를 관찰했습니다. 실제 장애 조건은 별도 Evidence가 필요합니다.</p>
-              </section>
+            <section class="at-a-glance" aria-label="한눈에 보기">
+              <article class="glance-card"><span class="glance-label">결론</span><strong>합성 검사 6개 통과</strong><p>정해 둔 작은 시험 범위의 결과입니다.</p></article>
+              <article class="glance-card"><span class="glance-label">근거</span><strong>직접 관찰함</strong><p>실행 결과와 저장 파일을 확인했습니다.</p></article>
+              <article class="glance-card"><span class="glance-label">한계</span><strong>실제 장애는 모름</strong><p>운영 환경의 안전을 뜻하지 않습니다.</p></article>
+            </section>
+
+            <details class="progressive-detail">
+              <summary>출처와 실행 환경 보기</summary>
               <dl class="provenance">
                 <div><dt>Collected</dt><dd>2026-09-04 KST</dd></div>
                 <div><dt>Method</dt><dd>safe synthetic probe</dd></div>
@@ -1438,30 +1365,36 @@
                 <div><dt>Commit</dt><dd>ba7394f… local only</dd></div>
                 <div><dt>Raw</dt><dd>temporary / deleted</dd></div>
               </dl>
-            </div>
+            </details>
 
-            <h2>검사 결과</h2>
-            <ul class="result-list">
-              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>미완료 transaction은 Event로 보이지 않음</strong><span>partial_write_rollback=passed</span></span><span class="result-basis">◉ Observed</span></li>
-              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>동일 Event ID 재전송은 중복 row를 만들지 않음</strong><span>duplicate_event_idempotency=passed</span></span><span class="result-basis">◉ Observed</span></li>
-              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>Raw Evidence file과 catalog hash가 일치</strong><span>evidence_content_hash=passed</span></span><span class="result-basis">◉ Observed</span></li>
-              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>Canonical Event에서 Projection을 재생성함</strong><span>projection_rebuild=passed</span></span><span class="result-basis">◉ Observed</span></li>
-              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>지정 Raw Evidence 경로가 Git에서 제외됨</strong><span>raw_evidence_git_exclusion=passed</span></span><span class="result-basis">◉ Observed</span></li>
-              <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>합성 SQLite catalog integrity 검사 통과</strong><span>integrity_check=ok</span></span><span class="result-basis">◉ Observed</span></li>
-            </ul>
+            <details class="progressive-detail">
+              <summary>검사 6개 모두 보기</summary>
+              <div>
+                <ul class="result-list">
+                  <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>미완료 transaction은 Event로 보이지 않음</strong><span>partial_write_rollback=passed</span></span><span class="result-basis">◉ Observed</span></li>
+                  <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>동일 Event ID 재전송은 중복 row를 만들지 않음</strong><span>duplicate_event_idempotency=passed</span></span><span class="result-basis">◉ Observed</span></li>
+                  <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>Raw Evidence file과 catalog hash가 일치</strong><span>evidence_content_hash=passed</span></span><span class="result-basis">◉ Observed</span></li>
+                  <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>Canonical Event에서 Projection을 재생성함</strong><span>projection_rebuild=passed</span></span><span class="result-basis">◉ Observed</span></li>
+                  <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>지정 Raw Evidence 경로가 Git에서 제외됨</strong><span>raw_evidence_git_exclusion=passed</span></span><span class="result-basis">◉ Observed</span></li>
+                  <li class="result-row"><span class="result-icon" aria-hidden="true">✓</span><span class="result-main"><strong>합성 SQLite catalog integrity 검사 통과</strong><span>integrity_check=ok</span></span><span class="result-basis">◉ Observed</span></li>
+                </ul>
+              </div>
+            </details>
 
-            <h2>아직 확인하지 않은 경로</h2>
-            <div class="limits">
-              <div class="limit-item"><strong>? 실제 전원 손실</strong>process 종료가 아닌 host-level interruption은 미관찰입니다.</div>
-              <div class="limit-item"><strong>? Disk full</strong>database와 object 사이 실패 순서는 미관찰입니다.</div>
-              <div class="limit-item"><strong>? Concurrent writer</strong>single-writer queue 구현 전이므로 미관찰입니다.</div>
-              <div class="limit-item"><strong>? Large blob</strong>대형 Raw Evidence의 성능·복구는 미관찰입니다.</div>
-              <div class="limit-item"><strong>? Retention race</strong>공유 hash의 보존·삭제 경합은 미관찰입니다.</div>
-              <div class="limit-item"><strong>? Encryption</strong>at-rest 적용과 key lifecycle은 미결정입니다.</div>
-            </div>
+            <details class="progressive-detail">
+              <summary>아직 모르는 것은 무엇인가요?</summary>
+              <div class="limits">
+                <div class="limit-item"><strong>? 실제 전원 손실</strong>process 종료가 아닌 host-level interruption은 미관찰입니다.</div>
+                <div class="limit-item"><strong>? Disk full</strong>database와 object 사이 실패 순서는 미관찰입니다.</div>
+                <div class="limit-item"><strong>? Concurrent writer</strong>single-writer queue 구현 전이므로 미관찰입니다.</div>
+                <div class="limit-item"><strong>? Large blob</strong>대형 Raw Evidence의 성능·복구는 미관찰입니다.</div>
+                <div class="limit-item"><strong>? Retention race</strong>공유 hash의 보존·삭제 경합은 미관찰입니다.</div>
+                <div class="limit-item"><strong>? Encryption</strong>at-rest 적용과 key lifecycle은 미결정입니다.</div>
+              </div>
+            </details>
 
-            <details>
-              <summary>Raw Probe 출력 펼치기</summary>
+            <details class="progressive-detail">
+              <summary>기술 세부정보 보기</summary>
               <pre>sqlite_version=3.51.0
 journal_mode=delete
 partial_write_rollback=passed
@@ -1470,19 +1403,13 @@ evidence_content_hash=passed
 projection_rebuild=passed
 raw_evidence_git_exclusion=passed
 integrity_check=ok</pre>
-            </details>
-            <details>
-              <summary>Evidence 연결 펼치기</summary>
               <div>
                 <p><strong>Diff:</strong> local commit <code>ba7394f…</code></p>
                 <p><strong>Trace:</strong> synthetic Event <code>event-001</code> / <code>event-002</code></p>
                 <p><strong>Test:</strong> <a href="../../spikes/probes/m0-06-store-probe.sh">m0-06-store-probe.sh</a></p>
                 <p><strong>Control:</strong> <code>.dev-harness/</code> and <code>docs/spikes/raw/</code> ignore rule</p>
+                <p><strong>판정 한계:</strong> 이 근거로 말할 수 있는 것은 “정의한 합성 검사 범위에서 통과”까지입니다. “안전함”, “회귀 없음”, “완전히 통제됨”은 말할 수 없습니다.</p>
               </div>
-            </details>
-            <details>
-              <summary>판정 문구 제한 펼치기</summary>
-              <div>이 Evidence로 말할 수 있는 것은 “정의한 합성 검사 범위에서 통과”까지입니다. “안전함”, “회귀 없음”, “완전히 통제됨”은 말할 수 없습니다.</div>
             </details>
 
             <footer class="screen-footer"><span>Evidence basis: Observed</span><span>Raw Evidence remains local</span></footer>

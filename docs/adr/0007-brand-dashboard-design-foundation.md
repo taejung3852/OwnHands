@@ -1,9 +1,9 @@
 # ADR-0007 — Brand & Dashboard Design Foundation
 
-- **상태:** Proposed — 사용자 검토 대기
+- **상태:** Accepted — B 색상 방향만 승인, UI/UX는 M5로 이관
 - **일자:** 2026-09-04
 - **관련 Issue:** [M0-07](https://github.com/taejung3852/devharness/issues/8)
-- **Gate:** M1~M4 Non-blocking, M5 Production Dashboard 전에 승인 필수
+- **Gate:** M1~M4 Non-blocking, M5 Production Dashboard 전에 UI/UX 별도 승인 필수
 
 ## Context
 
@@ -11,25 +11,29 @@ DevHarness는 AI 작업 뒤 사람이 겪는 이해·검토·판단 병목을 �
 
 M5 전에 브랜드·시각 위계·접근성·drill-down 구조를 실제 DevHarness Fixture로 비교하지 않으면, Core schema와 무관한 UI 또는 하드코딩된 성공 화면을 먼저 만들 위험이 있다.
 
-## Proposed Decision
+## Accepted Decision — M0 색상 범위
 
-1. 브랜드 기준안으로 **Graphite Neutral + Signal Teal/Cyan**을 사용한다.
-2. Brand Accent는 탐색·선택·주요 행동에만 사용하고 Pass/Warning/Danger 상태색과 분리한다.
-3. Dashboard 정보 구조는 `Change → Checks → Evidence → Decision`을 사용한다.
-4. 조사 경로는 `Summary → Trace/Flow → Selected Evidence`를 사용한다.
-5. Project/Harness 집계와 개별 Task/Trace 상세를 분리한다.
-6. Task Review는 `무엇이 바뀜 / 왜 중요함 / 근거 / 다음 행동` 순서와 Evidence link를 사용한다.
-7. Raw Diff, log, raw output은 Progressive Disclosure 뒤에 둔다.
-8. Control 실현 단계와 Evidence basis를 별도 축으로 표시한다. Observed/Inferred/Unobserved를 여섯 색 Badge로 만들지 않는다.
-9. 변경 관계는 색뿐 아니라 `= / + / − / ?` 기호와 label로 구분한다.
-10. UI 본문 font 후보는 Pretendard Variable, code/hash/timestamp 후보는 Geist Mono로 한다. Production bundling과 license notice는 M5 전 별도 검증한다.
-11. M5는 이 시안 code를 복사하지 않고 실제 Event → Evidence → Guarantee → Dashboard vertical slice로 구현한다.
+1. DevHarness의 Dashboard 색상 방향은 **B — Warm Paper Neutral + Ledger Indigo**로 정한다.
+2. Brand Accent는 탐색·선택·주요 행동에 사용하고 Pass/Warning/Danger 상태색과 구분한다.
+3. 현재 Light/Dark token은 M5의 출발점으로 사용한다. 접근성 검증에 필요한 미세 조정은 B 방향을 바꾸는 것으로 보지 않는다.
+4. 현재 HTML, 문구, 화면 구조, disclosure 방식과 component 표현은 **참고 시안**이며 이 결정에 포함하지 않는다.
+
+## Deferred to M5 — UI/UX 설계
+
+- 첫 화면의 정보량과 정보 위계
+- 쉬운 말 요약과 질문형 상세 공개 방식
+- Project/Harness 집계와 Task/Trace 상세의 탐색 구조
+- Evidence link, 표, Diagram, Raw output의 component 계약
+- font, icon, component library/framework, 반응형 동작
+- theme preference 저장과 system theme 동기화
+- 실제 사용자 과업과 screen reader 검증
+- 실제 Event → Evidence → Guarantee → Dashboard vertical slice 구현
 
 ## Alternatives
 
-### B — Ledger Indigo
+### A — Signal Graphite
 
-Warm paper neutral과 indigo는 ADR·문서 검토에는 안정적이지만, runtime trace와 미검증 경로의 긴장감이 기준안보다 약하다.
+Graphite neutral과 teal/cyan은 상태색 분리가 선명하고 고밀도 기술 화면에 유리하지만, 현재 사용자는 B의 따뜻한 문서 검토 감각을 더 선호했다.
 
 ### C — Slate Violet
 
@@ -45,11 +49,10 @@ Cool slate와 violet은 instrumentation 성격이 강하지만, warning/danger�
 
 ## Consequences
 
-- Dashboard의 첫 화면이 telemetry 양보다 사람의 결정 행동을 우선한다.
 - Brand와 status semantic token이 분리되어 판정 오독 위험을 줄인다.
-- 동일 schema를 Light/Dark에 적용하고, 최소 contrast와 focus contract를 유지해야 한다.
-- Evidence link와 Progressive Disclosure가 component contract가 된다.
-- 실제 사용자 과업 시간과 screen reader 사용성은 M5 전/중 추가 Evidence가 필요하다.
+- M5는 B 색상 방향과 현재 시안을 출발점으로 사용하되, 정보 구조나 상호작용을 그대로 복사할 의무가 없다.
+- Light/Dark contrast와 focus는 M5 UI/UX 설계에서 다시 검증한다.
+- 현재 시안의 글쓰기·disclosure 방식은 유용한 가설일 뿐 승인된 제품 계약이 아니다.
 
 ## Evidence
 
@@ -59,17 +62,18 @@ Cool slate와 violet은 instrumentation 성격이 강하지만, warning/danger�
 - [Probe 결과](../design/m0-07/probe-results.md)
 - `screenshots/`: 세 방향 × Light/Dark × 세 화면 18개
 
-Static Probe는 54개 contrast pair, 동일 Fixture, screen/interaction 계약을 검사했다. Browser Probe는 18개 상태를 320/390/1440 px에서 검사해 document horizontal overflow 0을 관찰했다. Diagram Design self-check도 통과했다.
+Static Probe는 B 기본값, M5 UI/UX 이관 문구, 세 화면의 참고용 한눈에 보기, 질문형 disclosure, 54개 contrast pair, 동일 Fixture 계약을 검사했다. Browser Probe는 18개 상태를 320/390/1440 px에서 검사해 document horizontal overflow 0을 관찰했다. Diagram Design self-check도 통과했다. 이 결과는 참고 시안 품질 Evidence이며 UI/UX 승인 Evidence가 아니다.
 
 ## Not decided here
 
 - 최종 제품명, logo, icon set, illustration
+- M5 정보 구조, 문구, 탐색, disclosure와 component 계약
 - Production component library/framework
 - 최종 font file bundling과 subset 전략
 - user preference persistence와 system theme 동기화
 - 실제 사용자 과업 성공률·시간 기준
 - M5 Production UI 구현 승인
 
-## Approval condition
+## Approval record
 
-사용자가 A/B/C 중 방향을 승인하거나 수정안을 승인해야 이 ADR을 Accepted로 바꿀 수 있다. 시안 제출만으로 Issue #8을 닫지 않는다.
+2026-09-04 사용자가 현재 시안의 **B 색상 방향을 확정**하고, UI/UX 설계는 M5에서 현재 시안을 이어서 진행하도록 결정했다. 따라서 이 ADR은 색상 범위에 한해 Accepted다. 이 승인은 원격 Issue #8 종료, M5 구현 시작, 현재 화면 구조·글쓰기 방식 승인을 뜻하지 않는다.
