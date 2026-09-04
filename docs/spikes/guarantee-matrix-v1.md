@@ -112,6 +112,7 @@ docs/spikes/probes/m0-04-guarantee-matrix-probe.sh
 json_syntax=passed
 schema_empty_claim_results_rejected=passed
 schema_exact_duplicate_claim_rejected=passed
+schema_distinct_duplicate_claim_id_requires_gate=passed
 core_category_coverage=passed
 unique_claim_mapping=passed
 unique_requirement_mapping=passed
@@ -170,7 +171,7 @@ Probe는 다음을 확인했다.
 | requirement ID 중복 | 허용 | 거부 |
 | 동일 Control의 pass/fail Validation record | 허용 | 거부 |
 
-추가한 Report envelope 네 fixture의 RED/GREEN 결과는 다음과 같다. RED gate는 envelope 검사를 추가하기 전의 실제 Probe였고 네 fixture를 모두 허용했다. Schema RED는 `minItems`와 `uniqueItems`를 추가하기 전 schema를 같은 pinned Ajv로 검사한 결과로, 빈 배열과 완전히 동일한 객체 중복이 모두 `valid`였다.
+추가한 Report envelope 네 fixture의 RED/GREEN 결과는 다음과 같다. RED gate는 envelope 검사를 추가하기 전의 실제 Probe였고 네 fixture를 모두 허용했다. Schema RED는 `minItems`와 `uniqueItems`를 추가하기 전 schema를 같은 pinned Ajv로 검사한 결과로, 빈 배열과 완전히 동일한 객체 중복이 모두 `valid`였다. 수정 후 schema도 내용이 다른 동일 `claim_id` 객체는 구조적으로 허용하며, 이 한계를 별도 positive check로 고정한 뒤 Matrix-aware gate가 거부하게 했다.
 
 | Adversarial fixture | 변경 전 RED에서 관찰 | 변경 후 기대·결과 |
 |---|---|---|

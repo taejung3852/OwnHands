@@ -14,8 +14,10 @@ fixtures="$repo_root/docs/spikes/guarantee-matrix-fixtures.json"
 schema_fixture_dir="$(mktemp -d)"
 empty_claim_results_fixture="$schema_fixture_dir/empty-claim-results.json"
 duplicate_claim_result_fixture="$schema_fixture_dir/duplicate-claim-result.json"
+distinct_duplicate_claim_id_fixture="$schema_fixture_dir/distinct-duplicate-claim-id.json"
 cleanup_schema_fixtures() {
-  unlink "$empty_claim_results_fixture" "$duplicate_claim_result_fixture" 2>/dev/null || true
+  unlink "$empty_claim_results_fixture" "$duplicate_claim_result_fixture" \
+    "$distinct_duplicate_claim_id_fixture" 2>/dev/null || true
   rmdir "$schema_fixture_dir" 2>/dev/null || true
 }
 trap cleanup_schema_fixtures EXIT
@@ -43,8 +45,11 @@ jq -e . "$matrix" "$matrix_schema" "$control_schema" "$control_example" "$report
 validate_report_schema "$report_example" >/dev/null
 jq '.claim_results = []' "$report_example" >"$empty_claim_results_fixture"
 jq '.claim_results += [.claim_results[0]]' "$report_example" >"$duplicate_claim_result_fixture"
+jq '.claim_results += [(.claim_results[0] | .scope += " — 다른 객체") ]' \
+  "$report_example" >"$distinct_duplicate_claim_id_fixture"
 expect_report_schema_rejection "$empty_claim_results_fixture"
 expect_report_schema_rejection "$duplicate_claim_result_fixture"
+validate_report_schema "$distinct_duplicate_claim_id_fixture" >/dev/null
 
 jq -e 'all(.report_contract_fixtures[];
   (.matrix_version | type) == "string" and
@@ -308,6 +313,7 @@ jq -n -e \
 printf 'json_syntax=passed\n'
 printf 'schema_empty_claim_results_rejected=passed\n'
 printf 'schema_exact_duplicate_claim_rejected=passed\n'
+printf 'schema_distinct_duplicate_claim_id_requires_gate=passed\n'
 printf 'core_category_coverage=passed\n'
 printf 'unique_claim_mapping=passed\n'
 printf 'unique_requirement_mapping=passed\n'
