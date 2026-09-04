@@ -53,6 +53,7 @@ class ProjectionEngine:
             ("evidence.recorded", 1): self._evidence_recorded,
             ("evidence.purged", 1): self._evidence_purged,
             ("guarantee.evaluated", 1): self._guarantee_evaluated,
+            ("control.validation.recorded", 1): self._control_validation_recorded,
         }
 
     def project(self, task_id: str) -> ProjectionStatus:
@@ -206,6 +207,11 @@ class ProjectionEngine:
         report_ids = projection["guarantee"]["report_ids"]
         if report_id not in report_ids:
             report_ids.append(report_id)
+
+    @staticmethod
+    def _control_validation_recorded(_projection: dict, payload: dict) -> None:
+        if not payload["record_id"]:
+            raise ValueError("control validation record_id is required")
 
     @staticmethod
     def _canonical_json(value: object) -> str:

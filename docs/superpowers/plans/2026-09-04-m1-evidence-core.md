@@ -21,6 +21,8 @@
 - Raw Evidence와 임시 검증 자료는 Git에 commit하지 않는다.
 - Configured / Loaded / Enforced와 Observed / Inferred / Unobserved를 합치지 않는다.
 - M5 Production UI를 만들지 않는다. M1 view는 실제 fixture 결과를 확인하는 최소 review artifact다.
+- M1 병합 뒤에는 M2가 아니라 M1.5 #16~#21을 수행하고, Proposed ADR의 사용자 승인 전 M2 Production 구현을 시작하지 않는다.
+- M0 `control_type`은 호환 경계로만 사용한다. Hook·Context·MCP·Test를 임의로 같은 최종 taxonomy에 넣지 않는다.
 
 ---
 

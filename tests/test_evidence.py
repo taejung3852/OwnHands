@@ -97,7 +97,15 @@ class EvidenceStoreTests(unittest.TestCase):
         self.assertEqual(first, self.store.put(self.draft, redact_bytes))
         with self.assertRaisesRegex(EvidenceConflict, "different content"):
             self.store.put(replace(self.draft, result="fail"), redact_bytes)
+        with self.assertRaisesRegex(EvidenceConflict, "different content"):
+            self.store.put(
+                replace(self.draft, content=b"different evidence bytes"), redact_bytes
+            )
         self.assertEqual(1, len(self.store.list_for_task(self.task.task_id)))
+        self.assertEqual(
+            1,
+            len([path for path in self.paths.objects.rglob("*") if path.is_file()]),
+        )
 
     def test_required_metadata_and_authoritative_resolution(self) -> None:
         record = self.store.put(self.draft, redact_bytes)
@@ -116,6 +124,15 @@ class EvidenceStoreTests(unittest.TestCase):
                     self.draft,
                     evidence_id="sensitive-fields",
                     fields={"api_token": "do-not-store"},
+                ),
+                redact_bytes,
+            )
+        with self.assertRaisesRegex(ValueError, "sensitive field"):
+            self.store.put(
+                replace(
+                    self.draft,
+                    evidence_id="nested-sensitive-fields",
+                    fields={"request": {"authorization": "do-not-store"}},
                 ),
                 redact_bytes,
             )

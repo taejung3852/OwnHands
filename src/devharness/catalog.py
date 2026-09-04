@@ -127,6 +127,8 @@ class Catalog:
                 redaction_status TEXT NOT NULL CHECK(
                     redaction_status IN ('not_needed', 'redacted', 'reference_only')
                 ),
+                inference_from_json TEXT NOT NULL DEFAULT '[]',
+                conflict_refs_json TEXT NOT NULL DEFAULT '[]',
                 fingerprint TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 purged_at TEXT,
@@ -153,6 +155,17 @@ class Catalog:
                 last_error TEXT,
                 updated_at TEXT NOT NULL
             ) STRICT;
+
+            CREATE TABLE IF NOT EXISTS control_validations (
+                record_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(task_id),
+                record_json TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            ) STRICT;
+
+            CREATE INDEX IF NOT EXISTS control_validations_task
+            ON control_validations(task_id);
             COMMIT;
             """
         )

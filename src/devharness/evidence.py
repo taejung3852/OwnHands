@@ -49,6 +49,8 @@ class EvidenceDraft:
     content: bytes
     collection_method: str
     redaction_status: str
+    inference_from: tuple[str, ...] = ()
+    conflict_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,8 @@ class EvidenceRecord:
     content_size: int
     collection_method: str
     redaction_status: str
+    inference_from: tuple[str, ...]
+    conflict_refs: tuple[str, ...]
     created_at: str
     purged_at: str | None
     purge_reason: str | None
@@ -112,72 +116,96 @@ class EvidenceStore:
         content_hash = hashlib.sha256(redacted).hexdigest()
         object_relpath = f"{content_hash[:2]}/{content_hash[2:]}"
         object_path = self.catalog.paths.objects / object_relpath
-        self._write_object(object_path, redacted, content_hash)
         created_at = _now()
         fingerprint = self._fingerprint(draft, content_hash)
 
-        with self.catalog.transaction() as connection:
-            existing = connection.execute(
-                "SELECT * FROM evidence WHERE evidence_id=?", (draft.evidence_id,)
-            ).fetchone()
-            if existing is not None:
-                if existing["fingerprint"] != fingerprint:
-                    raise EvidenceConflict(
-                        f"evidence_id {draft.evidence_id!r} already has different content"
-                    )
-                return self._from_row(existing)
+        existing = self.catalog.connection.execute(
+            "SELECT * FROM evidence WHERE evidence_id=?", (draft.evidence_id,)
+        ).fetchone()
+        if existing is not None:
+            if existing["fingerprint"] != fingerprint:
+                raise EvidenceConflict(
+                    f"evidence_id {draft.evidence_id!r} already has different content"
+                )
+            return self._from_row(existing)
 
-            connection.execute(
-                """
-                INSERT INTO evidence(
-                    evidence_id, task_id, requirement_id, evidence_type,
-                    subject_ref, exact_scope, result, basis, fields_json,
-                    content_hash, object_relpath, content_size, collection_method,
-                    redaction_status, fingerprint, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    draft.evidence_id,
-                    draft.task_id,
-                    draft.requirement_id,
-                    draft.evidence_type,
-                    draft.subject_ref,
-                    draft.exact_scope,
-                    draft.result,
-                    draft.basis,
-                    self._canonical_json(draft.fields),
-                    content_hash,
-                    object_relpath,
-                    len(redacted),
-                    draft.collection_method,
-                    draft.redaction_status,
-                    fingerprint,
-                    created_at,
-                ),
-            )
-            self.events.append_in_transaction(
-                EventDraft(
-                    event_id=f"evidence-recorded:{draft.evidence_id}",
-                    task_id=draft.task_id,
-                    event_type="evidence.recorded",
-                    event_version=1,
-                    occurred_at=created_at,
-                    payload={
-                        "evidence_id": draft.evidence_id,
-                        "requirement_id": draft.requirement_id,
-                        "evidence_type": draft.evidence_type,
-                        "content_hash": content_hash,
-                    },
-                    collection_method="evidence-store",
-                    redaction_status="reference_only",
-                ),
-                _identity_payload,
-                connection,
-            )
-            row = connection.execute(
-                "SELECT * FROM evidence WHERE evidence_id=?", (draft.evidence_id,)
-            ).fetchone()
-            return self._from_row(row)
+        created_object = self._write_object(object_path, redacted, content_hash)
+
+        try:
+            with self.catalog.transaction() as connection:
+                existing = connection.execute(
+                    "SELECT * FROM evidence WHERE evidence_id=?", (draft.evidence_id,)
+                ).fetchone()
+                if existing is not None:
+                    if existing["fingerprint"] != fingerprint:
+                        raise EvidenceConflict(
+                            f"evidence_id {draft.evidence_id!r} already has different content"
+                        )
+                    return self._from_row(existing)
+
+                connection.execute(
+                    """
+                    INSERT INTO evidence(
+                        evidence_id, task_id, requirement_id, evidence_type,
+                        subject_ref, exact_scope, result, basis, fields_json,
+                        content_hash, object_relpath, content_size, collection_method,
+                        redaction_status, inference_from_json, conflict_refs_json,
+                        fingerprint, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        draft.evidence_id,
+                        draft.task_id,
+                        draft.requirement_id,
+                        draft.evidence_type,
+                        draft.subject_ref,
+                        draft.exact_scope,
+                        draft.result,
+                        draft.basis,
+                        self._canonical_json(draft.fields),
+                        content_hash,
+                        object_relpath,
+                        len(redacted),
+                        draft.collection_method,
+                        draft.redaction_status,
+                        self._canonical_json(list(draft.inference_from)),
+                        self._canonical_json(list(draft.conflict_refs)),
+                        fingerprint,
+                        created_at,
+                    ),
+                )
+                self.events.append_in_transaction(
+                    EventDraft(
+                        event_id=f"evidence-recorded:{draft.evidence_id}",
+                        task_id=draft.task_id,
+                        event_type="evidence.recorded",
+                        event_version=1,
+                        occurred_at=created_at,
+                        payload={
+                            "evidence_id": draft.evidence_id,
+                            "requirement_id": draft.requirement_id,
+                            "evidence_type": draft.evidence_type,
+                            "content_hash": content_hash,
+                        },
+                        collection_method="evidence-store",
+                        redaction_status="reference_only",
+                    ),
+                    _identity_payload,
+                    connection,
+                )
+                row = connection.execute(
+                    "SELECT * FROM evidence WHERE evidence_id=?", (draft.evidence_id,)
+                ).fetchone()
+                return self._from_row(row)
+        except BaseException:
+            if created_object:
+                references = self.catalog.query_value(
+                    "SELECT COUNT(*) FROM evidence WHERE content_hash=?",
+                    (content_hash,),
+                )
+                if references == 0 and object_path.exists():
+                    object_path.unlink()
+            raise
 
     def resolve(self, evidence_id: str) -> EvidenceRecord:
         row = self.catalog.connection.execute(
@@ -295,23 +323,43 @@ class EvidenceStore:
             raise ValueError("basis is invalid")
         if draft.redaction_status not in REDACTION_STATUSES:
             raise ValueError("redaction_status is invalid")
+        if len(draft.inference_from) != len(set(draft.inference_from)):
+            raise ValueError("inference_from must be unique")
+        if len(draft.conflict_refs) != len(set(draft.conflict_refs)):
+            raise ValueError("conflict_refs must be unique")
+        if draft.basis == "inferred" and not draft.inference_from:
+            raise ValueError("inferred Evidence requires inference_from")
         if not isinstance(draft.fields, dict) or not draft.fields:
             raise ValueError("fields must be a non-empty dictionary")
-        for key in draft.fields:
-            normalized = str(key).lower()
+        for key in EvidenceStore._field_names(draft.fields):
+            normalized = key.lower()
             if any(fragment in normalized for fragment in SENSITIVE_FIELD_FRAGMENTS):
                 raise ValueError(f"sensitive field is not allowed in metadata: {key}")
         if not isinstance(draft.content, bytes):
             raise ValueError("content must be bytes")
 
-    def _write_object(self, path: Path, content: bytes, expected_hash: str) -> None:
+    @staticmethod
+    def _field_names(value: object) -> list[str]:
+        if isinstance(value, dict):
+            return [str(key) for key in value] + [
+                nested
+                for item in value.values()
+                for nested in EvidenceStore._field_names(item)
+            ]
+        if isinstance(value, (list, tuple)):
+            return [
+                nested for item in value for nested in EvidenceStore._field_names(item)
+            ]
+        return []
+
+    def _write_object(self, path: Path, content: bytes, expected_hash: str) -> bool:
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(path.parent, 0o700)
         if path.exists():
             actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
             if actual_hash != expected_hash:
                 raise ValueError("existing evidence object hash mismatch")
-            return
+            return False
 
         descriptor, temporary_name = tempfile.mkstemp(prefix=".incoming-", dir=path.parent)
         temporary_path = Path(temporary_name)
@@ -331,6 +379,7 @@ class EvidenceStore:
         finally:
             if temporary_path.exists():
                 temporary_path.unlink()
+        return True
 
     def _fingerprint(self, draft: EvidenceDraft, content_hash: str) -> str:
         document = asdict(draft)
@@ -367,6 +416,8 @@ class EvidenceStore:
             content_size=row["content_size"],
             collection_method=row["collection_method"],
             redaction_status=row["redaction_status"],
+            inference_from=tuple(json.loads(row["inference_from_json"])),
+            conflict_refs=tuple(json.loads(row["conflict_refs_json"])),
             created_at=row["created_at"],
             purged_at=row["purged_at"],
             purge_reason=row["purge_reason"],
