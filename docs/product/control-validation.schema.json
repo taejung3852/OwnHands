@@ -108,8 +108,8 @@
           "then": {
             "properties": {
               "basis": {"const": "unobserved"},
-              "evidence_refs": {"maxItems": 0},
-              "inference_from": {"maxItems": 0},
+              "evidence_refs": {"type": "array", "maxItems": 0},
+              "inference_from": {"type": "array", "maxItems": 0},
               "checked_at": {"type": "null"}
             }
           }
@@ -121,7 +121,7 @@
           },
           "then": {
             "properties": {
-              "evidence_refs": {"minItems": 1},
+              "evidence_refs": {"type": "array", "minItems": 1},
               "checked_at": {"type": "string", "format": "date-time"}
             }
           }
@@ -133,7 +133,7 @@
           },
           "then": {
             "properties": {
-              "inference_from": {"minItems": 1},
+              "inference_from": {"type": "array", "minItems": 1},
               "checked_at": {"type": "string", "format": "date-time"}
             }
           }

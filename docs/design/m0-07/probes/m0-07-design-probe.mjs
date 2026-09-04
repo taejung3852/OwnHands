@@ -93,7 +93,7 @@ check(count(/id="brand-(signal|ledger|slate)"/g) === 3, "three brand direction c
 check(count(/id="theme-(light|dark)"/g) === 2, "two theme controls required");
 check(count(/class="screen" id="(task|harness|evidence)-panel"/g) === 3, "three dashboard screens required");
 check(count(/id="capture-(signal|ledger|slate)-(light|dark)-(task|harness|evidence)"/g) === 18, "18 capture states required");
-check(count(/data-fixture-id="m0-06-store-probe-2026-09-04"/g) === 1, "fixture must exist once in a shared DOM");
+check(count(/data-fixture-id="m0-06-store-probe-ba7394f-2026-09-04"/g) === 1, "pinned fixture must exist once in a shared DOM");
 check(source.includes("partial_write_rollback=passed"), "fixture must include actual rollback result");
 check(source.includes("integrity_check=ok"), "fixture must include actual integrity result");
 check(source.includes("Production 안전은 아직 주장할 수 없습니다"), "fixture limitations must be explicit");
@@ -133,5 +133,5 @@ console.log(`contrast_pairs_checked=${contrastResults.length}`);
 console.log(`minimum_contrast_ratio=${minimumContrast.toFixed(2)}`);
 console.log(`minimum_text_contrast_ratio=${minimumTextContrast.toFixed(2)}`);
 console.log(`minimum_focus_contrast_ratio=${minimumFocusContrast.toFixed(2)}`);
-console.log("external_runtime_dependencies=0");
-console.log("production_ui_code=0");
+console.log(`remote_stylesheet_references=${remoteReferences.length}`);
+console.log(`executable_script_tags=${count(/<script/g)}`);

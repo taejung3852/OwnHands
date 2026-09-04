@@ -3,7 +3,7 @@
 - **실행일:** 2026-09-04
 - **Browser:** Google Chrome 152.0.7977.76
 - **실행 환경:** macOS, local file prototype
-- **Fixture:** `m0-06-store-probe-2026-09-04`
+- **Fixture:** `m0-06-store-probe-ba7394f-2026-09-04` (여섯-check 고정 snapshot)
 
 ## Static design probe
 
@@ -28,11 +28,13 @@ contrast_pairs_checked=54
 minimum_contrast_ratio=3.82
 minimum_text_contrast_ratio=5.66
 minimum_focus_contrast_ratio=3.82
-external_runtime_dependencies=0
-production_ui_code=0
+remote_stylesheet_references=1
+executable_script_tags=0
 ```
 
 `minimum_contrast_ratio`는 3:1 기준을 적용하는 focus pair를 포함한다. 일반 text와 상태 text에 적용한 4.5:1 기준 pair의 최솟값은 5.66:1이다.
+
+remote stylesheet 한 개는 Google Fonts CSS 후보이며 실행 script나 framework dependency는 없다. 이 Probe는 “Production UI code가 없음”을 자동 판정하지 않는다. 해당 경계는 artifact 위치·목적과 code review로 확인한다.
 
 ## Browser layout probe
 

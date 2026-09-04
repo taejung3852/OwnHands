@@ -3,6 +3,7 @@
     {
       "name": "direct evidence supports a configured claim",
       "claim_id": "GM-001",
+      "task_mode": "managed",
       "realization_results": {
         "configured": {"result": "pass", "basis": "observed"},
         "loaded": {"result": "not_run", "basis": "unobserved"},
@@ -21,6 +22,7 @@
     {
       "name": "file presence cannot support a loaded claim",
       "claim_id": "GM-002",
+      "task_mode": "managed",
       "realization_results": {
         "configured": {"result": "pass", "basis": "observed"},
         "loaded": {"result": "not_run", "basis": "unobserved"},
@@ -39,6 +41,7 @@
     {
       "name": "conflicting test evidence contradicts the claim",
       "claim_id": "GM-013",
+      "task_mode": "managed",
       "realization_results": {
         "configured": {"result": "not_run", "basis": "unobserved"},
         "loaded": {"result": "not_run", "basis": "unobserved"},
@@ -53,6 +56,205 @@
         }
       ],
       "expected_verdict": "contradicted"
+    },
+    {
+      "name": "imported task cannot support a managed-only approval claim",
+      "claim_id": "GM-007",
+      "task_mode": "imported",
+      "realization_results": {
+        "configured": {"result": "pass", "basis": "observed"},
+        "loaded": {"result": "pass", "basis": "observed"},
+        "enforced": {"result": "pass", "basis": "observed"}
+      },
+      "requirement_results": [
+        {
+          "requirement_id": "approval-transaction",
+          "result": "pass",
+          "basis": "observed",
+          "conflict_refs": []
+        }
+      ],
+      "expected_verdict": "not_evaluated"
+    }
+  ],
+  "report_contract_fixtures": [
+    {
+      "name": "supported report with passing evidence and bounded wording",
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [
+        {"result": "pass", "basis": "observed", "conflict_refs": []}
+      ],
+      "control_validation_refs": ["control-validation-passing"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-passing",
+          "checks": {
+            "configured": {"result": "pass", "basis": "observed"},
+            "loaded": {"result": "not_run", "basis": "unobserved"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": [],
+      "permitted_statement": "합성 Control Profile 파일을 생성하고 parse했다",
+      "expected_contract_valid": true
+    },
+    {
+      "name": "supported report cannot hide a failed requirement",
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [
+        {"result": "fail", "basis": "observed", "conflict_refs": []}
+      ],
+      "control_validation_refs": ["control-validation-passing"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-passing",
+          "checks": {
+            "configured": {"result": "pass", "basis": "observed"},
+            "loaded": {"result": "not_run", "basis": "unobserved"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": [],
+      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "supported report cannot hide a requirement conflict",
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [
+        {"result": "pass", "basis": "observed", "conflict_refs": ["evidence-failure"]}
+      ],
+      "control_validation_refs": ["control-validation-passing"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-passing",
+          "checks": {
+            "configured": {"result": "pass", "basis": "observed"},
+            "loaded": {"result": "not_run", "basis": "unobserved"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": ["evidence-failure"],
+      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "supported report cannot use forbidden wording",
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [
+        {"result": "pass", "basis": "observed", "conflict_refs": []}
+      ],
+      "control_validation_refs": ["control-validation-passing"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-passing",
+          "checks": {
+            "configured": {"result": "pass", "basis": "observed"},
+            "loaded": {"result": "not_run", "basis": "unobserved"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": [],
+      "permitted_statement": "통제가 적용됐다",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "supported report requires at least one requirement",
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [],
+      "control_validation_refs": ["control-validation-passing"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-passing",
+          "checks": {
+            "configured": {"result": "pass", "basis": "observed"},
+            "loaded": {"result": "not_run", "basis": "unobserved"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": [],
+      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "supported report rejects a basis outside the matrix allowance",
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [
+        {"result": "pass", "basis": "inferred", "conflict_refs": []}
+      ],
+      "control_validation_refs": ["control-validation-passing"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-passing",
+          "checks": {
+            "configured": {"result": "pass", "basis": "observed"},
+            "loaded": {"result": "not_run", "basis": "unobserved"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": [],
+      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "supported report requires a referenced required control check",
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [
+        {"result": "pass", "basis": "observed", "conflict_refs": []}
+      ],
+      "control_validation_refs": [],
+      "control_validations": [],
+      "conflict_refs": [],
+      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "supported report rejects a failed required control check",
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [
+        {"result": "pass", "basis": "observed", "conflict_refs": []}
+      ],
+      "control_validation_refs": ["control-validation-failed"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-failed",
+          "checks": {
+            "configured": {"result": "fail", "basis": "observed"},
+            "loaded": {"result": "not_run", "basis": "unobserved"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": [],
+      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "non-supported report cannot emit success wording",
+      "claim_id": "GM-002",
+      "verdict": "not_evaluated",
+      "requirement_results": [
+        {"result": "not_run", "basis": "unobserved", "conflict_refs": []}
+      ],
+      "control_validation_refs": [],
+      "control_validations": [],
+      "conflict_refs": [],
+      "permitted_statement": "설정이 로드됐다",
+      "expected_contract_valid": false
     }
   ]
 }

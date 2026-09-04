@@ -37,9 +37,10 @@ Hooks, project config, AGENTS.md는 Managed Task의 보완 Evidence source다. C
 
 - [M0-02 Codex Desktop Integration Spike](../spikes/codex-desktop-integration.md)
 - OpenAI [App Server](https://developers.openai.com/codex/app-server)는 `thread/read`를 resume/subscription 없는 stored thread read로 설명하고, managed client의 turn/item/approval Event를 문서화한다.
+- 같은 App Server 문서는 synchronous lifecycle Hook의 `hook/started`와 `hook/completed` notification을 문서화한다. 설치 CLI 0.153.0의 default generated schema에서도 두 이름을 확인했지만 실제 Hook 실행이나 Desktop-owned Task에서의 수신은 확인하지 않았다.
 - OpenAI [Codex SDK](https://developers.openai.com/codex/codex-sdk)는 SDK를 automation/CI에, custom client Event·approval에는 App Server를 안내한다.
 - OpenAI [Hooks](https://developers.openai.com/codex/hooks)는 local lifecycle 확장과 함께 coverage/failure 한계를 문서화한다.
-- 로컬에서는 CLI 0.153.0의 help만 읽었다. 기존 사용자 Task나 private transcript는 열지 않았다.
+- 로컬에서는 [read-only capability Probe](../spikes/probes/m0-02-03-codex-capability-probe.sh)로 CLI 0.153.0의 help, disposable-CWD stdio `initialize` handshake, default protocol schema를 확인했다. Task/turn은 만들지 않았고 기존 사용자 Task, daemon session 목록, private transcript는 열지 않았다. user/global config를 열거·기록하지 않았지만 App Server의 내부 default layer loading 여부는 확인하지 않았으므로 active config source는 `Unobserved`다.
 
 ## Required M3 probes
 

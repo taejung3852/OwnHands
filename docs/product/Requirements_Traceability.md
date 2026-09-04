@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | 사람의 이해·검토·판단 병목 감소 | Design Rationale, Dashboard | M0-01 기준선 | M5, M6 | Blocked by Evidence |
 | Dashboard와 Control 동등성 | 전체 | M0-01, ADR-0006 | M1~M5 | ADR Review |
-| Managed / Imported Task | Control, Dashboard | M0-04 Claim applicability | M1~M3 | Blocked by Evidence |
+| Managed / Imported Task | Control, Dashboard | M0-04 machine-readable Claim applicability, ADR-0001/0003 | M1~M3 | ADR Review |
 | Project Baseline / Task Overlay / Contract | Control | M0-03 validation semantics | M2 | Blocked by Evidence |
 | Config·AGENTS·Rules·Hooks·Sandbox·Approval | Control | M0-02, M0-03, ADR-0001/0002 | M2, M3 | ADR Review |
 | Configured / Loaded / Enforced 및 Evidence 근거 | 전체 | M0-03, M0-04, ADR-0002/0003 | M1, M3, M5 | ADR Review |

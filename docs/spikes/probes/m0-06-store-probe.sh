@@ -78,6 +78,50 @@ SQL
 partial_count="$(sqlite3 "$db_path" "SELECT count(*) FROM events WHERE event_id = 'event-partial';")"
 test "$partial_count" = "0"
 
+# A killed writer with an open transaction must also recover without exposing its row.
+crash_ready="$probe_dir/crash-ready"
+python3 - "$db_path" "$crash_ready" <<'PY' &
+import sqlite3
+import sys
+import time
+
+database, ready_path = sys.argv[1:]
+connection = sqlite3.connect(database)
+connection.execute("BEGIN IMMEDIATE")
+connection.execute(
+    """
+    INSERT INTO events (
+      event_id, event_version, event_type, project_id, worktree_id, task_id,
+      occurred_at, payload_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+    (
+        "event-crash",
+        1,
+        "tool.started",
+        "project-001",
+        "worktree-main",
+        "task-001",
+        "2026-09-04T00:00:01Z",
+        '{"source":"synthetic-crash"}',
+    ),
+)
+open(ready_path, "w", encoding="utf-8").close()
+time.sleep(60)
+PY
+crash_pid=$!
+
+for _ in {1..100}; do
+  test -f "$crash_ready" && break
+  sleep 0.05
+done
+test -f "$crash_ready"
+kill -KILL "$crash_pid"
+wait "$crash_pid" 2>/dev/null || true
+
+crash_count="$(sqlite3 "$db_path" "SELECT count(*) FROM events WHERE event_id = 'event-crash';")"
+test "$crash_count" = "0"
+
 # Event IDs make repeated delivery idempotent.
 sqlite3 "$db_path" <<'SQL'
 INSERT INTO events (
@@ -144,6 +188,25 @@ projected_count="$(sqlite3 "$db_path" "SELECT event_count FROM task_event_counts
 test "$event_head" = "$projected_sequence"
 test "$projected_count" = "2"
 
+# An unsupported event version must be detectable and must leave the projection stale.
+sqlite3 "$db_path" <<'SQL'
+INSERT INTO events (
+  event_id, event_version, event_type, project_id, worktree_id, task_id,
+  occurred_at, payload_json
+) VALUES (
+  'event-version-unknown', 2, 'future.event', 'project-001', 'worktree-main', 'task-001',
+  '2026-09-04T00:00:03Z', '{"source":"synthetic"}'
+);
+SQL
+
+unknown_version_count="$(sqlite3 "$db_path" "SELECT count(*) FROM events WHERE event_version NOT IN (1);")"
+current_event_head="$(sqlite3 "$db_path" "SELECT max(sequence) FROM events;")"
+test "$unknown_version_count" = "1"
+test "$current_event_head" != "$projected_sequence"
+
+redaction_status="$(sqlite3 "$db_path" "SELECT redaction_status FROM evidence_objects WHERE sha256 = '$raw_hash';")"
+test "$redaction_status" = "synthetic-no-sensitive-data"
+
 # Repository-local pointers and any accidental raw fixtures must remain ignored.
 repo_root="$(git rev-parse --show-toplevel)"
 git -C "$repo_root" check-ignore -q .dev-harness/probe.raw
@@ -155,8 +218,11 @@ test "$sqlite_integrity" = "ok"
 printf 'sqlite_version=%s\n' "$(sqlite3 --version | awk '{print $1}')"
 printf 'journal_mode=%s\n' "$(sqlite3 "$db_path" 'PRAGMA journal_mode;')"
 printf 'partial_write_rollback=passed\n'
+printf 'forced_interruption_recovery=passed\n'
 printf 'duplicate_event_idempotency=passed\n'
 printf 'evidence_content_hash=passed\n'
 printf 'projection_rebuild=passed\n'
+printf 'unknown_event_version_fails_freshness=passed\n'
+printf 'redaction_metadata=passed\n'
 printf 'raw_evidence_git_exclusion=passed\n'
 printf 'integrity_check=%s\n' "$sqlite_integrity"

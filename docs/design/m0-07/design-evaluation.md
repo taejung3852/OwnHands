@@ -1,7 +1,7 @@
 # M0-07 브랜드·Dashboard 시안 평가
 
 - **상태:** 추천안 제출, 사용자 승인 대기
-- **Fixture:** M0-06 Event & Evidence Store 합성 Probe (2026-09-04)
+- **Fixture:** M0-06 Event & Evidence Store 합성 Probe의 `ba7394f` 여섯-check snapshot (2026-09-04)
 - **비교 조건:** 세 방향 모두 같은 DOM, 문구, Fixture, 화면 구조, 상호작용을 사용하고 semantic token만 바꾼다.
 - **Gate:** 이 문서는 M1~M4를 막지 않는다. M5 Production Dashboard는 사용자 승인 전 시작하지 않는다.
 
@@ -15,7 +15,7 @@ Graphite neutral이 많은 검토 정보를 조용하게 받치고, teal/cyan은
 
 ## 동일 Fixture
 
-세 방향에 사용한 값은 M0-06의 실제 합성 Probe 결과다.
+세 방향에 사용한 값은 commit `ba7394f` 시점 M0-06의 실제 합성 Probe 결과다. 이후 추가된 storage checks는 screenshot 비교 대상을 조용히 바꾸지 않기 위해 이 고정 Fixture에 소급 반영하지 않는다.
 
 ```text
 sqlite_version=3.51.0

@@ -129,14 +129,17 @@ docs/spikes/probes/m0-06-store-probe.sh
 sqlite_version=3.51.0
 journal_mode=delete
 partial_write_rollback=passed
+forced_interruption_recovery=passed
 duplicate_event_idempotency=passed
 evidence_content_hash=passed
 projection_rebuild=passed
+unknown_event_version_fails_freshness=passed
+redaction_metadata=passed
 raw_evidence_git_exclusion=passed
 integrity_check=ok
 ```
 
-Probe가 확인한 범위는 합성 row 두 개, 단일 process, 로컬 APFS의 SQLite rollback journal과 hash object다. 실제 power-loss, disk-full, concurrent writer, 대형 blob, retention race, encryption은 **Unobserved**다.
+Probe가 확인한 범위는 합성 row, 강제 종료된 단일 writer process, 로컬 APFS의 SQLite rollback journal과 hash object다. 강제 종료 뒤 미commit row가 보이지 않고 다음 read에서 database가 정상 사용되는 것을 확인했다. 지원하지 않는 Event version을 탐지해 Projection freshness가 성립하지 않는 것과 합성 Evidence의 redaction metadata 보존도 확인했다. 실제 power-loss, disk-full, concurrent writer, 대형 blob, 실제 민감정보 redaction, retention race, encryption은 **Unobserved**다.
 
 ## 남은 위험과 M1 Gate
 

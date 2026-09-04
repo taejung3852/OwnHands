@@ -42,9 +42,23 @@ test "$claim_count" = "$unique_category_count"
 jq -e 'all(.claims[];
   (.required_evidence | length) > 0 and
   (.allowed_basis | length) > 0 and
+  (.applicable_task_modes | length) > 0 and
   (.forbidden_wording | length) > 0 and
   (.residual_risks | length) > 0
 )' "$matrix" >/dev/null
+
+jq -e '
+  ["GM-002", "GM-003", "GM-004", "GM-005", "GM-006", "GM-007", "GM-014"] as $managed_only |
+  all(.claims[]; . as $claim |
+    all($claim.applicable_task_modes[]; . == "managed" or . == "imported") and
+    if ($managed_only | index($claim.claim_id)) != null then
+      $claim.applicable_task_modes == ["managed"]
+    else
+      $claim.applicable_task_modes == ["managed", "imported"]
+    end)
+' "$matrix" >/dev/null
+
+jq -e '.task.mode == "imported"' "$report_example" >/dev/null
 
 if rg -n '"control_state"' "$control_schema" "$matrix_schema" "$report_schema" >/dev/null; then
   printf 'single_control_state=failed\n' >&2
@@ -71,7 +85,9 @@ calculated="$(jq -n --slurpfile matrix "$matrix" --slurpfile fixture_data "$fixt
   def matrix_claim($id): $matrix[0].claims[] | select(.claim_id == $id);
   def calculate($fixture):
     (matrix_claim($fixture.claim_id)) as $claim |
-    if any($fixture.requirement_results[]; (.conflict_refs | length) > 0 or .result == "fail") then
+    if ($claim.applicable_task_modes | index($fixture.task_mode)) == null then
+      "not_evaluated"
+    elif any($fixture.requirement_results[]; (.conflict_refs | length) > 0 or .result == "fail") then
       "contradicted"
     elif any($claim.required_realization_checks[];
       . as $check |
@@ -98,19 +114,54 @@ calculated="$(jq -n --slurpfile matrix "$matrix" --slurpfile fixture_data "$fixt
 
 jq -e 'all(.[]; .expected == .actual)' <<<"$calculated" >/dev/null
 
-jq -e 'all(.claim_results[];
-  if (.verdict == "contradicted" or .verdict == "not_evaluated") then
-    .permitted_statement == null
-  else
-    (.permitted_statement | type == "string" and length > 0)
-  end
-)' "$report_example" >/dev/null
+jq -n -e \
+  --slurpfile matrix "$matrix" \
+  --slurpfile control "$control_example" \
+  --slurpfile report "$report_example" \
+  --slurpfile fixture_data "$fixtures" '
+  def matrix_claim($id): $matrix[0].claims[] | select(.claim_id == $id);
+  def required_controls_valid($result; $claim; $validations):
+    all($claim.required_realization_checks[]; . as $check |
+      any(
+        $result.control_validation_refs[] as $reference |
+        $validations[] |
+        {reference: $reference, validation: .};
+        .validation.record_id == .reference and
+        .validation.checks[$check].result == "pass" and
+        (.validation.checks[$check].basis as $basis |
+          ($claim.allowed_basis | index($basis)) != null)));
+  def report_contract_valid($validations):
+    . as $result |
+    (matrix_claim($result.claim_id)) as $claim |
+    if $result.verdict == "supported" then
+      ($result.requirement_results | length) > 0 and
+      all($result.requirement_results[]; . as $requirement |
+        $requirement.result == "pass" and
+        ($claim.allowed_basis | index($requirement.basis)) != null and
+        ($requirement.conflict_refs | length) == 0) and
+      ($result.conflict_refs | length) == 0 and
+      ($result.permitted_statement | type == "string" and length > 0) and
+      all($claim.forbidden_wording[]; . as $forbidden |
+        ($result.permitted_statement | contains($forbidden) | not)) and
+      required_controls_valid($result; $claim; $validations)
+    elif $result.verdict == "contradicted" or $result.verdict == "not_evaluated" then
+      $result.permitted_statement == null
+    else
+      false
+    end;
+  all($report[0].claim_results[]; report_contract_valid([$control[0]])) and
+  all($fixture_data[0].report_contract_fixtures[]; . as $fixture |
+    (report_contract_valid($fixture.control_validations)) == $fixture.expected_contract_valid)
+' >/dev/null
 
 printf 'json_syntax=passed\n'
 printf 'core_category_coverage=passed\n'
 printf 'unique_claim_mapping=passed\n'
+printf 'task_mode_applicability=passed\n'
 printf 'single_control_state_absent=passed\n'
 printf 'independent_control_checks=passed\n'
 printf 'insufficient_evidence_fail_safe=passed\n'
 printf 'conflicting_evidence_fail_safe=passed\n'
 printf 'task_report_wording_gate=passed\n'
+printf 'required_control_resolution_gate=passed\n'
+printf 'adversarial_report_contract=passed\n'

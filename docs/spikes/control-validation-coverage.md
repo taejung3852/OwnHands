@@ -48,7 +48,7 @@ This is an illustrative record, not a final schema.
 | Config loading | TOML parse, hash, intended source | Fresh-run active source + resolved value | Loading is not a boundary; `Enforced` N/A | Project trust can skip a layer; value ≠ behavior |
 | AGENTS source | Non-empty file and scope inventory | Instruction-chain/log or disposable `codex debug prompt-input` | Observe supply only; never claim model compliance | Global override and nearer files can change chain |
 | Rules | Parse `.rules`; validate match/not-match fixtures | Active source in trusted project | Synthetic harmless `forbidden` prefix is blocked; test `prompt` only with no side effect | Experimental exact-prefix controls do not cover alternatives |
-| Hooks | Parse source and handler reference | Active source + trust review state | Lifecycle receipt/start/completion; bounded synthetic timeout/non-zero separately | Concurrency, async timing, and non-hook tool paths |
+| Hooks | Parse source and handler reference | Active source + trust review state | App Server `hook/started`/`hook/completed` receipt for synchronous hooks plus handler result; bounded synthetic timeout/non-zero separately | Async hooks have no matching completion notification; concurrency and non-hook tool paths remain outside the claim |
 | Sandbox filesystem | Mode and writable roots | Run sandbox metadata | Benign outside-root deny plus inside-root allowed operation | Additional roots/full access and non-command tools |
 | Sandbox network | Network/proxy/destination policy | Run policy metadata | Denied non-production endpoint, or allowlisted controlled endpoint only | Network-on/proxy-off is unrestricted outbound |
 | Approval policy | Effective policy and app/MCP modes | Client/App Server metadata | Harmless request → decline/allow → terminal result | `never` has no request; absence proves nothing |
@@ -60,7 +60,7 @@ This is an illustrative record, not a final schema.
 
 The official behavior supports these constraints. Codex builds AGENTS guidance from global and root-to-CWD sources, with later (nearer) text overriding earlier text; it documents a TUI/session-log audit route ([AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md)). Rules offer `allow`, `prompt`, and `forbidden`, selecting the most restrictive match, but are experimental ([Rules](https://learn.chatgpt.com/docs/agent-configuration/rules)).
 
-Hooks run scripts or MCP tools in the lifecycle; matching command hooks run concurrently, non-managed hooks need trust review, hosted tools do not use the local hook path, and specialized paths can opt out ([Hooks](https://learn.chatgpt.com/docs/hooks)). An MCP hook blocks only when it receives a blocking decision; error, missing-server, and unavailable-tool cases do not block. Hook timeouts are seconds and usually default to 600 seconds ([Hooks execution](https://learn.chatgpt.com/docs/hooks)).
+Hooks run scripts or MCP tools in the lifecycle; matching command hooks run concurrently, non-managed hooks need trust review, hosted tools do not use the local hook path, and specialized paths can opt out ([Hooks](https://learn.chatgpt.com/docs/hooks)). App Server documents `hook/started` and `hook/completed` for synchronous lifecycle hooks only ([App Server](https://developers.openai.com/codex/app-server)). An MCP hook blocks only when it receives a blocking decision; error, missing-server, and unavailable-tool cases do not block. Hook timeouts are seconds and usually default to 600 seconds ([Hooks execution](https://learn.chatgpt.com/docs/hooks)).
 
 Sandboxing supplies the technical filesystem/network boundary while approval determines when Codex pauses ([Agent approvals & security](https://learn.chatgpt.com/docs/agent-approvals-security)). In workspace-write mode, `.git`, `.agents`, and `.codex` remain protected. Network is normally off; if it is enabled without `network_proxy`, outbound traffic is direct and unrestricted, while the proxy constrains traffic only when enabled ([network controls](https://learn.chatgpt.com/docs/agent-approvals-security)).
 
@@ -97,10 +97,11 @@ Record: Codex/App Server version, OS, execution surface, project trust, worktree
 ## Version and environment notes
 
 - Official local binary: `/Applications/ChatGPT.app/Contents/Resources/codex`; observed version `codex-cli 0.153.0`. Its help exposes `mcp list`, `plugin list`, `features list`, `debug prompt-input`, `sandbox`, and experimental `app-server`.
+- The [M0-02/03 capability probe](probes/m0-02-03-codex-capability-probe.sh) completed a disposable stdio `initialize` handshake and generated the installed CLI's default protocol schema in a temporary directory. It found `thread/read`, approval request/resolution, `instructionSources`, `hook/started`, and `hook/completed`. This observes App Server availability and schema shape only; the generator is experimental and no handler, control, or live-task behavior was invoked.
 - This build's `codex sandbox --help` accepts a command directly and supports supplied sandbox-state JSON, readable roots, and network-disable. Current public docs show platform subcommands in examples. Treat this as a version/interface compatibility check and preserve exact help only in local raw evidence.
 - `codex mcp list` lists configured servers, not connected or behaviorally verified servers ([MCP](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)).
 - Skills are progressively disclosed: the initial list can abbreviate or omit entries, then Codex reads a selected `SKILL.md` in full ([Build skills](https://learn.chatgpt.com/docs/build-skills)).
-- No DevHarness enforcement probe was performed during this research-only spike. All current repository-specific enforcement results remain `Unobserved`.
+- No DevHarness enforcement probe was performed during this research-only spike. All current repository-specific enforcement results remain `Unobserved`; command and schema availability are Observed but are not enforcement.
 
 ## ADR conditions
 
@@ -117,7 +118,7 @@ Proceed with the independent-axis approach only with:
 
 1. A supported stable Desktop route for active config source and full instruction-chain capture.
 2. Command-hook timeout/non-zero behavior for each lifecycle event in this installed version.
-3. Desktop hook start/completion events independent of handler self-report.
+3. Receipt of documented synchronous hook start/completion notifications from a DevHarness-managed task, and any Desktop-owned task observation path; async hook completion remains outside that notification contract.
 4. Hosted and specialized tool paths that bypass local PreToolUse/PostToolUse hooks.
 5. Enumeration of all managed/admin configuration layers without reading protected configuration.
 6. Sandbox coverage for GUI, MCP, plugin, or external-process side effects.

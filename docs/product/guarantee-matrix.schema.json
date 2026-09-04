@@ -29,6 +29,7 @@
         "claim_id",
         "category",
         "claim",
+        "applicable_task_modes",
         "required_realization_checks",
         "required_evidence",
         "allowed_basis",
@@ -59,6 +60,12 @@
           ]
         },
         "claim": {"type": "string", "minLength": 1},
+        "applicable_task_modes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"enum": ["managed", "imported"]},
+          "uniqueItems": true
+        },
         "required_realization_checks": {
           "type": "array",
           "items": {"enum": ["configured", "loaded", "enforced"]},

@@ -10,6 +10,7 @@
       "claim_id": "GM-001",
       "category": "control_profile_created",
       "claim": "Control Profile 파일을 생성했다",
+      "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": ["configured"],
       "required_evidence": [
         {
@@ -27,6 +28,7 @@
       "claim_id": "GM-002",
       "category": "config_loaded",
       "claim": "특정 config 값이 현재 작업에 로드됐다",
+      "applicable_task_modes": ["managed"],
       "required_realization_checks": ["loaded"],
       "required_evidence": [
         {
@@ -44,6 +46,7 @@
       "claim_id": "GM-003",
       "category": "agents_instruction_loaded",
       "claim": "특정 AGENTS.md 지침이 로드됐다",
+      "applicable_task_modes": ["managed"],
       "required_realization_checks": ["loaded"],
       "required_evidence": [
         {
@@ -61,6 +64,7 @@
       "claim_id": "GM-004",
       "category": "rule_blocked_probe",
       "claim": "Rule이 특정 probe를 차단했다",
+      "applicable_task_modes": ["managed"],
       "required_realization_checks": ["enforced"],
       "required_evidence": [
         {
@@ -78,6 +82,7 @@
       "claim_id": "GM-005",
       "category": "hook_invoked_event",
       "claim": "Hook이 특정 event에서 호출됐다",
+      "applicable_task_modes": ["managed"],
       "required_realization_checks": [],
       "required_evidence": [
         {
@@ -95,6 +100,7 @@
       "claim_id": "GM-006",
       "category": "sandbox_blocked_boundary",
       "claim": "Sandbox가 특정 경계를 막았다",
+      "applicable_task_modes": ["managed"],
       "required_realization_checks": ["enforced"],
       "required_evidence": [
         {
@@ -112,6 +118,7 @@
       "claim_id": "GM-007",
       "category": "approval_applied_action",
       "claim": "Approval Policy가 특정 행동에 적용됐다",
+      "applicable_task_modes": ["managed"],
       "required_realization_checks": ["enforced"],
       "required_evidence": [
         {
@@ -129,6 +136,7 @@
       "claim_id": "GM-008",
       "category": "config_conflict_identified",
       "claim": "설정 충돌을 식별했다",
+      "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
       "required_evidence": [
         {
@@ -146,6 +154,7 @@
       "claim_id": "GM-009",
       "category": "mcp_tool_callable",
       "claim": "필요한 MCP Tool이 호출 가능하다",
+      "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
       "required_evidence": [
         {
@@ -163,6 +172,7 @@
       "claim_id": "GM-010",
       "category": "workspace_restore_point_created",
       "claim": "Workspace Restore Point를 생성했다",
+      "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
       "required_evidence": [
         {
@@ -180,6 +190,7 @@
       "claim_id": "GM-011",
       "category": "actual_changes_identified",
       "claim": "실제 변경사항을 식별했다",
+      "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
       "required_evidence": [
         {
@@ -197,6 +208,7 @@
       "claim_id": "GM-012",
       "category": "related_features_analyzed",
       "claim": "연관된 기능을 분석했다",
+      "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
       "required_evidence": [
         {
@@ -214,6 +226,7 @@
       "claim_id": "GM-013",
       "category": "related_tests_executed",
       "claim": "관련 테스트를 실행했다",
+      "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
       "required_evidence": [
         {
@@ -231,6 +244,7 @@
       "claim_id": "GM-014",
       "category": "defined_regression_scope_passed",
       "claim": "정의한 회귀 범위에서 통과했다",
+      "applicable_task_modes": ["managed"],
       "required_realization_checks": [],
       "required_evidence": [
         {
@@ -248,6 +262,7 @@
       "claim_id": "GM-015",
       "category": "feature_directly_validated",
       "claim": "기능을 직접 검증했다",
+      "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
       "required_evidence": [
         {
@@ -265,6 +280,7 @@
       "claim_id": "GM-016",
       "category": "dashboard_fresh",
       "claim": "Dashboard가 최신이다",
+      "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
       "required_evidence": [
         {

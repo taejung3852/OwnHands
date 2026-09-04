@@ -17,7 +17,7 @@ HTML 상단에서 다음을 바꿀 수 있다.
 - Light / Dark
 - Task Review / Harness Status / Evidence Detail
 
-시안은 JavaScript와 framework 없이 동작한다. 화면 데이터는 M0-06 합성 Probe Fixture 한 벌만 사용한다.
+시안은 JavaScript와 framework 없이 동작한다. 화면 데이터는 commit `ba7394f`에서 capture한 M0-06 합성 Probe의 여섯-check snapshot 한 벌만 사용한다. 이후 M0 audit에서 storage Probe가 확장돼도 세 방향과 18 screenshot의 동등 비교를 유지하기 위해 이 디자인 Fixture는 해당 snapshot에 고정한다.
 
 ## 화면 Capture
 

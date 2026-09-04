@@ -6,6 +6,7 @@
     "project_id": "project-synthetic",
     "worktree_id": "worktree-main",
     "task_id": "task-synthetic",
+    "mode": "imported",
     "target_commit": "0000000000000000000000000000000000000000",
     "environment_ref": "environment-synthetic"
   },
@@ -38,18 +39,18 @@
       "requirement_results": [
         {
           "requirement_id": "resolved-config",
-          "result": "not_run",
-          "basis": "unobserved",
-          "evidence_refs": [],
+          "result": "not_applicable",
+          "basis": "observed",
+          "evidence_refs": ["evidence-task-mode-imported"],
           "inference_from": [],
           "conflict_refs": [],
-          "exact_scope": "현재 합성 Task"
+          "exact_scope": "Preflight 이전 이력을 포함하지 않는 Imported 합성 Task"
         }
       ],
       "control_validation_refs": ["control-validation-synthetic-001"],
       "scope": "현재 합성 Task의 active config source와 resolved value",
       "conflict_refs": [],
-      "residual_risks": ["파일 존재는 확인했지만 현재 Task loading은 확인하지 않음"],
+      "residual_risks": ["Imported Task 전환 이전의 config loading은 재구성할 수 없음"],
       "permitted_statement": null,
       "evaluated_at": "2026-09-04T00:00:00Z"
     },
