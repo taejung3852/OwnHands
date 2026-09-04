@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/taejung3852/devharness/docs/product/control-validation.schema.json",
+  "title": "DevHarness Control Validation Record v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "record_id",
+    "control_id",
+    "scope",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "control_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "object",
+      "required": ["project_id", "worktree_id", "task_id", "boundary"],
+      "properties": {
+        "project_id": {"type": "string", "minLength": 1},
+        "worktree_id": {"type": "string", "minLength": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "boundary": {"type": "string", "minLength": 1},
+        "environment_ref": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "object",
+      "required": ["configured", "loaded", "enforced"],
+      "properties": {
+        "configured": {"$ref": "#/$defs/verification_check"},
+        "loaded": {"$ref": "#/$defs/verification_check"},
+        "enforced": {"$ref": "#/$defs/verification_check"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "verification_check": {
+      "type": "object",
+      "required": [
+        "result",
+        "basis",
+        "evidence_refs",
+        "inference_from",
+        "checked_at",
+        "exact_scope",
+        "residual_risks"
+      ],
+      "properties": {
+        "result": {
+          "enum": ["pass", "fail", "not_run", "not_applicable"]
+        },
+        "basis": {
+          "enum": ["observed", "inferred", "unobserved"]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "inference_from": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "checked_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "exact_scope": {
+          "type": "string"
+        },
+        "residual_risks": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"result": {"enum": ["pass", "fail", "not_applicable"]}},
+            "required": ["result"]
+          },
+          "then": {
+            "properties": {
+              "basis": {"enum": ["observed", "inferred"]}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"result": {"const": "not_run"}},
+            "required": ["result"]
+          },
+          "then": {
+            "properties": {
+              "basis": {"const": "unobserved"},
+              "evidence_refs": {"maxItems": 0},
+              "inference_from": {"maxItems": 0},
+              "checked_at": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"basis": {"const": "observed"}},
+            "required": ["basis"]
+          },
+          "then": {
+            "properties": {
+              "evidence_refs": {"minItems": 1},
+              "checked_at": {"type": "string", "format": "date-time"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"basis": {"const": "inferred"}},
+            "required": ["basis"]
+          },
+          "then": {
+            "properties": {
+              "inference_from": {"minItems": 1},
+              "checked_at": {"type": "string", "format": "date-time"}
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "fixtures": [
+    {
+      "name": "direct evidence supports a configured claim",
+      "claim_id": "GM-001",
+      "realization_results": {
+        "configured": {"result": "pass", "basis": "observed"},
+        "loaded": {"result": "not_run", "basis": "unobserved"},
+        "enforced": {"result": "not_run", "basis": "unobserved"}
+      },
+      "requirement_results": [
+        {
+          "requirement_id": "profile-artifact",
+          "result": "pass",
+          "basis": "observed",
+          "conflict_refs": []
+        }
+      ],
+      "expected_verdict": "supported"
+    },
+    {
+      "name": "file presence cannot support a loaded claim",
+      "claim_id": "GM-002",
+      "realization_results": {
+        "configured": {"result": "pass", "basis": "observed"},
+        "loaded": {"result": "not_run", "basis": "unobserved"},
+        "enforced": {"result": "not_run", "basis": "unobserved"}
+      },
+      "requirement_results": [
+        {
+          "requirement_id": "resolved-config",
+          "result": "not_run",
+          "basis": "unobserved",
+          "conflict_refs": []
+        }
+      ],
+      "expected_verdict": "not_evaluated"
+    },
+    {
+      "name": "conflicting test evidence contradicts the claim",
+      "claim_id": "GM-013",
+      "realization_results": {
+        "configured": {"result": "not_run", "basis": "unobserved"},
+        "loaded": {"result": "not_run", "basis": "unobserved"},
+        "enforced": {"result": "not_run", "basis": "unobserved"}
+      },
+      "requirement_results": [
+        {
+          "requirement_id": "test-run",
+          "result": "pass",
+          "basis": "observed",
+          "conflict_refs": ["evidence-test-failure"]
+        }
+      ],
+      "expected_verdict": "contradicted"
+    }
+  ]
+}

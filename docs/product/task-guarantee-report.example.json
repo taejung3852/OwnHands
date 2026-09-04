@@ -1,0 +1,78 @@
+{
+  "report_version": "1.0",
+  "matrix_version": "1.0",
+  "report_id": "report-synthetic-001",
+  "task": {
+    "project_id": "project-synthetic",
+    "worktree_id": "worktree-main",
+    "task_id": "task-synthetic",
+    "target_commit": "0000000000000000000000000000000000000000",
+    "environment_ref": "environment-synthetic"
+  },
+  "generated_at": "2026-09-04T00:00:00Z",
+  "claim_results": [
+    {
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [
+        {
+          "requirement_id": "profile-artifact",
+          "result": "pass",
+          "basis": "observed",
+          "evidence_refs": ["evidence-profile-hash", "evidence-profile-parse"],
+          "inference_from": [],
+          "conflict_refs": [],
+          "exact_scope": "합성 Control Profile 파일 한 개"
+        }
+      ],
+      "control_validation_refs": ["control-validation-synthetic-001"],
+      "scope": "합성 Control Profile 파일 한 개의 생성·parse",
+      "conflict_refs": [],
+      "residual_risks": ["현재 Codex가 이 파일을 읽었는지는 확인하지 않음"],
+      "permitted_statement": "합성 Control Profile 파일을 생성하고 parse했다",
+      "evaluated_at": "2026-09-04T00:00:00Z"
+    },
+    {
+      "claim_id": "GM-002",
+      "verdict": "not_evaluated",
+      "requirement_results": [
+        {
+          "requirement_id": "resolved-config",
+          "result": "not_run",
+          "basis": "unobserved",
+          "evidence_refs": [],
+          "inference_from": [],
+          "conflict_refs": [],
+          "exact_scope": "현재 합성 Task"
+        }
+      ],
+      "control_validation_refs": ["control-validation-synthetic-001"],
+      "scope": "현재 합성 Task의 active config source와 resolved value",
+      "conflict_refs": [],
+      "residual_risks": ["파일 존재는 확인했지만 현재 Task loading은 확인하지 않음"],
+      "permitted_statement": null,
+      "evaluated_at": "2026-09-04T00:00:00Z"
+    },
+    {
+      "claim_id": "GM-013",
+      "verdict": "contradicted",
+      "requirement_results": [
+        {
+          "requirement_id": "test-run",
+          "result": "pass",
+          "basis": "observed",
+          "evidence_refs": ["evidence-test-pass"],
+          "inference_from": [],
+          "conflict_refs": ["evidence-test-failure"],
+          "exact_scope": "합성 test selection"
+        }
+      ],
+      "control_validation_refs": [],
+      "scope": "합성 test selection",
+      "conflict_refs": ["evidence-test-failure"],
+      "residual_risks": ["상충하는 실행 결과의 원인이 아직 분류되지 않음"],
+      "permitted_statement": null,
+      "evaluated_at": "2026-09-04T00:00:00Z"
+    }
+  ]
+}

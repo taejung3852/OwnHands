@@ -289,7 +289,7 @@ Task Review에는 `Task Guarantee Report`를 연결한다.
 |---|---|---|---|
 | 프로젝트 설정이 로드됨 | 확인됨 | 현재 세션의 active config source | 하위 디렉터리 override는 별도 확인 |
 | Rules가 대상 명령을 차단함 | 확인됨 | 의도적 probe의 forbidden 결과 | 다른 명령 패턴 전체를 보장하지 않음 |
-| 회귀가 없음 | 제한적 확인 | 식별된 연관 시나리오 7개 통과 | 분석 불가 경로 1개 |
+| 정의한 회귀 범위에서 통과 | 제한적 확인 | 식별된 연관 시나리오 7개 통과 | 분석 불가 경로 1개 |
 
 ### 5.8 Decision Panel
 

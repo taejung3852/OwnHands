@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "record_id": "control-validation-synthetic-001",
+  "control_id": "config.synthetic-profile",
+  "scope": {
+    "project_id": "project-synthetic",
+    "worktree_id": "worktree-main",
+    "task_id": "task-synthetic",
+    "boundary": "합성 Control Profile 파일과 현재 Task loading",
+    "environment_ref": "environment-synthetic"
+  },
+  "checks": {
+    "configured": {
+      "result": "pass",
+      "basis": "observed",
+      "evidence_refs": ["evidence-profile-hash", "evidence-profile-parse"],
+      "inference_from": [],
+      "checked_at": "2026-09-04T00:00:00Z",
+      "exact_scope": "합성 Control Profile 파일 한 개",
+      "residual_risks": ["다른 profile과 실제 project config는 확인하지 않음"]
+    },
+    "loaded": {
+      "result": "not_run",
+      "basis": "unobserved",
+      "evidence_refs": [],
+      "inference_from": [],
+      "checked_at": null,
+      "exact_scope": "현재 합성 Task의 active config source",
+      "residual_risks": ["현재 Task가 파일을 읽었는지 확인하지 않음"]
+    },
+    "enforced": {
+      "result": "not_run",
+      "basis": "unobserved",
+      "evidence_refs": [],
+      "inference_from": [],
+      "checked_at": null,
+      "exact_scope": "합성 config가 의도한 행동 경계",
+      "residual_risks": ["안전한 행동 Probe를 실행하지 않음"]
+    }
+  }
+}

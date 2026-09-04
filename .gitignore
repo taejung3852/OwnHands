@@ -1,0 +1,4 @@
+.DS_Store
+.dev-harness/
+.codex-log/
+docs/spikes/raw/
