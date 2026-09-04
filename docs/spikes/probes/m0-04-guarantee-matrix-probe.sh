@@ -11,13 +11,79 @@ report_schema="$repo_root/docs/product/task-guarantee-report.schema.json"
 report_example="$repo_root/docs/product/task-guarantee-report.example.json"
 fixtures="$repo_root/docs/spikes/guarantee-matrix-fixtures.json"
 
+schema_fixture_dir="$(mktemp -d)"
+empty_claim_results_fixture="$schema_fixture_dir/empty-claim-results.json"
+duplicate_claim_result_fixture="$schema_fixture_dir/duplicate-claim-result.json"
+cleanup_schema_fixtures() {
+  unlink "$empty_claim_results_fixture" "$duplicate_claim_result_fixture" 2>/dev/null || true
+  rmdir "$schema_fixture_dir" 2>/dev/null || true
+}
+trap cleanup_schema_fixtures EXIT
+
+validate_report_schema() {
+  npm_config_offline=true npx --yes --package ajv-cli@5.0.0 --package ajv-formats@3.0.1 \
+    ajv validate --spec=draft2020 --strict-types=true --strict-tuples=true \
+    -c ajv-formats -s "$report_schema" -d "$1"
+}
+
+expect_report_schema_rejection() {
+  local output status
+  set +e
+  output="$(validate_report_schema "$1" 2>&1)"
+  status=$?
+  set -e
+  if [ "$status" -ne 1 ] || ! rg -q 'invalid' <<<"$output"; then
+    printf '%s\n' "$output" >&2
+    return 1
+  fi
+}
+
 jq -e . "$matrix" "$matrix_schema" "$control_schema" "$control_example" "$report_schema" "$report_example" "$fixtures" >/dev/null
+
+validate_report_schema "$report_example" >/dev/null
+jq '.claim_results = []' "$report_example" >"$empty_claim_results_fixture"
+jq '.claim_results += [.claim_results[0]]' "$report_example" >"$duplicate_claim_result_fixture"
+expect_report_schema_rejection "$empty_claim_results_fixture"
+expect_report_schema_rejection "$duplicate_claim_result_fixture"
 
 jq -e 'all(.report_contract_fixtures[];
   (.matrix_version | type) == "string" and
   (.task_mode == "managed" or .task_mode == "imported") and
   all(.requirement_results[]; has("requirement_id"))
 )' "$fixtures" >/dev/null
+
+expected_report_envelope_fixture_names='conflicting verdicts for one claim are rejected
+empty claim results are rejected
+identical claim results are rejected'
+actual_report_envelope_fixture_names="$(jq -r '.report_envelope_fixtures[].name' "$fixtures" | sort)"
+test "$actual_report_envelope_fixture_names" = "$expected_report_envelope_fixture_names"
+jq -e 'all(.report_envelope_fixtures[];
+  (.matrix_version | type) == "string" and
+  (.task.mode == "managed" or .task.mode == "imported") and
+  (.pre_fix_gate_result == "accepted") and
+  .expected_contract_valid == false and
+  all(.claim_results[];
+    has("claim_id") and has("verdict") and has("requirement_results") and
+    has("control_validation_refs") and has("conflict_refs") and has("permitted_statement"))
+)' "$fixtures" >/dev/null
+
+required_adversarial_fixture_names='conflicting validation records contradict a required control
+conflicting verdicts for one claim are rejected
+duplicate requirement id is rejected
+empty claim results are rejected
+identical claim results are rejected
+imported task cannot support a managed-only claim
+mismatched matrix version is rejected
+missing required requirement id is rejected
+supported report rejects a failed required control check
+supported report rejects an unresolvable control validation reference
+unknown claim id is rejected
+unknown requirement id is rejected'
+while IFS= read -r fixture_name; do
+  jq -e --arg name "$fixture_name" '
+    any((.report_contract_fixtures + .report_envelope_fixtures)[]; .name == $name)
+  ' "$fixtures" >/dev/null
+done <<<"$required_adversarial_fixture_names"
 
 pre_fix_fail_open_count="$(jq '[.report_contract_fixtures[] | select(has("pre_fix_gate_result"))] | length' "$fixtures")"
 test "$pre_fix_fail_open_count" = "7"
@@ -220,15 +286,26 @@ jq -n -e \
     else
       false
     end;
-  ($report[0].matrix_version == $matrix[0].matrix_version) and
-  all($report[0].claim_results[];
-    report_contract_valid($report[0].matrix_version; $report[0].task.mode; [$control[0]])) and
+  def report_document_valid($document; $validations):
+    [$document.claim_results[].claim_id] as $claim_ids |
+    ($document.matrix_version == $matrix[0].matrix_version) and
+    ($document.claim_results | length) > 0 and
+    ($claim_ids | length) == ($claim_ids | unique | length) and
+    all($document.claim_results | group_by(.claim_id)[];
+      ([.[].verdict] | unique | length) == 1) and
+    all($document.claim_results[];
+      report_contract_valid($document.matrix_version; $document.task.mode; $validations));
+  report_document_valid($report[0]; [$control[0]]) and
   all($fixture_data[0].report_contract_fixtures[]; . as $fixture |
     (report_contract_valid($fixture.matrix_version; $fixture.task_mode; $fixture.control_validations)) ==
-      $fixture.expected_contract_valid)
+      $fixture.expected_contract_valid) and
+  all($fixture_data[0].report_envelope_fixtures[]; . as $fixture |
+    report_document_valid($fixture; $fixture.control_validations) == $fixture.expected_contract_valid)
 ' >/dev/null
 
 printf 'json_syntax=passed\n'
+printf 'schema_empty_claim_results_rejected=passed\n'
+printf 'schema_exact_duplicate_claim_rejected=passed\n'
 printf 'core_category_coverage=passed\n'
 printf 'unique_claim_mapping=passed\n'
 printf 'unique_requirement_mapping=passed\n'
@@ -247,4 +324,9 @@ printf 'claim_membership_gate=passed\n'
 printf 'requirement_id_gate=passed\n'
 printf 'all_control_records_gate=passed\n'
 printf 'pre_fix_fail_open_cases_rejected=%s\n' "$pre_fix_fail_open_count"
+printf 'report_envelope_fixtures_rejected=3\n'
+printf 'claim_results_nonempty_gate=passed\n'
+printf 'claim_id_uniqueness_gate=passed\n'
+printf 'claim_verdict_conflict_gate=passed\n'
+printf 'required_adversarial_fixture_coverage=12\n'
 printf 'adversarial_report_contract=passed\n'

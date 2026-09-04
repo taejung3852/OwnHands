@@ -19,7 +19,8 @@ DevHarness는 실제 Evidence가 있는 범위에서만 claim을 허용해야 �
 7. `contradicted`와 `not_evaluated`에는 permitted claim 문구를 만들지 않는다.
 8. Control 상태는 [ADR-0002](0002-control-validation-evidence-model.md)의 독립 check 구조를 사용하며 단일 enum을 두지 않는다.
 9. Task requirement 결과에는 Dashboard의 Passed, Failed, Not Run, No Adequate Test, Inconclusive, Unknown을 보존하고, 이 중 `pass`만 claim support에 사용할 수 있다. Control 단계별 check의 좁은 결과 enum과 혼합하지 않는다.
-10. JSON Schema는 독립 구조와 상태 의미를 검증하고, Matrix-aware gate는 현재 Matrix version·Claim 존재·Task mode·필수 requirement ID 집합·허용 basis·금지 문구를 대조한다. 필요한 Control에 연결된 모든 Validation record를 평가하며 observed fail이나 pass/fail 충돌은 `contradicted`, 불충분 상태는 `not_evaluated`로 처리한다.
+10. JSON Schema는 독립 구조와 상태 의미를 검증하며 `claim_results`의 비어 있지 않음과 완전히 동일한 객체의 중복 금지를 구조적으로 검사한다. Matrix-aware gate는 JSON Schema의 `uniqueItems`에 의존하지 않고 Report 전체에서 `claim_id` 속성의 유일성과 동일 Claim의 verdict 일관성을 검사한다.
+11. Matrix-aware gate는 현재 Matrix version·Claim 존재·Task mode·필수 requirement ID 집합·허용 basis·금지 문구를 대조한다. 필요한 Control에 연결된 모든 Validation record를 평가하며 observed fail이나 pass/fail 충돌은 `contradicted`, 불충분 상태는 `not_evaluated`로 처리한다.
 
 ## Alternatives
 
@@ -42,7 +43,7 @@ DevHarness는 실제 Evidence가 있는 범위에서만 claim을 허용해야 �
 - [Matrix Schema](../product/guarantee-matrix.schema.json)
 - [Task Report Schema](../product/task-guarantee-report.schema.json)
 - [Task Report Example](../product/task-guarantee-report.example.json)
-- [합성 Probe](../spikes/probes/m0-04-guarantee-matrix-probe.sh)는 전체 범주 추적, Task mode 적용성, 단일 enum 부재, 불충분/충돌 Evidence의 fail-safe 판정과 Matrix version·Claim·requirement ID·모든 연결 Control record의 Matrix-aware gate를 확인했다. Matrix, Control example, Task Report example은 pinned temporary validator로 strict-type/tuple draft 2020-12 schema 검증도 통과했다.
+- [합성 Probe](../spikes/probes/m0-04-guarantee-matrix-probe.sh)는 전체 범주 추적, Task mode 적용성, 단일 enum 부재, 불충분/충돌 Evidence의 fail-safe 판정과 Matrix version·Claim·requirement ID·모든 연결 Control record의 Matrix-aware gate를 확인했다. 또한 빈 `claim_results`, 같은 Claim ID의 중복·verdict 충돌을 거부하고 필수 공격 경계 12종을 이름 집합으로 고정한다. 변경 전 실제 gate와 schema가 새 envelope 결함 세 건을 허용한 RED, 수정 후 모두 거부한 GREEN을 기록했다. Matrix, Control example, Task Report example은 pinned temporary validator로 strict-type/tuple draft 2020-12 schema 검증도 통과했다.
 
 ## Not decided here
 

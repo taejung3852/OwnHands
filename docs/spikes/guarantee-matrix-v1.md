@@ -94,7 +94,9 @@ Dashboard의 일반 Verification Status는 Task Report의 requirement `result`�
 
 `contradicted`와 `not_evaluated`에는 허용 주장 문구를 생성하지 않는다. Dashboard의 `제한적 확인`은 별도 verdict가 아니다. 정확히 좁혀 쓴 `supported` claim의 scope·남은 위험을 표시하거나, 관련 claim 일부가 `not_evaluated`임을 함께 보여 주는 presentation이다. 넓은 원 claim을 부분 pass로 바꾸지 않는다.
 
-JSON Schema는 개별 Matrix rule을 읽지 않고도 확인 가능한 구조, 상태 조합, `supported`의 기본 fail-safe 의미를 검증한다. Matrix-aware gate는 Report의 `matrix_version`, `task.mode`, `claim_id`, claim별 requirement ID 집합, 허용 basis·금지 문구와 필요한 Control check를 현재 Matrix와 대조한다. 필요한 Control에 연결된 Validation record를 모두 평가하며, 관찰된 `fail`이나 pass/fail 충돌은 `contradicted`, record 누락·`not_run`·허용되지 않은 basis는 `not_evaluated`로 판정한다.
+JSON Schema는 개별 Matrix rule을 읽지 않고도 확인 가능한 구조, 상태 조합, `supported`의 기본 fail-safe 의미를 검증한다. `claim_results`에는 `minItems: 1`과 `uniqueItems: true`를 적용해 빈 배열과 완전히 동일한 객체 중복을 구조 단계에서 거부한다. 다만 JSON Schema의 `uniqueItems`는 내용이 다른 객체의 같은 `claim_id`를 찾지 못하므로 이것만으로 유일성을 보장하지 않는다.
+
+Matrix-aware gate는 Report의 `matrix_version`, `task.mode`, `claim_id`, claim별 requirement ID 집합, 허용 basis·금지 문구와 필요한 Control check를 현재 Matrix와 대조한다. Report 전체에서 `claim_results`가 비어 있지 않은지, `claim_id`가 속성 기준으로 유일한지, 같은 Claim에 서로 다른 verdict가 함께 있지 않은지도 별도로 검사한다. 필요한 Control에 연결된 Validation record를 모두 평가하며, 관찰된 `fail`이나 pass/fail 충돌은 `contradicted`, record 누락·`not_run`·허용되지 않은 basis는 `not_evaluated`로 판정한다.
 
 ## fail-safe 합성 Probe
 
@@ -108,6 +110,8 @@ docs/spikes/probes/m0-04-guarantee-matrix-probe.sh
 
 ```text
 json_syntax=passed
+schema_empty_claim_results_rejected=passed
+schema_exact_duplicate_claim_rejected=passed
 core_category_coverage=passed
 unique_claim_mapping=passed
 unique_requirement_mapping=passed
@@ -126,6 +130,11 @@ claim_membership_gate=passed
 requirement_id_gate=passed
 all_control_records_gate=passed
 pre_fix_fail_open_cases_rejected=7
+report_envelope_fixtures_rejected=3
+claim_results_nonempty_gate=passed
+claim_id_uniqueness_gate=passed
+claim_verdict_conflict_gate=passed
+required_adversarial_fixture_coverage=12
 adversarial_report_contract=passed
 ```
 
@@ -144,6 +153,10 @@ Probe는 다음을 확인했다.
 11. Report의 Matrix version 불일치, 알 수 없는 Claim, 필수 requirement ID의 누락·추가·중복을 거부한다.
 12. Report의 Task mode를 claim 적용성 판정에 사용하여 Imported Task의 Managed-only claim을 `not_evaluated`로 제한한다.
 13. 필요한 Control에 연결된 모든 Validation record를 평가하고 하나의 pass가 다른 observed fail이나 pass/fail 충돌을 가리지 못하게 한다.
+14. Schema와 Matrix-aware gate 모두 빈 `claim_results`를 거부한다.
+15. Schema는 완전히 동일한 Claim result 중복을 거부하고, gate는 객체의 다른 field와 무관하게 같은 `claim_id`를 거부한다.
+16. 같은 Claim ID에 서로 다른 verdict를 함께 넣은 Report를 거부한다.
+17. Report가 참조한 Control Validation ID가 실제 record로 해소되지 않으면 거부한다.
 
 추가한 일곱 adversarial fixture의 RED/GREEN 결과는 다음과 같다. RED는 변경 전 gate에 fixture를 먼저 적용한 결과이며, `skipped fail-open`은 알 수 없는 Claim 조회가 빈 stream이 되어 상위 `all(...)` 검사를 통과한 경우다.
 
@@ -156,6 +169,16 @@ Probe는 다음을 확인했다.
 | 필수 requirement ID 누락 | 허용 | 거부 |
 | requirement ID 중복 | 허용 | 거부 |
 | 동일 Control의 pass/fail Validation record | 허용 | 거부 |
+
+추가한 Report envelope 세 fixture의 RED/GREEN 결과는 다음과 같다. RED gate는 envelope 검사를 추가하기 전의 실제 Probe였고 세 fixture를 모두 허용했다. Schema RED는 `minItems`와 `uniqueItems`를 추가하기 전 schema를 같은 pinned Ajv로 검사한 결과로, 빈 배열과 완전히 동일한 객체 중복이 모두 `valid`였다.
+
+| Adversarial fixture | 변경 전 RED에서 관찰 | 변경 후 기대·결과 |
+|---|---|---|
+| 빈 `claim_results` | gate 허용, schema `valid` | schema와 gate 모두 거부 |
+| 완전히 동일한 Claim result 중복 | gate 허용, schema `valid` | schema와 gate 모두 거부 |
+| 같은 Claim ID에 `supported`와 `contradicted` 동시 존재 | gate 허용; `uniqueItems`만으로는 서로 다른 객체라 식별 불가 | claim ID 유일성·verdict 일관성 gate가 거부 |
+
+필수 공격 경계 12종은 이름 집합으로도 고정했다. 여기에는 위 세 envelope 사례와 Imported 적용성, 알 수 없는 Claim, Matrix version, requirement 누락·추가·중복, 해소되지 않는 Control 참조, Control record 순서로 숨겨지는 pass/fail 충돌, observed Control fail을 `supported`로 바꾸는 사례가 포함된다.
 
 세 schema와 example은 pinned temporary `ajv-cli@5.0.0` + `ajv-formats@3.0.1`로 draft 2020-12 validation을 통과했고 `strict-types`/`strict-tuples` error나 warning은 없었다. 이 도구는 repository dependency로 추가하지 않았다.
 

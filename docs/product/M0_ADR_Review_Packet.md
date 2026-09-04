@@ -39,7 +39,7 @@ ADR 결정 Gate는 통과했지만 M0 종료 Gate는 아직 통과로 표시하�
 | M0-01 | 충족(로컬 Evidence) | 기준선 hash 4개, 내부 link, Raw Evidence ignore Probe 통과 | 제품·Repository 기준선이 2026-09-04 로컬/원격 조회 범위에서 추적됨 | PR 검증·병합; 그 전 Issue 종료 금지 |
 | M0-02 | 충족(승인된 M0 범위) | 통합 비교, 여섯 질문, ADR-0001, stdio initialize/help/default schema Probe | 로컬 App Server handshake와 문서화된 snapshot/managed protocol/schema availability | PR 검증·병합; task runtime·live Desktop attach는 OD-09에 따라 M3에서 Probe |
 | M0-03 | 충족(승인된 M0 범위) | Control coverage, fail-open 경계, ADR-0002, capability Probe | Configured/Loaded/Enforced와 basis 분리 계약이 승인됨 | PR 검증·병합; repository-specific enforcement는 M3 전까지 Unobserved |
-| M0-04 | 충족(로컬 Evidence) | 16개 기준 범주, Matrix version·Claim·Task mode·requirement ID·전체 Control record gate, strict schema, adversarial fixture Probe | fail-open fixture 7개를 거부하고 관찰된 fail·충돌은 `contradicted`, 불충분 상태는 `not_evaluated`로 판정함 | PR 검증·병합; 실제 Task evaluator는 M1 이후 별도 구현 |
+| M0-04 | 충족(로컬 Evidence) | 16개 기준 범주, Matrix version·Claim·Task mode·requirement ID·전체 Control record·Report envelope gate, strict schema, adversarial fixture Probe | 기존 fail-open 7개와 새 envelope 3개를 거부하고 필수 공격 경계 12종을 고정함. 관찰된 fail·충돌은 `contradicted`, 불충분 상태는 `not_evaluated`로 판정함 | PR 검증·병합; 실제 Task evaluator는 M1 이후 별도 구현 |
 | M0-05 | 충족(로컬 Evidence) | include/exclude, MIT, immutable pin, hash 비교, ADR-0005 | vendoring 경계가 승인됨 | PR 검증·병합; 실제 vendoring 금지 유지 |
 | M0-06 | 충족(로컬 Evidence) | hybrid store 비교, 복구 경계, 합성 저장 Probe, ADR-0004 | clean close와 killed writer rollback, idempotency/hash/rebuild 결과와 저장 결정을 승인 | PR 검증·병합; power-loss/disk-full/concurrency 등은 Unobserved |
 | M0-07 | 충족(로컬 Evidence) | 3안, Light/Dark 18 capture, capture별 computed token 회귀 검사, static/browser Probe, ADR-0007 | B 색상 방향이 승인됐고 현재 UI/UX는 M5 참고 시안으로 보존됨 | PR 검증·병합; M5 UI/UX 별도 승인 전 Production UI 금지 |
@@ -55,7 +55,7 @@ ADR 결정 Gate는 통과했지만 M0 종료 Gate는 아직 통과로 표시하�
 - Milestone 설명은 한국어로 등록되어 있다.
 - 설치 Codex CLI version과 read-only help surface를 확인했다.
 - disposable stdio App Server의 `initialize` handshake가 exit 0으로 완료됐다. 설치 CLI가 생성한 default protocol schema에서 `thread/read`, approval request/resolution, `instructionSources`, synchronous `hook/started`/`hook/completed` 이름을 확인했다. generator와 task/control runtime 동작은 별개다.
-- Guarantee 합성 fixture에서 Matrix version 불일치, 알 수 없는 Claim, requirement ID 누락·추가·중복, Imported Task의 Managed-only `supported`, 연결 Control record의 pass/fail 충돌을 거부했다. 필요한 requirement·Control의 관찰된 `fail`과 충돌 Evidence는 `contradicted`, Evidence 부족·`not_run`·`unobserved`는 `not_evaluated`가 됐다.
+- Guarantee 합성 fixture에서 빈 `claim_results`, 같은 Claim ID의 완전 중복·서로 다른 verdict, Matrix version 불일치, 알 수 없는 Claim, requirement ID 누락·추가·중복, Imported Task의 Managed-only `supported`, 해소되지 않는 Control 참조와 연결 Control record의 pass/fail 충돌을 거부했다. 필요한 requirement·Control의 관찰된 `fail`과 충돌 Evidence는 `contradicted`, Evidence 부족·`not_run`·`unobserved`는 `not_evaluated`가 됐다.
 - Imported Task에서 Managed-only claim은 합성 check가 pass여도 `not_evaluated`가 됐고, Matrix/Control/Task Report JSON은 strict draft 2020-12 validation을 통과했다.
 - SQLite 합성 fixture에서 clean close와 killed writer의 uncommitted row rollback, duplicate no-op, content hash, Projection rebuild, Git 제외를 확인했다.
 - 사용자가 M0-07의 B — Warm Paper Neutral + Ledger Indigo 색상 방향을 승인하고, UI/UX 설계는 M5에서 현재 시안을 이어서 진행하도록 결정했다.

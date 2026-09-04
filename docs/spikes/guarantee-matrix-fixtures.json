@@ -528,6 +528,101 @@
       "permitted_statement": "합성 Control Profile 파일을 생성했다",
       "pre_fix_gate_result": "accepted",
       "expected_contract_valid": false
+    },
+    {
+      "name": "supported report rejects an unresolvable control validation reference",
+      "matrix_version": "1.0",
+      "task_mode": "managed",
+      "claim_id": "GM-001",
+      "verdict": "supported",
+      "requirement_results": [
+        {"requirement_id": "profile-artifact", "result": "pass", "basis": "observed", "conflict_refs": []}
+      ],
+      "control_validation_refs": ["control-validation-missing"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-unlinked",
+          "checks": {
+            "configured": {"result": "pass", "basis": "observed"},
+            "loaded": {"result": "not_run", "basis": "unobserved"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": [],
+      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "expected_contract_valid": false
+    }
+  ],
+  "report_envelope_fixtures": [
+    {
+      "name": "empty claim results are rejected",
+      "matrix_version": "1.0",
+      "task": {"mode": "managed"},
+      "claim_results": [],
+      "control_validations": [],
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "identical claim results are rejected",
+      "matrix_version": "1.0",
+      "task": {"mode": "managed"},
+      "claim_results": [
+        {
+          "claim_id": "GM-013",
+          "verdict": "supported",
+          "requirement_results": [
+            {"requirement_id": "test-run", "result": "pass", "basis": "observed", "conflict_refs": []}
+          ],
+          "control_validation_refs": [],
+          "conflict_refs": [],
+          "permitted_statement": "정의한 합성 테스트를 실행했다"
+        },
+        {
+          "claim_id": "GM-013",
+          "verdict": "supported",
+          "requirement_results": [
+            {"requirement_id": "test-run", "result": "pass", "basis": "observed", "conflict_refs": []}
+          ],
+          "control_validation_refs": [],
+          "conflict_refs": [],
+          "permitted_statement": "정의한 합성 테스트를 실행했다"
+        }
+      ],
+      "control_validations": [],
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "conflicting verdicts for one claim are rejected",
+      "matrix_version": "1.0",
+      "task": {"mode": "managed"},
+      "claim_results": [
+        {
+          "claim_id": "GM-013",
+          "verdict": "supported",
+          "requirement_results": [
+            {"requirement_id": "test-run", "result": "pass", "basis": "observed", "conflict_refs": []}
+          ],
+          "control_validation_refs": [],
+          "conflict_refs": [],
+          "permitted_statement": "정의한 합성 테스트를 실행했다"
+        },
+        {
+          "claim_id": "GM-013",
+          "verdict": "contradicted",
+          "requirement_results": [
+            {"requirement_id": "test-run", "result": "fail", "basis": "observed", "conflict_refs": []}
+          ],
+          "control_validation_refs": [],
+          "conflict_refs": [],
+          "permitted_statement": null
+        }
+      ],
+      "control_validations": [],
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
     }
   ]
 }
