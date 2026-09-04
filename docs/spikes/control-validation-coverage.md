@@ -39,6 +39,8 @@ Do not use one `control_state` enum. It would make `Enforced` and `Inferred` mut
 
 This is an illustrative record, not a final schema.
 
+최종 M0 schema는 여기에 instance `control_id`와 별도로 Matrix selector용 `control_type`을 두고, `project_id`·`worktree_id`·`task_id`·`environment_ref`를 필수 scope로 둔다. Guarantee gate는 같은 selector와 scope의 canonical record 전체를 평가하므로 Report가 다른 Task의 pass를 가져오거나 관련 failed record를 생략할 수 없다. Canonical store 조회 구현 자체는 M1 이후 runtime Gate이며 현재 **Unobserved**다.
+
 ## Coverage and validation plan
 
 `Configured` means parseable compiled intent. `Loaded` requires a run-specific source/value/instruction/tool record. `Enforced` requires a harmless behavior with the predicted allow/prompt/deny outcome. `Observed` fits visible execution that imposed no boundary; `Inferred` must name its supporting observation; `Unobserved` means no safe available collection path.

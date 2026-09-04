@@ -17,7 +17,7 @@
     "report_id": {"type": "string", "minLength": 1},
     "task": {
       "type": "object",
-      "required": ["project_id", "worktree_id", "task_id", "mode", "target_commit"],
+      "required": ["project_id", "worktree_id", "task_id", "mode", "target_commit", "environment_ref"],
       "properties": {
         "project_id": {"type": "string", "minLength": 1},
         "worktree_id": {"type": "string", "minLength": 1},
@@ -224,6 +224,7 @@
                 }
               },
               "conflict_refs": {"type": "array", "maxItems": 0},
+              "residual_risks": {"type": "array", "minItems": 1},
               "permitted_statement": {"type": "string", "minLength": 1}
             }
           }

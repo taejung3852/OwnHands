@@ -118,7 +118,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성하고 parse했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "expected_contract_valid": true
     },
     {
@@ -142,7 +142,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "expected_contract_valid": false
     },
     {
@@ -166,7 +166,7 @@
         }
       ],
       "conflict_refs": ["evidence-failure"],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "expected_contract_valid": false
     },
     {
@@ -212,7 +212,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "expected_contract_valid": false
     },
     {
@@ -236,7 +236,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "expected_contract_valid": false
     },
     {
@@ -251,7 +251,7 @@
       "control_validation_refs": [],
       "control_validations": [],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "expected_contract_valid": false
     },
     {
@@ -275,7 +275,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "expected_contract_valid": false
     },
     {
@@ -353,7 +353,7 @@
       "control_validation_refs": [],
       "control_validations": [],
       "conflict_refs": [],
-      "permitted_statement": "설정이 로드됐다",
+      "permitted_statement": "특정 config 값이 현재 작업에 로드됐다",
       "expected_contract_valid": false
     },
     {
@@ -377,7 +377,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "설정이 로드됐다",
+      "permitted_statement": "특정 config 값이 현재 작업에 로드됐다",
       "pre_fix_gate_result": "accepted",
       "expected_contract_valid": false
     },
@@ -418,7 +418,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "pre_fix_gate_result": "accepted",
       "expected_contract_valid": false
     },
@@ -443,7 +443,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "pre_fix_gate_result": "accepted",
       "expected_contract_valid": false
     },
@@ -492,7 +492,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "pre_fix_gate_result": "accepted",
       "expected_contract_valid": false
     },
@@ -525,7 +525,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "pre_fix_gate_result": "accepted",
       "expected_contract_valid": false
     },
@@ -550,7 +550,7 @@
         }
       ],
       "conflict_refs": [],
-      "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "permitted_statement": "Control Profile 파일을 생성했다",
       "expected_contract_valid": false
     }
   ],
@@ -577,7 +577,7 @@
           ],
           "control_validation_refs": [],
           "conflict_refs": [],
-          "permitted_statement": "정의한 합성 테스트를 실행했다"
+          "permitted_statement": "관련 테스트를 실행했다"
         },
         {
           "claim_id": "GM-013",
@@ -587,7 +587,7 @@
           ],
           "control_validation_refs": [],
           "conflict_refs": [],
-          "permitted_statement": "정의한 합성 테스트를 실행했다"
+          "permitted_statement": "관련 테스트를 실행했다"
         }
       ],
       "control_validations": [],
@@ -607,7 +607,7 @@
           ],
           "control_validation_refs": [],
           "conflict_refs": [],
-          "permitted_statement": "정의한 합성 테스트를 실행했다"
+          "permitted_statement": "관련 테스트를 실행했다"
         },
         {
           "claim_id": "GM-013",
@@ -637,21 +637,66 @@
           ],
           "control_validation_refs": [],
           "conflict_refs": [],
-          "permitted_statement": "정의한 합성 테스트를 실행했다"
+          "permitted_statement": "관련 테스트를 실행했다"
         },
         {
           "claim_id": "GM-013",
           "verdict": "supported",
           "requirement_results": [
-            {"requirement_id": "test-run", "result": "pass", "basis": "observed", "conflict_refs": []}
+            {"requirement_id": "test-run", "result": "pass", "basis": "observed", "conflict_refs": [], "exact_scope": "합성 fixture 다른 범위"}
           ],
           "control_validation_refs": [],
+          "scope": "합성 fixture 다른 범위",
           "conflict_refs": [],
-          "permitted_statement": "범위를 명시한 합성 테스트를 실행했다"
+          "permitted_statement": "관련 테스트를 실행했다"
         }
       ],
       "control_validations": [],
       "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    }
+  ],
+  "integration_mutation_fixtures": [
+    {
+      "name": "foreign task control cannot support a claim",
+      "mutates": "control.scope",
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "unrelated control identity cannot support a claim",
+      "mutates": "control.control_id_and_type",
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "report cannot omit a relevant failed control record",
+      "mutates": "control_validation_refs",
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "global overclaim wording is rejected",
+      "mutates": "claim_result.wording_scope",
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "supported report requires residual risks",
+      "mutates": "claim_result.residual_risks",
+      "pre_fix_schema_result": "valid",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "duplicate control validation record ids are rejected",
+      "mutates": "control.record_id",
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "supported report requires evidence references",
+      "mutates": "requirement_result.evidence_refs",
+      "adversarial_only": true,
       "expected_contract_valid": false
     }
   ]

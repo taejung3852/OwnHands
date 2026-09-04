@@ -14,6 +14,8 @@
 
 각 Control Validation record는 `configured`, `loaded`, `enforced`를 **독립 check**로 가진다. 각 check에는 다음을 기록한다.
 
+Record identity에는 instance `control_id`, Matrix selector용 `control_type`, `project_id`·`worktree_id`·`task_id`·`environment_ref` scope를 모두 기록한다. Task Guarantee 판정은 같은 `control_type`과 동일 scope의 canonical record 전체를 사용한다.
+
 - `result`: `pass | fail | not_run | not_applicable`
 - `basis`: `observed | inferred | unobserved`
 - `evidence_refs`와 `inference_from`
@@ -28,6 +30,7 @@
 3. `inferred`는 추론 원천 record를 명시해야 한다.
 4. `not_run`은 `unobserved`이며 Evidence가 없는 상태다.
 5. `not_applicable`도 적용 불가 범위를 판정한 근거가 필요하다.
+6. 같은 `record_id` 중복, 다른 Task/environment scope, Claim selector와 다른 `control_type`은 Guarantee support에 사용할 수 없다.
 
 Append-only source는 개별 observation/evaluation record이며, 위 구조는 Task Guarantee Report와 Dashboard가 읽는 projection이다.
 

@@ -7,6 +7,7 @@
     "schema_version",
     "record_id",
     "control_id",
+    "control_type",
     "scope",
     "checks"
   ],
@@ -22,9 +23,19 @@
       "type": "string",
       "minLength": 1
     },
+    "control_type": {
+      "enum": [
+        "control_profile",
+        "active_config",
+        "agents_instruction",
+        "rule",
+        "sandbox",
+        "approval_policy"
+      ]
+    },
     "scope": {
       "type": "object",
-      "required": ["project_id", "worktree_id", "task_id", "boundary"],
+      "required": ["project_id", "worktree_id", "task_id", "boundary", "environment_ref"],
       "properties": {
         "project_id": {"type": "string", "minLength": 1},
         "worktree_id": {"type": "string", "minLength": 1},

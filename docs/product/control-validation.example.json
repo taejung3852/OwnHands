@@ -2,6 +2,7 @@
   "schema_version": "1.0",
   "record_id": "control-validation-synthetic-001",
   "control_id": "config.synthetic-profile",
+  "control_type": "control_profile",
   "scope": {
     "project_id": "project-synthetic",
     "worktree_id": "worktree-main",

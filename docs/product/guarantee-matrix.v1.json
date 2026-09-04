@@ -5,6 +5,15 @@
     "section": "10.2 초기 Matrix",
     "coverage_rule": "all_documented_core_claim_categories"
   },
+  "global_forbidden_wording": [
+    "전체 시스템이 안전하다",
+    "모든 회귀를 찾았다",
+    "영향이 없다",
+    "완벽하게 통제됐다",
+    "무결성이 보장된다",
+    "테스트가 충분하다",
+    "Rollback 가능하다"
+  ],
   "claims": [
     {
       "claim_id": "GM-001",
@@ -12,6 +21,7 @@
       "claim": "Control Profile 파일을 생성했다",
       "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": ["configured"],
+      "required_control_selectors": [{"control_type": "control_profile", "check": "configured"}],
       "required_evidence": [
         {
           "requirement_id": "profile-artifact",
@@ -30,6 +40,7 @@
       "claim": "특정 config 값이 현재 작업에 로드됐다",
       "applicable_task_modes": ["managed"],
       "required_realization_checks": ["loaded"],
+      "required_control_selectors": [{"control_type": "active_config", "check": "loaded"}],
       "required_evidence": [
         {
           "requirement_id": "resolved-config",
@@ -48,6 +59,7 @@
       "claim": "특정 AGENTS.md 지침이 로드됐다",
       "applicable_task_modes": ["managed"],
       "required_realization_checks": ["loaded"],
+      "required_control_selectors": [{"control_type": "agents_instruction", "check": "loaded"}],
       "required_evidence": [
         {
           "requirement_id": "instruction-source",
@@ -66,6 +78,7 @@
       "claim": "Rule이 특정 probe를 차단했다",
       "applicable_task_modes": ["managed"],
       "required_realization_checks": ["enforced"],
+      "required_control_selectors": [{"control_type": "rule", "check": "enforced"}],
       "required_evidence": [
         {
           "requirement_id": "rule-decision",
@@ -84,6 +97,7 @@
       "claim": "Hook이 특정 event에서 호출됐다",
       "applicable_task_modes": ["managed"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "hook-receipt",
@@ -102,6 +116,7 @@
       "claim": "Sandbox가 특정 경계를 막았다",
       "applicable_task_modes": ["managed"],
       "required_realization_checks": ["enforced"],
+      "required_control_selectors": [{"control_type": "sandbox", "check": "enforced"}],
       "required_evidence": [
         {
           "requirement_id": "sandbox-denial",
@@ -120,6 +135,7 @@
       "claim": "Approval Policy가 특정 행동에 적용됐다",
       "applicable_task_modes": ["managed"],
       "required_realization_checks": ["enforced"],
+      "required_control_selectors": [{"control_type": "approval_policy", "check": "enforced"}],
       "required_evidence": [
         {
           "requirement_id": "approval-transaction",
@@ -138,6 +154,7 @@
       "claim": "설정 충돌을 식별했다",
       "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "precedence-resolution",
@@ -156,6 +173,7 @@
       "claim": "필요한 MCP Tool이 호출 가능하다",
       "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "mcp-invocation",
@@ -174,6 +192,7 @@
       "claim": "Workspace Restore Point를 생성했다",
       "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "restore-verification",
@@ -192,6 +211,7 @@
       "claim": "실제 변경사항을 식별했다",
       "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "change-set",
@@ -210,6 +230,7 @@
       "claim": "연관된 기능을 분석했다",
       "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "impact-analysis",
@@ -228,6 +249,7 @@
       "claim": "관련 테스트를 실행했다",
       "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "test-run",
@@ -246,6 +268,7 @@
       "claim": "정의한 회귀 범위에서 통과했다",
       "applicable_task_modes": ["managed"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "regression-comparison",
@@ -264,6 +287,7 @@
       "claim": "기능을 직접 검증했다",
       "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "feature-validation",
@@ -282,6 +306,7 @@
       "claim": "Dashboard가 최신이다",
       "applicable_task_modes": ["managed", "imported"],
       "required_realization_checks": [],
+      "required_control_selectors": [],
       "required_evidence": [
         {
           "requirement_id": "projection-freshness",

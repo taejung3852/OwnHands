@@ -21,6 +21,8 @@ DevHarness는 실제 Evidence가 있는 범위에서만 claim을 허용해야 �
 9. Task requirement 결과에는 Dashboard의 Passed, Failed, Not Run, No Adequate Test, Inconclusive, Unknown을 보존하고, 이 중 `pass`만 claim support에 사용할 수 있다. Control 단계별 check의 좁은 결과 enum과 혼합하지 않는다.
 10. JSON Schema는 독립 구조와 상태 의미를 검증하며 `claim_results`의 비어 있지 않음과 완전히 동일한 객체의 중복 금지를 구조적으로 검사한다. Matrix-aware gate는 JSON Schema의 `uniqueItems`에 의존하지 않고 Report 전체에서 `claim_id` 속성의 유일성과 동일 Claim의 verdict 일관성을 검사한다.
 11. Matrix-aware gate는 현재 Matrix version·Claim 존재·Task mode·필수 requirement ID 집합·허용 basis·금지 문구를 대조한다. 필요한 Control에 연결된 모든 Validation record를 평가하며 observed fail이나 pass/fail 충돌은 `contradicted`, 불충분 상태는 `not_evaluated`로 처리한다.
+12. Matrix의 `required_control_selectors`는 `control_type`과 realization check를 묶는다. Gate는 같은 project/worktree/task/environment scope의 canonical Control record 전체를 선택하고 그 record ID 집합과 Report reference 집합이 정확히 같은지 검사한다. 다른 scope·다른 type·누락·추가·중복 record는 거부한다.
+13. `supported`의 `permitted_statement`는 Matrix의 좁은 `claim`과 정확히 같아야 한다. scope는 requirement `exact_scope`와 일치하고 Matrix residual risk를 모두 포함하며 전역·Claim별 금지 문구를 포함하지 않아야 한다. 동적 세부사항은 scope와 Evidence에서 표시한다.
 
 ## Alternatives
 
@@ -43,7 +45,7 @@ DevHarness는 실제 Evidence가 있는 범위에서만 claim을 허용해야 �
 - [Matrix Schema](../product/guarantee-matrix.schema.json)
 - [Task Report Schema](../product/task-guarantee-report.schema.json)
 - [Task Report Example](../product/task-guarantee-report.example.json)
-- [합성 Probe](../spikes/probes/m0-04-guarantee-matrix-probe.sh)는 전체 범주 추적, Task mode 적용성, 단일 enum 부재, 불충분/충돌 Evidence의 fail-safe 판정과 Matrix version·Claim·requirement ID·모든 연결 Control record의 Matrix-aware gate를 확인했다. 또한 빈 `claim_results`, 같은 Claim ID의 동일 객체 중복·서로 다른 객체 중복·verdict 충돌을 거부하고 필수 공격 경계 13종을 이름 집합으로 고정한다. 변경 전 실제 gate가 새 envelope 결함 네 건을 허용하고 변경 전 schema가 빈 배열과 동일 객체 중복을 허용한 RED, 수정 후 모두 거부한 GREEN을 기록했다. 내용이 다른 동일 `claim_id` 객체는 수정 후에도 schema만으로는 검출하지 못한다는 점을 positive check로 고정해 gate 의존성을 명시했다. Matrix, Control example, Task Report example은 pinned temporary validator로 strict-type/tuple draft 2020-12 schema 검증도 통과했다.
+- [합성 Probe](../spikes/probes/m0-04-guarantee-matrix-probe.sh)는 전체 범주 추적, Task mode 적용성, 단일 enum 부재, 불충분/충돌 Evidence의 fail-safe 판정과 Matrix version·Claim·requirement ID·canonical Control closure의 Matrix-aware gate를 확인했다. 빈 `claim_results`, 같은 Claim ID의 동일/상이 객체 중복·verdict 충돌, 다른 Control type/Task scope, 관련 failed record 생략, 중복 record ID, 전역 과장 문구·risk 누락을 포함한 필수 공격 경계 20종을 이름 집합으로 고정한다. 변경 전 실제 gate/schema의 RED와 수정 후 GREEN을 기록했고, 내용이 다른 동일 `claim_id` 객체는 schema만으로 검출하지 못한다는 positive check도 유지한다. Matrix, Control example, Task Report example은 pinned temporary validator로 strict-type/tuple draft 2020-12 schema 검증을 통과했다.
 
 ## Not decided here
 
