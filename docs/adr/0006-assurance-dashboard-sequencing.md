@@ -1,6 +1,6 @@
 # ADR-0006 — Assurance 2단계와 M1–M5 Review Artifact 순서
 
-- **상태:** Proposed — 사용자 검토 대기
+- **상태:** Accepted — 사용자 승인
 - **일자:** 2026-09-04
 - **관련 결정:** OD-03, OD-04
 
@@ -50,4 +50,6 @@ M2는 M4 분석 engine을 미리 구현하지 않는다. M4는 Preflight draft�
 - `향후계획.md`는 M1 fixture 수직 POC, M2 Preview, M4 Assurance, M5 Dashboard를 정의한다.
 - `Dashboard_layer.md`는 하드코딩 성공 화면을 금지하고 모든 핵심 문장을 실제 Evidence에 연결하도록 요구한다.
 
-이 ADR은 사용자 승인 전까지 `Proposed`이며 roadmap 변경이나 M1 구현을 허가하지 않는다.
+## Approval record
+
+2026-09-04 사용자가 제안안을 승인했다. 이 승인은 PR 검증·병합 전 M0 완료 주장이나 M1 구현 시작을 허가하지 않는다.

@@ -1,6 +1,6 @@
 # ADR-0005 — Superpowers Skill Vendoring 경계
 
-- **상태:** Proposed — 사용자 검토 대기
+- **상태:** Accepted — 사용자 승인, Non-blocking
 - **일자:** 2026-09-04
 - **관련 Issue:** [M0-05](https://github.com/taejung3852/devharness/issues/5)
 - **Blocking:** No. M0 종료 Gate의 필수 항목이 아니다.
@@ -85,4 +85,6 @@ Vendored copy는 `dev-harness/<skill-name>` namespace만 사용한다. upstream 
 
 실제 vendoring은 후속 Milestone의 별도 Issue와 사용자 승인 뒤에만 수행한다. 그 Issue는 namespace discovery, router ordering, Evidence wording, Task/Worktree, notice packaging behavior test를 포함해야 한다.
 
-이 ADR은 사용자 승인 전까지 `Proposed`이며 실제 vendoring을 허가하지 않는다.
+## Approval record
+
+2026-09-04 사용자가 제안안을 승인했다. 이 결정은 vendoring 경계만 확정하며 실제 Skill vendoring·activation은 허가하지 않는다. 실제 작업은 후속 Milestone의 별도 Issue와 승인을 계속 요구한다.

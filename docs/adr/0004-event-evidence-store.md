@@ -1,6 +1,6 @@
 # ADR-0004 — Event & Evidence Store
 
-- **상태:** Proposed — 사용자 검토 대기
+- **상태:** Accepted — 사용자 승인
 - **일자:** 2026-09-04
 - **관련 Issue:** [M0-06](https://github.com/taejung3852/devharness/issues/6)
 
@@ -46,4 +46,6 @@ DevHarness는 Event를 append-only 원본으로 기록하고, Raw Evidence를 �
 - 사용자 delete/restore UX
 - WAL 전환 조건의 성능 threshold
 
-이 ADR은 사용자 승인 전까지 `Proposed`이며 M1 구현을 허가하지 않는다.
+## Approval record
+
+2026-09-04 사용자가 제안안을 승인했다. `Not decided here`의 retention·encryption·delete/restore·WAL 전환 세부사항은 별도 결정을 유지한다. 이 승인은 PR 검증·병합 전 M0 완료 주장이나 M1 구현 시작을 허가하지 않는다.

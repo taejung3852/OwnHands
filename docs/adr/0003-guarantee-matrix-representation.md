@@ -1,6 +1,6 @@
 # ADR-0003 — Guarantee Matrix와 Task Guarantee Report 표현
 
-- **상태:** Proposed — 사용자 검토 대기
+- **상태:** Accepted — 사용자 승인
 - **일자:** 2026-09-04
 - **관련 Issue:** [M0-04](https://github.com/taejung3852/devharness/issues/4)
 
@@ -49,4 +49,6 @@ DevHarness는 실제 Evidence가 있는 범위에서만 claim을 허용해야 �
 - 사용자 Override record의 UI와 승인 권한
 - M1 구현 언어와 runtime validator library
 
-이 ADR은 사용자 승인 전까지 `Proposed`이며 M1 구현을 허가하지 않는다.
+## Approval record
+
+2026-09-04 사용자가 제안안을 승인했다. 이 승인은 PR 검증·병합 전 M0 완료 주장이나 M1 구현 시작을 허가하지 않는다.

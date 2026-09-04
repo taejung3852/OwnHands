@@ -1,6 +1,6 @@
 # M0-01 — Product and repository baseline audit
 
-- **상태:** 로컬 검증 완료, 외부 PR 및 Issue 상태 변경 전 사용자 승인 대기
+- **상태:** 로컬 검증·ADR 승인 반영, 단일 M0 PR 검증·병합 대기
 - **확인일:** 2026-09-04
 - **범위:** 제품 기준선, Git/GitHub 상태, 문서 내부 링크, Raw Evidence 제외 규칙
 
@@ -20,7 +20,7 @@
 | Preflight token/cost | Preflight와 실행 계약에서 제외한다. Usage & Cost Analytics는 M8의 별도 Dashboard 범위다. |
 | LangGraph | 제품·Control·Dashboard 계약에 의존성이나 전용 표현이 없다. |
 | M0 Gate | M0-06 Event/Evidence Store는 필수, M0-05 Superpowers는 Non-blocking, M0-07은 M0 Non-blocking/M5 승인 Gate로 추적된다. |
-| 결정 분리 | 확정 제품 기준선, Proposed ADR, Technical Spike, Observed/Inferred/Unobserved, 사용자 Open Decision이 별도 문서와 상태로 유지된다. |
+| 결정 분리 | 확정 제품 기준선, 승인 범위가 명시된 ADR, Technical Spike, Observed/Inferred/Unobserved, 남은 사용자 Open Decision이 별도 문서와 상태로 유지된다. |
 
 미결정 항목은 [Conflict and Open Decisions](../product/Conflict_and_Open_Decisions.md)에 사용자 책임과 M1/M5 전 결정 시점을 기록했다. 이 대조는 문서 계약을 확인한 것이며 HWPX, 비용 분석, Adapter 또는 Dashboard 기능을 구현했다는 뜻이 아니다.
 
@@ -46,4 +46,4 @@ docs/spikes/probes/m0-01-baseline-probe.sh
 - **Inferred:** 없음
 - **Unobserved:** PR review 결과, merge 결과, 이후 원격 상태
 
-따라서 M0-01 산출물은 로컬에서 검토 가능한 상태지만 Issue 완료나 M0 종료를 아직 주장하지 않는다.
+따라서 M0-01 산출물은 로컬에서 검토 가능한 상태지만 PR 검증·병합 전에는 Issue 완료나 M0 종료를 주장하지 않는다.

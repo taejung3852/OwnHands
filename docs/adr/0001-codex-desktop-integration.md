@@ -1,6 +1,6 @@
 # ADR-0001 — Codex Desktop 통합 경로
 
-- **상태:** Proposed — 사용자 검토 대기
+- **상태:** Accepted — 사용자 승인
 - **일자:** 2026-09-04
 - **관련 Issue:** [M0-02](https://github.com/taejung3852/devharness/issues/2)
 
@@ -10,7 +10,7 @@ DevHarness는 Codex Desktop-first 제품이지만 기존 Desktop UX를 임의로
 
 ## Decision
 
-두 가지 명시적 Task mode를 제안한다.
+두 가지 명시적 Task mode를 사용한다.
 
 1. **Managed Task:** DevHarness가 preflight 뒤 App Server로 새 Task를 시작하고, 자신이 수신한 안정 API 범위의 Event와 approval transaction을 canonical Event Log에 기록한다.
 2. **Imported Desktop Task:** 사용자가 명시적으로 선택한 기존 Task를 App Server `thread/read` 기반 snapshot/status로만 읽는다. live Event, 과거 approval, config, hook, sandbox enforcement는 `Unobserved`로 둔다.
@@ -49,4 +49,6 @@ Hooks, project config, AGENTS.md는 Managed Task의 보완 Evidence source다. C
 3. harmless local Hook으로 지원 lifecycle과 failure/timeout을 각각 확인한다.
 4. 기존 개인 Task, remote control, daemon 재시작, global config 변경은 Probe 대상에서 제외한다.
 
-이 ADR은 사용자 승인 전까지 `Proposed`이며 M1 구현을 허가하지 않는다.
+## Approval record
+
+2026-09-04 사용자가 제안안을 승인했다. 함께 승인된 OD-09에 따라 task runtime·집행 Probe는 M3 Hard Evidence Gate로 이관한다. 이 승인은 PR 검증·병합 전 M0 완료 주장이나 M1 구현 시작을 허가하지 않는다.

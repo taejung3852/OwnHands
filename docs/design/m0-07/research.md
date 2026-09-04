@@ -1,6 +1,6 @@
 # M0-07 참고 조사 — UI 시각 체계와 UX 정보 전달
 
-- **상태:** Spike 조사 완료, 사용자 검토 대기
+- **상태:** Spike 조사 완료, B 색상 방향 승인·UI/UX는 M5 참고 자료
 - **확인일:** 2026-09-04
 - **범위:** Brand & Dashboard Design Foundation만 다룬다. Production UI와 Brand Asset은 만들지 않는다.
 - **원칙:** 참고 제품의 색상·레이아웃·Asset을 복제하지 않고, DevHarness 문제에 필요한 원칙만 추출한다.

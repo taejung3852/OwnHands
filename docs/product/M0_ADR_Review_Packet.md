@@ -1,50 +1,50 @@
 # M0 ADR 검토 패킷
 
-- **상태:** 사용자 검토 대기
+- **상태:** 사용자 ADR 승인 반영, 단일 M0 PR 검증·병합 대기
 - **기준일:** 2026-09-04
 - **M1 기능 구현:** 금지 상태 유지
 
 ## 한눈에 보는 결론
 
-M0 필수 Spike와 schema 제안은 준비됐다. ADR-0007은 사용자의 결정에 따라 **B 색상 방향 범위만 Accepted**로 기록했고, 나머지 ADR은 Proposed다. M1 구현은 시작하지 않았다.
+M0 필수 Spike와 schema 결정은 검토 가능한 상태다. 사용자는 ADR-0001~0006과 OD-09을 제안대로 승인했고, ADR-0007은 **B 색상 방향 범위만 Accepted**로 유지했다. M1 구현은 시작하지 않았으며 단일 M0 PR 검증·병합 전에는 M0 완료를 주장하지 않는다.
 
 | 항목 | 제안 결론 | 현재 Evidence | 결정 상태 |
 |---|---|---|---|
-| Codex 통합 | App-Server-managed Task + snapshot-only Imported Desktop Task | 공식 문서, CLI help와 disposable protocol schema Probe | ADR-0001 Proposed |
-| Control Validation | Configured/Loaded/Enforced 독립 check + check별 Observed/Inferred/Unobserved basis | 공식 문서 비교, schema/example | ADR-0002 Proposed |
-| Guarantee | versioned JSON Matrix와 작업별 Report 분리 | 전체 문서 범주·Task mode 추적, strict schema와 합성 fail-safe fixture | ADR-0003 Proposed |
-| Event/Evidence Store | SQLite catalog + content-addressed local files; 초기 rollback journal | SQLite/Apple 공식 문서, 합성 저장 Probe | ADR-0004 Proposed |
-| Superpowers | `dev-harness/*` 선택 subset; global router 제외; MIT; commit pin | upstream/local hash 비교 | ADR-0005 Proposed, Non-blocking |
-| 구현 순서 | M2 Preflight draft / M4 post-change assurance 분리; M1–M4 review packet 유지 | 문서 간 lifecycle·roadmap 비교 | ADR-0006 Proposed |
+| Codex 통합 | App-Server-managed Task + snapshot-only Imported Desktop Task | 공식 문서, CLI help와 disposable protocol schema Probe | ADR-0001 Accepted, runtime Probe는 M3 |
+| Control Validation | Configured/Loaded/Enforced 독립 check + check별 Observed/Inferred/Unobserved basis | 공식 문서 비교, schema/example | ADR-0002 Accepted, runtime Probe는 M3 |
+| Guarantee | versioned JSON Matrix와 작업별 Report 분리 | 전체 문서 범주·Task mode 추적, strict schema와 합성 fail-safe fixture | ADR-0003 Accepted |
+| Event/Evidence Store | SQLite catalog + content-addressed local files; 초기 rollback journal | SQLite/Apple 공식 문서, 합성 저장 Probe | ADR-0004 Accepted |
+| Superpowers | `dev-harness/*` 선택 subset; global router 제외; MIT; commit pin | upstream/local hash 비교 | ADR-0005 Accepted, Non-blocking, vendoring 미승인 |
+| 구현 순서 | M2 Preflight draft / M4 post-change assurance 분리; M1–M4 review packet 유지 | 문서 간 lifecycle·roadmap 비교 | ADR-0006 Accepted |
 | Brand 색상 기반 | B — Warm Paper Neutral + Ledger Indigo | 동일 M0-06 Fixture 3안, Light/Dark 18상태, 접근성·layout Probe | ADR-0007 Accepted(색상 범위), UI/UX는 M5 Gate |
 
 ## M0 Gate 상태
 
 | Gate | 산출물 | 상태 |
 |---|---|---|
-| Codex 통합 결정 | ADR-0001, M0-02 Spike | read-only capability Probe 통과, 사용자 검토 대기 |
-| Control Validation 표·schema | ADR-0002, M0-03 Spike | read-only capability Probe 통과, 사용자 검토 대기 |
-| Guarantee Matrix v1 | ADR-0003, Matrix/Report schema | strict schema·합성 Probe 통과, 사용자 검토 대기 |
-| Event/Evidence 저장 결정 | ADR-0004, M0-06 Spike | 합성 Probe 통과, 사용자 검토 대기 |
-| Superpowers 원칙 | ADR-0005, M0-05 Spike | Non-blocking, 사용자 검토 대기 |
-| 문서 충돌 해소 | ADR-0006, Conflict 목록 | 사용자 검토 대기 |
+| Codex 통합 결정 | ADR-0001, M0-02 Spike | 승인됨, read-only capability Probe 통과, runtime은 M3로 이관 |
+| Control Validation 표·schema | ADR-0002, M0-03 Spike | 승인됨, read-only capability Probe 통과, runtime은 M3로 이관 |
+| Guarantee Matrix v1 | ADR-0003, Matrix/Report schema | 승인됨, strict schema·합성 Probe 통과 |
+| Event/Evidence 저장 결정 | ADR-0004, M0-06 Spike | 승인됨, 합성 Probe 통과 |
+| Superpowers 원칙 | ADR-0005, M0-05 Spike | 승인됨, Non-blocking, 실제 vendoring 제외 |
+| 문서 충돌 해소 | ADR-0006, Conflict 목록 | 승인됨 |
 | Brand 색상 기반 | ADR-0007, M0-07 시안 | B 색상 범위 승인, UI/UX는 M5 승인 Gate 대기 |
 
-M0 종료 Gate는 아직 통과로 표시하지 않는다. ADR-0001~0006과 OD-09의 사용자 결정 및 결과 반영이 남아 있다.
+ADR 결정 Gate는 통과했지만 M0 종료 Gate는 아직 통과로 표시하지 않는다. 단일 M0 PR의 검증·병합과 Issue별 수용 기준 재확인이 남아 있다.
 
 ## Issue별 로컬 준비 상태
 
 | Issue | 분류 | 로컬 산출물·검증 | 현재 주장 가능 범위 | 아직 필요한 것 |
 |---|---|---|---|---|
-| M0-01 | 충족(로컬 Evidence) | 기준선 hash 4개, 내부 link, Raw Evidence ignore Probe 통과 | 제품·Repository 기준선이 2026-09-04 로컬/원격 조회 범위에서 추적됨 | PR review·merge와 Issue 상태 변경 승인 |
-| M0-02 | 부분 충족 | 통합 비교, 여섯 질문, ADR-0001, stdio initialize/help/default schema Probe | 로컬 App Server handshake와 문서화된 snapshot/managed protocol/schema availability | OD-09 결정; task event·live Desktop attach runtime Probe는 현재 Unobserved |
-| M0-03 | 부분 충족 | Control coverage, fail-open 경계, ADR-0002, capability Probe | Configured/Loaded/Enforced와 basis 분리 계약이 검토 가능 | OD-09 결정; repository-specific enforcement는 Unobserved |
-| M0-04 | 충족(로컬 Evidence) | 16개 기준 범주, Task mode, strict schema, fail-safe/adversarial fixture Probe | Matrix/Report 계약과 합성 판정이 검증됨 | ADR 결정; 실제 Task evaluator/runtime migration은 M1 |
-| M0-05 | 충족(로컬 Evidence) | include/exclude, MIT, immutable pin, hash 비교, ADR-0005 | vendoring 의사결정 자료가 준비됨 | Non-blocking ADR 결정; 실제 vendoring 금지 유지 |
-| M0-06 | 충족(로컬 Evidence) | hybrid store 비교, 복구 경계, 합성 저장 Probe, ADR-0004 | clean close와 killed writer rollback, idempotency/hash/rebuild 결과 | ADR 결정; power-loss/disk-full/concurrency 등은 Unobserved |
-| M0-07 | 충족(로컬 Evidence) | 3안, Light/Dark 18 capture, static/browser Probe, ADR-0007 | B 색상 방향이 승인됐고 현재 UI/UX는 M5 참고 시안으로 보존됨 | 원격 PR·Issue 종료 승인; M5 UI/UX 별도 승인 전 Production UI 금지 |
+| M0-01 | 충족(로컬 Evidence) | 기준선 hash 4개, 내부 link, Raw Evidence ignore Probe 통과 | 제품·Repository 기준선이 2026-09-04 로컬/원격 조회 범위에서 추적됨 | PR 검증·병합; 그 전 Issue 종료 금지 |
+| M0-02 | 충족(승인된 M0 범위) | 통합 비교, 여섯 질문, ADR-0001, stdio initialize/help/default schema Probe | 로컬 App Server handshake와 문서화된 snapshot/managed protocol/schema availability | PR 검증·병합; task runtime·live Desktop attach는 OD-09에 따라 M3에서 Probe |
+| M0-03 | 충족(승인된 M0 범위) | Control coverage, fail-open 경계, ADR-0002, capability Probe | Configured/Loaded/Enforced와 basis 분리 계약이 승인됨 | PR 검증·병합; repository-specific enforcement는 M3 전까지 Unobserved |
+| M0-04 | 충족(로컬 Evidence) | 16개 기준 범주, Task mode, strict schema, fail-safe/adversarial fixture Probe | Matrix/Report 계약과 합성 판정이 승인·검증됨 | PR 검증·병합; 실제 Task evaluator는 M1 이후 별도 구현 |
+| M0-05 | 충족(로컬 Evidence) | include/exclude, MIT, immutable pin, hash 비교, ADR-0005 | vendoring 경계가 승인됨 | PR 검증·병합; 실제 vendoring 금지 유지 |
+| M0-06 | 충족(로컬 Evidence) | hybrid store 비교, 복구 경계, 합성 저장 Probe, ADR-0004 | clean close와 killed writer rollback, idempotency/hash/rebuild 결과와 저장 결정을 승인 | PR 검증·병합; power-loss/disk-full/concurrency 등은 Unobserved |
+| M0-07 | 충족(로컬 Evidence) | 3안, Light/Dark 18 capture, static/browser Probe, ADR-0007 | B 색상 방향이 승인됐고 현재 UI/UX는 M5 참고 시안으로 보존됨 | PR 검증·병합; M5 UI/UX 별도 승인 전 Production UI 금지 |
 
-모든 Issue는 외부에서 open 상태다. 위 표의 “로컬 준비”는 Issue 완료, ADR 승인, M0 종료 또는 제품 동작 보장을 뜻하지 않는다.
+모든 Issue는 외부에서 open 상태다. 위 표의 “충족”은 승인된 M0 문서·Probe 범위의 PR 후보 판정이며, PR 검증·병합 전 Issue 완료·M0 종료 또는 제품 동작 보장을 뜻하지 않는다.
 
 ## 확인된 것과 확인되지 않은 것
 
@@ -59,6 +59,7 @@ M0 종료 Gate는 아직 통과로 표시하지 않는다. ADR-0001~0006과 OD-0
 - Imported Task에서 Managed-only claim은 합성 check가 pass여도 `not_evaluated`가 됐고, Matrix/Control/Task Report JSON은 strict draft 2020-12 validation을 통과했다.
 - SQLite 합성 fixture에서 clean close와 killed writer의 uncommitted row rollback, duplicate no-op, content hash, Projection rebuild, Git 제외를 확인했다.
 - 사용자가 M0-07의 B — Warm Paper Neutral + Ledger Indigo 색상 방향을 승인하고, UI/UX 설계는 M5에서 현재 시안을 이어서 진행하도록 결정했다.
+- 사용자가 ADR-0001~0006과 OD-09을 제안대로 승인했다. task runtime·집행 Probe는 M3 Hard Evidence Gate로 이관되며 현재 결과를 소급해 Observed로 바꾸지 않는다.
 
 ### Documented but not locally enforced
 
@@ -77,16 +78,15 @@ M0 종료 Gate는 아직 통과로 표시하지 않는다. ADR-0001~0006과 OD-0
 - Pretendard Variable 실제 font file metric, screen reader별 M0-07 시안 사용성, 실제 사용자 검토 시간 감소
 - 배포, 공개 전환, package 게시
 
-## 사용자 검토가 필요한 결정
+## 승인된 결정
 
-1. **OD-09:** M0-02/03의 task runtime·집행 Probe를 M3 Hard Evidence Gate로 이동하고, 현재 M0는 문서·비Task capability Evidence와 명시적 Unobserved 경계로 검토할지
-2. **ADR-0001:** Managed Task와 Imported snapshot mode를 분리할지
-3. **ADR-0002/0003:** 독립 Control check schema와 Guarantee Matrix/Report 판정 규칙을 승인할지
-4. **ADR-0004:** hybrid 저장소와 rollback-journal 우선 원칙을 승인할지
-5. **ADR-0006:** Preflight/Post-change Assurance 2단계와 M1–M4 review artifact 계약을 승인할지
-6. **ADR-0005:** Non-blocking Superpowers 범위를 함께 승인·수정·보류할지
-
-ADR-0007의 B 색상 방향은 결정됐다. 현재 시안의 한눈에 보기·상세 공개를 포함한 UI/UX는 M5에서 별도로 검토한다.
+1. **OD-09:** M0-02/03 task runtime·집행 Probe를 M3 Hard Evidence Gate로 이관
+2. **ADR-0001:** Managed Task와 Imported snapshot mode 분리
+3. **ADR-0002/0003:** 독립 Control check schema와 Guarantee Matrix/Report 판정 규칙
+4. **ADR-0004:** hybrid 저장소와 rollback-journal 우선 원칙
+5. **ADR-0005:** Non-blocking Superpowers vendoring 경계. 실제 vendoring은 미승인
+6. **ADR-0006:** Preflight/Post-change Assurance 2단계와 M1–M4 review artifact 계약
+7. **ADR-0007:** B — Ledger Indigo 색상 범위만 승인. UI/UX는 M5에서 별도 검토
 
 ## ADR 승인 후에도 M1 전에 남는 제품 결정
 
@@ -101,6 +101,6 @@ ADR-0007의 B 색상 방향은 결정됐다. 현재 시안의 한눈에 보기·
 ## 외부 변경 경계
 
 - 이미 수행한 승인 범위: Private repository 생성, 최초 기준선 push, Milestone/Label/Issue #1~#8 생성, Milestone 설명 한국어화
-- 아직 수행하지 않은 변경: M0 결과 문서 push, public 전환, deployment, package publish, Superpowers vendoring
-- M0 결과 문서의 원격 push는 최초 기준선 push와 별도이므로 사용자 승인 없이 수행하지 않는다.
-- 현재 지시를 따라 M0-01~07을 하나의 M0 baseline PR 범위로 준비한다. Roadmap의 일반적인 Issue별 PR 규칙과의 차이는 OD-08에 기록했으며, push·PR 생성·Issue/ADR 상태 변경은 각각 사용자 승인 전 수행하지 않는다.
+- 이번 사용자 승인 범위: M0-07 GitHub 기록 갱신, `m0/product-technical-baseline` push, 단일 M0 PR 생성
+- 아직 수행하지 않거나 승인되지 않은 변경: PR merge, Issue 종료, public 전환, deployment, package publish, Superpowers vendoring, M1 구현
+- 현재 지시를 따라 M0-01~07을 하나의 M0 baseline PR 범위로 제출한다. Roadmap의 일반적인 Issue별 PR 규칙과의 차이는 OD-08에 기록했다.

@@ -1,6 +1,6 @@
 # ADR-0002 — Control Validation과 Evidence Basis 분리
 
-- **상태:** Proposed — 사용자 검토 대기
+- **상태:** Accepted — 사용자 승인
 - **일자:** 2026-09-04
 - **관련 Issue:** [M0-03](https://github.com/taejung3852/devharness/issues/3), [M0-04](https://github.com/taejung3852/devharness/issues/4)
 
@@ -58,4 +58,6 @@ Append-only source는 개별 observation/evaluation record이며, 위 구조는 
 
 이 구조가 통제 자체를 제공하지는 않는다. 각 check의 값은 version·환경·정확한 scope가 연결된 실제 Probe Evidence가 있을 때만 채울 수 있다.
 
-이 ADR은 사용자 승인 전까지 `Proposed`이며 M1 구현을 허가하지 않는다.
+## Approval record
+
+2026-09-04 사용자가 제안안을 승인했다. 함께 승인된 OD-09에 따라 repository-specific runtime 집행 Probe는 M3 Hard Evidence Gate로 이관한다. 이 승인은 PR 검증·병합 전 M0 완료 주장이나 M1 구현 시작을 허가하지 않는다.
