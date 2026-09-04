@@ -77,6 +77,34 @@ class Catalog:
                 environment_ref TEXT NOT NULL,
                 created_at TEXT NOT NULL
             ) STRICT;
+
+            CREATE TABLE IF NOT EXISTS events (
+                event_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(task_id),
+                sequence INTEGER NOT NULL CHECK(sequence > 0),
+                event_type TEXT NOT NULL,
+                event_version INTEGER NOT NULL CHECK(event_version > 0),
+                occurred_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                collection_method TEXT NOT NULL,
+                redaction_status TEXT NOT NULL CHECK(
+                    redaction_status IN ('not_needed', 'redacted', 'reference_only')
+                ),
+                fingerprint TEXT NOT NULL,
+                UNIQUE(task_id, sequence)
+            ) STRICT;
+
+            CREATE TRIGGER IF NOT EXISTS events_no_update
+            BEFORE UPDATE ON events
+            BEGIN
+                SELECT RAISE(ABORT, 'events are append-only');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS events_no_delete
+            BEFORE DELETE ON events
+            BEGIN
+                SELECT RAISE(ABORT, 'events are append-only');
+            END;
             COMMIT;
             """
         )
