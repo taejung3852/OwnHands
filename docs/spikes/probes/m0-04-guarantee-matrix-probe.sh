@@ -22,12 +22,17 @@ overclaim_report_fixture="$schema_fixture_dir/overclaim-report.json"
 empty_residual_risks_fixture="$schema_fixture_dir/empty-residual-risks.json"
 duplicate_control_record_fixture="$schema_fixture_dir/duplicate-control-record.json"
 evidence_free_report_fixture="$schema_fixture_dir/evidence-free-report.json"
+different_control_id_fixture="$schema_fixture_dir/different-control-id.json"
+different_control_boundary_fixture="$schema_fixture_dir/different-control-boundary.json"
+different_control_check_scope_fixture="$schema_fixture_dir/different-control-check-scope.json"
 cleanup_schema_fixtures() {
   unlink "$empty_claim_results_fixture" "$duplicate_claim_result_fixture" \
     "$distinct_duplicate_claim_id_fixture" "$foreign_task_control_fixture" \
     "$unrelated_control_fixture" "$hidden_failed_control_fixture" \
     "$overclaim_report_fixture" "$empty_residual_risks_fixture" \
-    "$duplicate_control_record_fixture" "$evidence_free_report_fixture" 2>/dev/null || true
+    "$duplicate_control_record_fixture" "$evidence_free_report_fixture" \
+    "$different_control_id_fixture" "$different_control_boundary_fixture" \
+    "$different_control_check_scope_fixture" 2>/dev/null || true
   rmdir "$schema_fixture_dir" 2>/dev/null || true
 }
 trap cleanup_schema_fixtures EXIT
@@ -72,8 +77,7 @@ jq '.scope.project_id = "foreign-project" |
   .scope.task_id = "foreign-task" |
   .scope.environment_ref = "foreign-environment"' \
   "$control_example" >"$foreign_task_control_fixture"
-jq '.control_id = "sandbox.unrelated-control" |
-  .control_type = "sandbox"' \
+jq '.control_type = "sandbox"' \
   "$control_example" >"$unrelated_control_fixture"
 jq '.record_id = "control-validation-hidden-fail" |
   .checks.configured.result = "fail" |
@@ -88,10 +92,19 @@ jq '.control_id = "config.duplicate-profile"' \
   "$control_example" >"$duplicate_control_record_fixture"
 jq '.claim_results[0].requirement_results[0].evidence_refs = []' \
   "$report_example" >"$evidence_free_report_fixture"
+jq '.control_id = "config.other-profile"' \
+  "$control_example" >"$different_control_id_fixture"
+jq '.scope.boundary = "다른 Control Profile"' \
+  "$control_example" >"$different_control_boundary_fixture"
+jq '.checks.configured.exact_scope = "다른 Control Profile"' \
+  "$control_example" >"$different_control_check_scope_fixture"
 validate_control_schema "$foreign_task_control_fixture" >/dev/null
 validate_control_schema "$unrelated_control_fixture" >/dev/null
 validate_control_schema "$hidden_failed_control_fixture" >/dev/null
 validate_control_schema "$duplicate_control_record_fixture" >/dev/null
+validate_control_schema "$different_control_id_fixture" >/dev/null
+validate_control_schema "$different_control_boundary_fixture" >/dev/null
+validate_control_schema "$different_control_check_scope_fixture" >/dev/null
 validate_report_schema "$overclaim_report_fixture" >/dev/null
 expect_report_schema_rejection "$empty_residual_risks_fixture"
 expect_report_schema_rejection "$evidence_free_report_fixture"
@@ -137,10 +150,13 @@ while IFS= read -r fixture_name; do
   ' "$fixtures" >/dev/null
 done <<<"$required_adversarial_fixture_names"
 
-expected_integration_mutation_fixture_names='duplicate control validation record ids are rejected
+expected_integration_mutation_fixture_names='different control boundary cannot support a claim
+different control check scope cannot support a claim
+duplicate control validation record ids are rejected
 foreign task control cannot support a claim
 global overclaim wording is rejected
 report cannot omit a relevant failed control record
+same type different control id cannot support a claim
 supported report requires evidence references
 supported report requires residual risks
 unrelated control identity cannot support a claim'
@@ -200,16 +216,16 @@ jq -e 'all(.claims[];
   ($ids | length) == ($ids | unique | length)
 )' "$matrix" >/dev/null
 
-expected_control_selectors='GM-001:control_profile:configured
-GM-002:active_config:loaded
-GM-003:agents_instruction:loaded
-GM-004:rule:enforced
-GM-006:sandbox:enforced
-GM-007:approval_policy:enforced'
+expected_control_selectors='GM-001:control_profile:configured:profile-artifact
+GM-002:active_config:loaded:resolved-config
+GM-003:agents_instruction:loaded:instruction-source
+GM-004:rule:enforced:rule-decision
+GM-006:sandbox:enforced:sandbox-denial
+GM-007:approval_policy:enforced:approval-transaction'
 actual_control_selectors="$(jq -r '
   .claims[] as $claim |
   $claim.required_control_selectors[] |
-  "\($claim.claim_id):\(.control_type):\(.check)"
+  "\($claim.claim_id):\(.control_type):\(.check):\(.subject_requirement_id)"
 ' "$matrix" | sort)"
 test "$actual_control_selectors" = "$expected_control_selectors"
 
@@ -232,10 +248,13 @@ jq -e 'all(.claims[]; . as $claim |
 ' --argjson matrix_forbidden "$(jq '.global_forbidden_wording' "$matrix")" "$matrix" >/dev/null
 
 jq -e 'all(.claims[];
+  [.required_evidence[].requirement_id] as $requirement_ids |
   ([.required_control_selectors[].check] | sort) ==
     (.required_realization_checks | sort) and
   ([.required_control_selectors[].control_type] | length) ==
-    ([.required_control_selectors[].control_type] | unique | length)
+    ([.required_control_selectors[].control_type] | unique | length) and
+  all(.required_control_selectors[]; . as $selector |
+    any($requirement_ids[]; . == $selector.subject_requirement_id))
 )' "$matrix" >/dev/null
 
 jq -e 'all(.claims[];
@@ -334,6 +353,9 @@ jq -n -e \
   --slurpfile overclaim_report "$overclaim_report_fixture" \
   --slurpfile duplicate_control_record "$duplicate_control_record_fixture" \
   --slurpfile evidence_free_report "$evidence_free_report_fixture" \
+  --slurpfile different_control_id "$different_control_id_fixture" \
+  --slurpfile different_control_boundary "$different_control_boundary_fixture" \
+  --slurpfile different_control_check_scope "$different_control_check_scope_fixture" \
   --slurpfile fixture_data "$fixtures" '
   def matrix_claim($id):
     ([$matrix[0].claims[] | select(.claim_id == $id)][0] // null);
@@ -351,13 +373,18 @@ jq -n -e \
     $validation.scope.worktree_id == $task.worktree_id and
     $validation.scope.task_id == $task.task_id and
     $validation.scope.environment_ref == $task.environment_ref;
-  def selector_records($selector; $task; $validations):
+  def selector_requirement($selector; $result):
+    ([$result.requirement_results[] |
+      select(.requirement_id == $selector.subject_requirement_id)][0] // null);
+  def selector_records($selector; $result; $task; $validations):
+    (selector_requirement($selector; $result)) as $requirement |
     [$validations[] |
       select(.control_type == $selector.control_type and
+        .control_id == $requirement.subject_ref and
         task_scope_matches($task; .))];
-  def required_validation_ids($claim; $task; $validations):
+  def required_validation_ids($result; $claim; $task; $validations):
     [$claim.required_control_selectors[] as $selector |
-      selector_records($selector; $task; $validations)[] |
+      selector_records($selector; $result; $task; $validations)[] |
       .record_id] | unique;
   def validation_refs_match($result; $claim; $task; $validations):
     ($result.control_validation_refs | length) ==
@@ -366,7 +393,7 @@ jq -n -e \
       ($result.control_validation_refs | length) == 0
     else
       ($result.control_validation_refs | sort) ==
-        (required_validation_ids($claim; $task; $validations) | sort)
+        (required_validation_ids($result; $claim; $task; $validations) | sort)
     end;
   def basis_material_valid($item):
     if $item.basis == "observed" then
@@ -394,7 +421,7 @@ jq -n -e \
     then "contradicted"
     elif any($claim.required_control_selectors[];
       . as $selector |
-      selector_records($selector; $task; $validations) as $records |
+      selector_records($selector; $result; $task; $validations) as $records |
       any($records[]; .checks[$selector.check].result == "fail" and
         .checks[$selector.check].basis == "observed") or
       (([$records[].checks[$selector.check].result] | index("pass")) != null and
@@ -402,9 +429,12 @@ jq -n -e \
     then "contradicted"
     elif any($claim.required_control_selectors[];
         . as $selector |
-        selector_records($selector; $task; $validations) as $records |
+        (selector_requirement($selector; $result)) as $requirement |
+        selector_records($selector; $result; $task; $validations) as $records |
         ($records | length) == 0 or
         any($records[];
+          .scope.boundary != $requirement.exact_scope or
+          .checks[$selector.check].exact_scope != $requirement.exact_scope or
           (.checks[$selector.check] | .result != "pass" or
             (.basis as $basis | ($claim.allowed_basis | index($basis)) == null) or
             (basis_material_valid(.) | not)))) or
@@ -474,6 +504,9 @@ jq -n -e \
     .scope = (.scope // "합성 fixture 범위") |
     .residual_risks = (.residual_risks // $claim.residual_risks) |
     .requirement_results |= map(
+      .subject_ref = (.subject_ref //
+        (if ($claim.required_control_selectors | length) > 0
+         then "control-unit" else "subject-unit" end)) |
       .exact_scope = (.exact_scope // "합성 fixture 범위") |
       .evidence_refs = (.evidence_refs //
         (if .basis == "observed" then ["evidence-unit"] else [] end)) |
@@ -481,6 +514,7 @@ jq -n -e \
         (if .basis == "inferred" then ["inference-unit"] else [] end)));
   def unit_validations($fixture; $claim):
     [$fixture.control_validations[] |
+      .control_id = (.control_id // "control-unit") |
       .control_type = (.control_type // $claim.required_control_selectors[0].control_type) |
       .scope = (.scope // {
         project_id: "project-synthetic",
@@ -490,6 +524,7 @@ jq -n -e \
         environment_ref: "environment-synthetic"
       }) |
       .checks |= with_entries(
+        .value.exact_scope = (.value.exact_scope // "합성 fixture 범위") |
         .value.evidence_refs = (.value.evidence_refs //
           (if .value.basis == "observed" then ["evidence-unit"] else [] end)) |
         .value.inference_from = (.value.inference_from //
@@ -512,7 +547,10 @@ jq -n -e \
   (report_document_valid($report[0]; [$control[0], $hidden_failed_control[0]]) == false) and
   (report_document_valid($overclaim_report[0]; [$control[0]]) == false) and
   (report_document_valid($report[0]; [$control[0], $duplicate_control_record[0]]) == false) and
-  (report_document_valid($evidence_free_report[0]; [$control[0]]) == false)
+  (report_document_valid($evidence_free_report[0]; [$control[0]]) == false) and
+  (report_document_valid($report[0]; [$different_control_id[0]]) == false) and
+  (report_document_valid($report[0]; [$different_control_boundary[0]]) == false) and
+  (report_document_valid($report[0]; [$different_control_check_scope[0]]) == false)
 ' >/dev/null
 
 printf 'json_syntax=passed\n'
@@ -542,10 +580,11 @@ printf 'report_envelope_fixtures_rejected=4\n'
 printf 'claim_results_nonempty_gate=passed\n'
 printf 'claim_id_uniqueness_gate=passed\n'
 printf 'claim_verdict_conflict_gate=passed\n'
-printf 'required_adversarial_fixture_coverage=20\n'
-printf 'schema_valid_integration_mutations_rejected=5\n'
+printf 'required_adversarial_fixture_coverage=23\n'
+printf 'schema_valid_integration_mutations_rejected=8\n'
 printf 'schema_adversarial_mutations_rejected=2\n'
 printf 'control_selector_scope_binding=passed\n'
+printf 'control_instance_subject_binding=passed\n'
 printf 'control_selector_mapping=passed\n'
 printf 'control_type_schema_alignment=passed\n'
 printf 'global_forbidden_wording_coverage=passed\n'

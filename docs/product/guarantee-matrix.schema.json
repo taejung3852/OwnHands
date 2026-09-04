@@ -82,7 +82,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["control_type", "check"],
+            "required": ["control_type", "check", "subject_requirement_id"],
             "properties": {
               "control_type": {
                 "enum": [
@@ -94,7 +94,8 @@
                   "approval_policy"
                 ]
               },
-              "check": {"enum": ["configured", "loaded", "enforced"]}
+              "check": {"enum": ["configured", "loaded", "enforced"]},
+              "subject_requirement_id": {"type": "string", "minLength": 1}
             },
             "additionalProperties": false
           },

@@ -14,7 +14,7 @@
 
 각 Control Validation record는 `configured`, `loaded`, `enforced`를 **독립 check**로 가진다. 각 check에는 다음을 기록한다.
 
-Record identity에는 instance `control_id`, Matrix selector용 `control_type`, `project_id`·`worktree_id`·`task_id`·`environment_ref` scope를 모두 기록한다. Task Guarantee 판정은 같은 `control_type`과 동일 scope의 canonical record 전체를 사용한다.
+Record identity에는 instance `control_id`, Matrix selector용 `control_type`, `project_id`·`worktree_id`·`task_id`·`environment_ref` scope를 모두 기록한다. Task requirement의 `subject_ref`가 `control_id`를 가리키며, requirement `exact_scope`는 Control boundary와 선택된 check `exact_scope`에 모두 일치해야 한다. Task Guarantee 판정은 이 identity와 scope가 같은 canonical record 전체를 사용한다.
 
 - `result`: `pass | fail | not_run | not_applicable`
 - `basis`: `observed | inferred | unobserved`

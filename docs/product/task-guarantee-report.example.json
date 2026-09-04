@@ -18,6 +18,7 @@
       "requirement_results": [
         {
           "requirement_id": "profile-artifact",
+          "subject_ref": "config.synthetic-profile",
           "result": "pass",
           "basis": "observed",
           "evidence_refs": ["evidence-profile-hash", "evidence-profile-parse"],
@@ -39,6 +40,7 @@
       "requirement_results": [
         {
           "requirement_id": "resolved-config",
+          "subject_ref": "config.synthetic-active-source",
           "result": "not_applicable",
           "basis": "observed",
           "evidence_refs": ["evidence-task-mode-imported"],
@@ -60,6 +62,7 @@
       "requirement_results": [
         {
           "requirement_id": "test-run",
+          "subject_ref": "test-selection.synthetic",
           "result": "pass",
           "basis": "observed",
           "evidence_refs": ["evidence-test-pass"],

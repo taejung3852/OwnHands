@@ -52,7 +52,7 @@ Guarantee Matrix는 versioned JSON 규칙표로, Task Guarantee Report는 작업
 
 각 Control record에는 `configured`, `loaded`, `enforced`가 모두 있고 각 check는 다음을 가진다.
 
-Record 자체에는 Matrix가 선택할 `control_type`과 `project_id`·`worktree_id`·`task_id`·`environment_ref`의 완전한 실행 scope가 있다. `control_id`는 instance 식별자이고 `control_type`은 Claim과 연결하는 닫힌 분류다.
+Record 자체에는 Matrix가 선택할 `control_type`과 `project_id`·`worktree_id`·`task_id`·`environment_ref`의 완전한 실행 scope가 있다. `control_id`는 instance 식별자이고 `control_type`은 Claim과 연결하는 닫힌 분류다. requirement의 `subject_ref`가 이 `control_id`를 가리킨다.
 
 ```json
 {
@@ -75,7 +75,7 @@ Record 자체에는 Matrix가 선택할 `control_type`과 `project_id`·`worktre
 - stable Claim ID와 문서 범주
 - 적용 가능한 `managed | imported` Task mode
 - 허용할 정확한 주장
-- 필요한 `control_type`과 realization check의 machine-readable selector
+- 필요한 `control_type`, realization check, subject를 제공할 requirement ID의 machine-readable selector
 - 필수 Evidence type과 field
 - 허용 Evidence basis
 - 금지 표현
@@ -101,7 +101,7 @@ JSON Schema는 개별 Matrix rule을 읽지 않고도 확인 가능한 구조, �
 
 Matrix-aware gate는 Report의 `matrix_version`, 완전한 Task scope, `task.mode`, `claim_id`, claim별 requirement ID 집합, 허용 basis·금지 문구와 필요한 Control selector를 현재 Matrix와 대조한다. Report 전체에서 `claim_results`가 비어 있지 않은지, `claim_id`가 속성 기준으로 유일한지, 같은 Claim에 서로 다른 verdict가 함께 있지 않은지도 별도로 검사한다.
 
-Control record는 `control_type`과 Task의 project/worktree/task/environment scope가 모두 일치해야 한다. Gate에 전달된 canonical Control record 집합에서 selector와 scope가 맞는 **모든** record ID가 Report reference 집합과 정확히 일치해야 하므로 Report가 실패 record를 선택적으로 빼거나 다른 Task의 pass를 가져올 수 없다. 중복 Control record ID도 거부한다. 관찰된 `fail`이나 pass/fail 충돌은 `contradicted`, record 누락·`not_run`·허용되지 않은 basis는 `not_evaluated`로 판정한다.
+Control record는 selector의 `control_type`, selector가 지정한 requirement의 `subject_ref == control_id`, Task의 project/worktree/task/environment scope가 모두 일치해야 한다. Control boundary와 선택된 check의 `exact_scope`도 requirement의 `exact_scope`와 같아야 한다. Gate에 전달된 canonical Control record 집합에서 이 identity와 scope가 맞는 **모든** record ID가 Report reference 집합과 정확히 일치해야 하므로 Report가 실패 record를 선택적으로 빼거나 다른 instance·Task의 pass를 가져올 수 없다. 중복 Control record ID도 거부한다. 관찰된 `fail`이나 pass/fail 충돌은 `contradicted`, record 누락·`not_run`·허용되지 않은 basis는 `not_evaluated`로 판정한다.
 
 `supported` 문장은 Matrix의 좁은 `claim` 문구와 정확히 같아야 하고, result scope는 requirement의 `exact_scope`와 같아야 하며, Matrix의 residual risk를 빠짐없이 포함해야 한다. 전역·Claim별 금지 문구는 문장과 scope 양쪽에서 검사한다. 동적 세부사항은 성공 문장에 덧붙이지 않고 scope와 Evidence에서 표시한다.
 
@@ -143,10 +143,11 @@ report_envelope_fixtures_rejected=4
 claim_results_nonempty_gate=passed
 claim_id_uniqueness_gate=passed
 claim_verdict_conflict_gate=passed
-required_adversarial_fixture_coverage=20
-schema_valid_integration_mutations_rejected=5
+required_adversarial_fixture_coverage=23
+schema_valid_integration_mutations_rejected=8
 schema_adversarial_mutations_rejected=2
 control_selector_scope_binding=passed
+control_instance_subject_binding=passed
 control_selector_mapping=passed
 control_type_schema_alignment=passed
 global_forbidden_wording_coverage=passed
@@ -174,7 +175,7 @@ Probe는 다음을 확인했다.
 15. Schema는 완전히 동일한 Claim result 중복을 거부하고, gate는 객체의 다른 field와 무관하게 같은 `claim_id`를 거부한다.
 16. 같은 Claim ID에 서로 다른 verdict를 함께 넣은 Report를 거부한다.
 17. Report가 참조한 Control Validation ID가 실제 record로 해소되지 않으면 거부한다.
-18. `control_type`과 project/worktree/task/environment scope가 Claim·Report와 맞지 않는 Control record를 거부한다.
+18. `control_type`, requirement `subject_ref`와 `control_id`, project/worktree/task/environment scope가 Claim·Report와 맞지 않는 Control record를 거부한다.
 19. canonical 집합의 관련 실패 record를 Report reference에서 빼거나 중복 record ID를 제공하는 경우를 거부한다.
 20. 전역 과장 문구, Matrix와 다른 성공 문장, requirement와 다른 scope, Matrix residual risk 누락을 거부한다.
 21. `observed`/`inferred` 결과가 각각 Evidence/inference reference 없이 `supported`가 되는 경로를 거부한다.
@@ -200,7 +201,7 @@ Probe는 다음을 확인했다.
 | 같은 Claim ID·같은 verdict지만 scope가 다른 객체 중복 | gate 허용; `uniqueItems`는 서로 다른 객체로 허용 | claim ID 유일성 gate가 거부 |
 | 같은 Claim ID에 `supported`와 `contradicted` 동시 존재 | gate 허용; `uniqueItems`만으로는 서로 다른 객체라 식별 불가 | claim ID 유일성·verdict 일관성 gate가 거부 |
 
-필수 공격 경계 13종은 이름 집합으로도 고정했다. 여기에는 위 네 envelope 사례와 Imported 적용성, 알 수 없는 Claim, Matrix version, requirement 누락·추가·중복, 해소되지 않는 Control 참조, Control record 순서로 숨겨지는 pass/fail 충돌, observed Control fail을 `supported`로 바꾸는 사례가 포함된다.
+첫 두 RED/GREEN 묶음의 필수 공격 경계 13종은 이름 집합으로 고정했다. 여기에는 위 네 envelope 사례와 Imported 적용성, 알 수 없는 Claim, Matrix version, requirement 누락·추가·중복, 해소되지 않는 Control 참조, Control record 순서로 숨겨지는 pass/fail 충돌, observed Control fail을 `supported`로 바꾸는 사례가 포함된다.
 
 독립 리뷰에서 발견한 두 차단 결함과 인접 무결성 경계도 전체 Schema 문서를 한 field씩 바꾸는 integration mutation으로 재현했다. 수정 전 gate는 다른 Task scope, 다른 `control_type`, Report에서 생략한 관련 failed Control, 중복 Control record ID, 전역 과장 문장을 허용했다. 수정 전 Task Report schema는 `supported`의 빈 residual risk를 허용했다. 새 공격 사례를 추가한 직후 M0-04 Probe가 exit 1인 RED를 확인했고, selector/scope closure·canonical wording/risk·basis material gate를 적용한 뒤 아래 일곱 사례가 모두 거부되는 GREEN을 확인했다.
 
@@ -213,8 +214,11 @@ Probe는 다음을 확인했다.
 | 전역 과장 문장과 넓은 scope | gate 허용 | canonical 문장·scope·전역 금지 gate로 거부 |
 | `supported`의 빈 residual risk | schema `valid` | schema와 Matrix risk gate가 거부 |
 | `observed` requirement의 빈 Evidence reference | 성공 근거가 해소되지 않는 공격 경계 | schema와 basis material gate가 거부 |
+| 같은 type·Task지만 다른 `control_id` | gate 허용 | requirement `subject_ref`와 instance identity 불일치로 거부 |
+| 같은 instance의 다른 Control boundary | gate 허용 | requirement `exact_scope`와 boundary 불일치로 거부 |
+| 같은 instance의 다른 check `exact_scope` | gate 허용 | requirement scope와 check scope 불일치로 거부 |
 
-기존 축약 fixture는 verdict 분기 하나를 고립시키는 unit fixture다. 위 integration mutation은 schema-valid Task Report와 Control example에서 한 field만 바꿔 Gate와 Schema를 end-to-end로 대조하므로 축약 fixture와 구현이 같은 누락을 공유하는 위험을 별도로 감시한다. 필수 공격 경계는 기존 13종과 integration 7종, 총 20종을 이름 집합으로 고정했다.
+기존 축약 fixture는 verdict 분기 하나를 고립시키는 unit fixture다. Integration 묶음은 schema-valid Task Report/Control example 기반 gate mutation 8종과 의도적으로 schema를 위반하는 mutation 2종으로 Gate와 Schema를 end-to-end 대조한다. 이 중 Control instance·boundary·check scope는 각각 한 field만 바꿔 같은 type이라는 이유만으로 대체되는 회귀를 잡는다. 필수 공격 경계는 기존 13종과 integration 10종, 총 23종을 이름 집합으로 고정했다.
 
 세 schema와 example은 pinned temporary `ajv-cli@5.0.0` + `ajv-formats@3.0.1`로 draft 2020-12 validation을 통과했고 `strict-types`/`strict-tuples` error나 warning은 없었다. 이 도구는 repository dependency로 추가하지 않았다.
 

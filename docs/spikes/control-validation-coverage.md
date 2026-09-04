@@ -39,7 +39,7 @@ Do not use one `control_state` enum. It would make `Enforced` and `Inferred` mut
 
 This is an illustrative record, not a final schema.
 
-최종 M0 schema는 여기에 instance `control_id`와 별도로 Matrix selector용 `control_type`을 두고, `project_id`·`worktree_id`·`task_id`·`environment_ref`를 필수 scope로 둔다. Guarantee gate는 같은 selector와 scope의 canonical record 전체를 평가하므로 Report가 다른 Task의 pass를 가져오거나 관련 failed record를 생략할 수 없다. Canonical store 조회 구현 자체는 M1 이후 runtime Gate이며 현재 **Unobserved**다.
+최종 M0 schema는 여기에 instance `control_id`와 별도로 Matrix selector용 `control_type`을 두고, `project_id`·`worktree_id`·`task_id`·`environment_ref`를 필수 scope로 둔다. Task requirement의 `subject_ref`는 `control_id`와, requirement `exact_scope`는 Control boundary 및 선택 check의 `exact_scope`와 일치해야 한다. Guarantee gate는 이 identity와 scope의 canonical record 전체를 평가하므로 Report가 같은 type의 다른 Control 또는 다른 Task의 pass를 가져오거나 관련 failed record를 생략할 수 없다. Canonical store 조회 구현 자체는 M1 이후 runtime Gate이며 현재 **Unobserved**다.
 
 ## Coverage and validation plan
 

@@ -665,7 +665,7 @@
     },
     {
       "name": "unrelated control identity cannot support a claim",
-      "mutates": "control.control_id_and_type",
+      "mutates": "control.control_type",
       "pre_fix_gate_result": "accepted",
       "expected_contract_valid": false
     },
@@ -697,6 +697,24 @@
       "name": "supported report requires evidence references",
       "mutates": "requirement_result.evidence_refs",
       "adversarial_only": true,
+      "expected_contract_valid": false
+    },
+    {
+      "name": "same type different control id cannot support a claim",
+      "mutates": "control.control_id",
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "different control boundary cannot support a claim",
+      "mutates": "control.scope.boundary",
+      "pre_fix_gate_result": "accepted",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "different control check scope cannot support a claim",
+      "mutates": "control.checks.configured.exact_scope",
+      "pre_fix_gate_result": "accepted",
       "expected_contract_valid": false
     }
   ]
