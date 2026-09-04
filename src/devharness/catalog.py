@@ -105,6 +105,45 @@ class Catalog:
             BEGIN
                 SELECT RAISE(ABORT, 'events are append-only');
             END;
+
+            CREATE TABLE IF NOT EXISTS evidence (
+                evidence_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(task_id),
+                requirement_id TEXT NOT NULL,
+                evidence_type TEXT NOT NULL,
+                subject_ref TEXT NOT NULL,
+                exact_scope TEXT NOT NULL,
+                result TEXT NOT NULL CHECK(
+                    result IN ('pass', 'fail', 'not_run', 'inconclusive')
+                ),
+                basis TEXT NOT NULL CHECK(
+                    basis IN ('observed', 'inferred', 'unobserved')
+                ),
+                fields_json TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                object_relpath TEXT NOT NULL,
+                content_size INTEGER NOT NULL CHECK(content_size >= 0),
+                collection_method TEXT NOT NULL,
+                redaction_status TEXT NOT NULL CHECK(
+                    redaction_status IN ('not_needed', 'redacted', 'reference_only')
+                ),
+                fingerprint TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                purged_at TEXT,
+                purge_reason TEXT
+            ) STRICT;
+
+            CREATE INDEX IF NOT EXISTS evidence_task_requirement
+            ON evidence(task_id, requirement_id, evidence_type);
+
+            CREATE TABLE IF NOT EXISTS retention_policy (
+                singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+                mode TEXT NOT NULL CHECK(mode IN ('keep_until_user_deletes', 'days')),
+                days INTEGER CHECK(days IS NULL OR days > 0)
+            ) STRICT;
+            INSERT INTO retention_policy(singleton, mode, days)
+            VALUES (1, 'keep_until_user_deletes', NULL)
+            ON CONFLICT(singleton) DO NOTHING;
             COMMIT;
             """
         )

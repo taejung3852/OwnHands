@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import sqlite3
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Callable
@@ -63,6 +64,15 @@ class EventLog:
         draft: EventDraft,
         redactor: Callable[[dict], dict],
     ) -> EventRecord:
+        with self.catalog.transaction() as connection:
+            return self.append_in_transaction(draft, redactor, connection)
+
+    def append_in_transaction(
+        self,
+        draft: EventDraft,
+        redactor: Callable[[dict], dict],
+        connection: sqlite3.Connection,
+    ) -> EventRecord:
         self._validate(draft)
         redacted_payload = redactor(copy.deepcopy(draft.payload))
         if not isinstance(redacted_payload, dict):
@@ -70,52 +80,51 @@ class EventLog:
         payload_json = _canonical_json(redacted_payload)
         fingerprint = self._fingerprint(draft, payload_json)
 
-        with self.catalog.transaction() as connection:
-            existing = connection.execute(
-                "SELECT * FROM events WHERE event_id=?", (draft.event_id,)
-            ).fetchone()
-            if existing is not None:
-                if existing["fingerprint"] != fingerprint:
-                    raise EventConflict(
-                        f"event_id {draft.event_id!r} already has different content"
-                    )
-                return self._from_row(existing)
+        existing = connection.execute(
+            "SELECT * FROM events WHERE event_id=?", (draft.event_id,)
+        ).fetchone()
+        if existing is not None:
+            if existing["fingerprint"] != fingerprint:
+                raise EventConflict(
+                    f"event_id {draft.event_id!r} already has different content"
+                )
+            return self._from_row(existing)
 
-            task_exists = connection.execute(
-                "SELECT 1 FROM tasks WHERE task_id=?", (draft.task_id,)
-            ).fetchone()
-            if task_exists is None:
-                raise ValueError(f"unknown task: {draft.task_id}")
+        task_exists = connection.execute(
+            "SELECT 1 FROM tasks WHERE task_id=?", (draft.task_id,)
+        ).fetchone()
+        if task_exists is None:
+            raise ValueError(f"unknown task: {draft.task_id}")
 
-            sequence = connection.execute(
-                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM events WHERE task_id=?",
-                (draft.task_id,),
-            ).fetchone()[0]
-            connection.execute(
-                """
-                INSERT INTO events(
-                    event_id, task_id, sequence, event_type, event_version,
-                    occurred_at, payload_json, collection_method,
-                    redaction_status, fingerprint
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    draft.event_id,
-                    draft.task_id,
-                    sequence,
-                    draft.event_type,
-                    draft.event_version,
-                    draft.occurred_at,
-                    payload_json,
-                    draft.collection_method,
-                    draft.redaction_status,
-                    fingerprint,
-                ),
-            )
-            row = connection.execute(
-                "SELECT * FROM events WHERE event_id=?", (draft.event_id,)
-            ).fetchone()
-            return self._from_row(row)
+        sequence = connection.execute(
+            "SELECT COALESCE(MAX(sequence), 0) + 1 FROM events WHERE task_id=?",
+            (draft.task_id,),
+        ).fetchone()[0]
+        connection.execute(
+            """
+            INSERT INTO events(
+                event_id, task_id, sequence, event_type, event_version,
+                occurred_at, payload_json, collection_method,
+                redaction_status, fingerprint
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                draft.event_id,
+                draft.task_id,
+                sequence,
+                draft.event_type,
+                draft.event_version,
+                draft.occurred_at,
+                payload_json,
+                draft.collection_method,
+                draft.redaction_status,
+                fingerprint,
+            ),
+        )
+        row = connection.execute(
+            "SELECT * FROM events WHERE event_id=?", (draft.event_id,)
+        ).fetchone()
+        return self._from_row(row)
 
     def list_for_task(self, task_id: str) -> list[EventRecord]:
         rows = self.catalog.connection.execute(
