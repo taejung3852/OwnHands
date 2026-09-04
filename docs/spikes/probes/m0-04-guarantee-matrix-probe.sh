@@ -87,7 +87,16 @@ calculated="$(jq -n --slurpfile matrix "$matrix" --slurpfile fixture_data "$fixt
     (matrix_claim($fixture.claim_id)) as $claim |
     if ($claim.applicable_task_modes | index($fixture.task_mode)) == null then
       "not_evaluated"
-    elif any($fixture.requirement_results[]; (.conflict_refs | length) > 0 or .result == "fail") then
+    elif any($fixture.requirement_results[];
+      (.conflict_refs | length) > 0 or
+      (.result == "fail" and .basis == "observed")
+    ) then
+      "contradicted"
+    elif any($claim.required_realization_checks[];
+      . as $check |
+      $fixture.realization_results[$check].result == "fail" and
+      $fixture.realization_results[$check].basis == "observed"
+    ) then
       "contradicted"
     elif any($claim.required_realization_checks[];
       . as $check |
@@ -120,6 +129,32 @@ jq -n -e \
   --slurpfile report "$report_example" \
   --slurpfile fixture_data "$fixtures" '
   def matrix_claim($id): $matrix[0].claims[] | select(.claim_id == $id);
+  def resolved_check($result; $check; $validations):
+    ([$result.control_validation_refs[] as $reference |
+      $validations[] |
+      select(.record_id == $reference) |
+      .checks[$check]][0] // null);
+  def calculated_verdict($result; $claim; $validations):
+    if ($result.conflict_refs | length) > 0 or
+      any($result.requirement_results[];
+        (.conflict_refs | length) > 0 or
+        (.result == "fail" and .basis == "observed"))
+    then "contradicted"
+    elif any($claim.required_realization_checks[];
+      resolved_check($result; .; $validations) as $check |
+      $check != null and $check.result == "fail" and $check.basis == "observed")
+    then "contradicted"
+    elif ($result.requirement_results | length) == 0 or
+      any($claim.required_realization_checks[];
+        resolved_check($result; .; $validations) as $check |
+        $check == null or $check.result != "pass" or
+        ($check.basis as $basis | ($claim.allowed_basis | index($basis)) == null)) or
+      any($result.requirement_results[]; . as $requirement |
+        $requirement.result != "pass" or
+        ($claim.allowed_basis | index($requirement.basis)) == null)
+    then "not_evaluated"
+    else "supported"
+    end;
   def required_controls_valid($result; $claim; $validations):
     all($claim.required_realization_checks[]; . as $check |
       any(
@@ -133,6 +168,7 @@ jq -n -e \
   def report_contract_valid($validations):
     . as $result |
     (matrix_claim($result.claim_id)) as $claim |
+    (calculated_verdict($result; $claim; $validations) == $result.verdict) and
     if $result.verdict == "supported" then
       ($result.requirement_results | length) > 0 and
       all($result.requirement_results[]; . as $requirement |
@@ -162,6 +198,8 @@ printf 'single_control_state_absent=passed\n'
 printf 'independent_control_checks=passed\n'
 printf 'insufficient_evidence_fail_safe=passed\n'
 printf 'conflicting_evidence_fail_safe=passed\n'
+printf 'observed_control_failure_verdict=passed\n'
 printf 'task_report_wording_gate=passed\n'
 printf 'required_control_resolution_gate=passed\n'
+printf 'verdict_swap_rejection=passed\n'
 printf 'adversarial_report_contract=passed\n'

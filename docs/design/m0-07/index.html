@@ -43,6 +43,7 @@
       --brand-soft: #d9f3f2;
       --brand-ink: #004d51;
       --focus: #008b92;
+      --button-fill: #006d73;
       --success: #176c45;
       --success-soft: #dff6ea;
       --warning: #7a5000;
@@ -58,10 +59,10 @@
       transition: background-color 120ms ease, color 120ms ease;
     }
 
-    body:has(#theme-light:checked):has(#brand-signal:checked) .prototype,
-    body:has(#capture-signal-light-task:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-signal-light-harness:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-signal-light-evidence:target):has(#brand-signal:checked) .prototype {
+    body:not(:has([id^="capture-"]:target)):has(#theme-light:checked):has(#brand-signal:checked) .prototype,
+    body:has(#capture-signal-light-task:target) .prototype,
+    body:has(#capture-signal-light-harness:target) .prototype,
+    body:has(#capture-signal-light-evidence:target) .prototype {
       --brand: #006d73;
       --brand-hover: #00585d;
       --brand-soft: #d9f3f2;
@@ -69,10 +70,10 @@
       --focus: #008b92;
     }
 
-    body:has(#theme-light:checked):has(#brand-ledger:checked) .prototype,
-    body:has(#capture-ledger-light-task:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-ledger-light-harness:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-ledger-light-evidence:target):has(#brand-signal:checked) .prototype {
+    body:not(:has([id^="capture-"]:target)):has(#theme-light:checked):has(#brand-ledger:checked) .prototype,
+    body:has(#capture-ledger-light-task:target) .prototype,
+    body:has(#capture-ledger-light-harness:target) .prototype,
+    body:has(#capture-ledger-light-evidence:target) .prototype {
       --page: #f7f6f2;
       --surface: #fffefa;
       --surface-raised: #fbfaf6;
@@ -86,12 +87,13 @@
       --brand-soft: #e8e7fb;
       --brand-ink: #353478;
       --focus: #5c5bc2;
+      --button-fill: #4a49a8;
     }
 
-    body:has(#theme-light:checked):has(#brand-slate:checked) .prototype,
-    body:has(#capture-slate-light-task:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-slate-light-harness:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-slate-light-evidence:target):has(#brand-signal:checked) .prototype {
+    body:not(:has([id^="capture-"]:target)):has(#theme-light:checked):has(#brand-slate:checked) .prototype,
+    body:has(#capture-slate-light-task:target) .prototype,
+    body:has(#capture-slate-light-harness:target) .prototype,
+    body:has(#capture-slate-light-evidence:target) .prototype {
       --page: #f4f6f8;
       --surface: #ffffff;
       --surface-raised: #f9fafc;
@@ -105,9 +107,10 @@
       --brand-soft: #eee5fa;
       --brand-ink: #482478;
       --focus: #7950b7;
+      --button-fill: #6639a6;
     }
 
-    body:has(#theme-dark:checked) .prototype,
+    body:not(:has([id^="capture-"]:target)):has(#theme-dark:checked) .prototype,
     body:has([id*="-dark-"]:target) .prototype {
       --page: #0d1214;
       --surface: #141a1d;
@@ -127,10 +130,10 @@
       --unknown-soft: #283135;
     }
 
-    body:has(#theme-dark:checked):has(#brand-signal:checked) .prototype,
-    body:has(#capture-signal-dark-task:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-signal-dark-harness:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-signal-dark-evidence:target):has(#brand-signal:checked) .prototype {
+    body:not(:has([id^="capture-"]:target)):has(#theme-dark:checked):has(#brand-signal:checked) .prototype,
+    body:has(#capture-signal-dark-task:target) .prototype,
+    body:has(#capture-signal-dark-harness:target) .prototype,
+    body:has(#capture-signal-dark-evidence:target) .prototype {
       --brand: #68dadd;
       --brand-hover: #8ae7e9;
       --brand-soft: #12373a;
@@ -138,10 +141,10 @@
       --focus: #68dadd;
     }
 
-    body:has(#theme-dark:checked):has(#brand-ledger:checked) .prototype,
-    body:has(#capture-ledger-dark-task:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-ledger-dark-harness:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-ledger-dark-evidence:target):has(#brand-signal:checked) .prototype {
+    body:not(:has([id^="capture-"]:target)):has(#theme-dark:checked):has(#brand-ledger:checked) .prototype,
+    body:has(#capture-ledger-dark-task:target) .prototype,
+    body:has(#capture-ledger-dark-harness:target) .prototype,
+    body:has(#capture-ledger-dark-evidence:target) .prototype {
       --page: #111116;
       --surface: #18181f;
       --surface-raised: #1e1e27;
@@ -155,12 +158,13 @@
       --brand-soft: #2b2a58;
       --brand-ink: #dfdeff;
       --focus: #b3b1ff;
+      --button-fill: #4a49a8;
     }
 
-    body:has(#theme-dark:checked):has(#brand-slate:checked) .prototype,
-    body:has(#capture-slate-dark-task:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-slate-dark-harness:target):has(#brand-signal:checked) .prototype,
-    body:has(#capture-slate-dark-evidence:target):has(#brand-signal:checked) .prototype {
+    body:not(:has([id^="capture-"]:target)):has(#theme-dark:checked):has(#brand-slate:checked) .prototype,
+    body:has(#capture-slate-dark-task:target) .prototype,
+    body:has(#capture-slate-dark-harness:target) .prototype,
+    body:has(#capture-slate-dark-evidence:target) .prototype {
       --page: #101219;
       --surface: #171a23;
       --surface-raised: #1d212c;
@@ -174,6 +178,7 @@
       --brand-soft: #34254d;
       --brand-ink: #eadfff;
       --focus: #c6a6ff;
+      --button-fill: #6639a6;
     }
 
     a { color: var(--brand); }
@@ -495,20 +500,8 @@
 
     .button-primary {
       color: #ffffff;
-      background: #006d73;
-      border-color: #006d73;
-    }
-
-    body:has(#brand-ledger:checked) .button-primary,
-    body:has([id^="capture-ledger-"]:target) .button-primary {
-      background: #4a49a8;
-      border-color: #4a49a8;
-    }
-
-    body:has(#brand-slate:checked) .button-primary,
-    body:has([id^="capture-slate-"]:target) .button-primary {
-      background: #6639a6;
-      border-color: #6639a6;
+      background: var(--button-fill);
+      border-color: var(--button-fill);
     }
 
     .button-primary:hover { color: #ffffff; filter: brightness(0.92); }

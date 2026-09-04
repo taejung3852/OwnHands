@@ -15,7 +15,7 @@ DevHarness는 실제 Evidence가 있는 범위에서만 claim을 허용해야 �
 3. 각 Matrix claim은 적용 가능한 Task mode, 필요한 Control check, Evidence type/field, 허용 basis, 금지 표현, 남은 위험을 가진다. config/AGENTS/Rule/Hook/Sandbox/Approval 실행 보장은 Managed Task에만 적용한다.
 4. Task Guarantee Report는 `managed | imported` Task mode와 Matrix version을 참조하고 requirement별 `result`, `basis`, Evidence/conflict reference, exact scope를 기록한다. 현재 mode에 적용되지 않는 claim은 `not_evaluated`로 두고 성공 문구를 만들지 않는다.
 5. 판정은 `supported | contradicted | not_evaluated`로 분리한다. Dashboard의 `제한적 확인`은 좁은 scope의 supported claim과 남은 위험을 함께 보여 주는 presentation이며 별도 pass 상태가 아니다.
-6. Evidence 부족·미관찰은 `not_evaluated`, 상충 Evidence는 `contradicted`로 fail-safe 처리한다.
+6. 필요한 requirement나 Control check의 관찰된 `fail`, 또는 상충 Evidence는 `contradicted`로 처리한다. Evidence 부족, `not_run`, `unobserved`, 허용되지 않은 basis는 `not_evaluated`로 fail-safe 처리한다.
 7. `contradicted`와 `not_evaluated`에는 permitted claim 문구를 만들지 않는다.
 8. Control 상태는 [ADR-0002](0002-control-validation-evidence-model.md)의 독립 check 구조를 사용하며 단일 enum을 두지 않는다.
 9. Task requirement 결과에는 Dashboard의 Passed, Failed, Not Run, No Adequate Test, Inconclusive, Unknown을 보존하고, 이 중 `pass`만 claim support에 사용할 수 있다. Control 단계별 check의 좁은 결과 enum과 혼합하지 않는다.

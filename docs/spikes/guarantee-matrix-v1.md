@@ -89,7 +89,7 @@ Dashboard의 일반 Verification Status는 Task Report의 requirement `result`�
 
 - report의 Task mode가 claim의 `applicable_task_modes`에 없으면 `not_evaluated`
 - `supported`: 모든 필수 requirement와 필요한 Control check가 허용 basis로 pass하고 충돌 Evidence가 없음
-- `contradicted`: required Evidence 또는 Control check가 fail이거나 충돌 Evidence가 존재
+- `contradicted`: required Evidence 또는 필요한 Control check에 관찰된 `fail`이 있거나 충돌 Evidence가 존재
 - `not_evaluated`: Evidence 부족, `not_run`, `unobserved`, 허용되지 않은 basis 중 하나가 존재
 
 `contradicted`와 `not_evaluated`에는 허용 주장 문구를 생성하지 않는다. Dashboard의 `제한적 확인`은 별도 verdict가 아니다. 정확히 좁혀 쓴 `supported` claim의 scope·남은 위험을 표시하거나, 관련 claim 일부가 `not_evaluated`임을 함께 보여 주는 presentation이다. 넓은 원 claim을 부분 pass로 바꾸지 않는다.
@@ -129,8 +129,9 @@ Probe는 다음을 확인했다.
 5. 파일 존재만 있고 active loading Evidence가 없으면 `not_evaluated`다.
 6. pass log와 failure log가 충돌하면 `contradicted`다.
 7. Imported Task에서 Managed-only claim은 모든 합성 check가 pass여도 `not_evaluated`다.
-8. 실패·충돌·빈 requirement·허용되지 않은 basis·금지 문구를 각각 독립시킨 adversarial report를 거부한다.
+8. 관찰된 실패·충돌·빈 requirement·허용되지 않은 basis·금지 문구를 각각 독립시킨 adversarial report를 거부한다.
 9. Matrix가 요구한 Control check를 참조하지 않거나 참조 record의 check가 pass하지 않으면 `supported`를 거부한다.
+10. 관찰된 Control `fail` 또는 충돌 Evidence를 `not_evaluated`로, `not_run/unobserved`를 `contradicted`로 바꾼 report를 거부한다.
 
 세 schema와 example은 pinned temporary `ajv-cli@5.0.0` + `ajv-formats@3.0.1`로 draft 2020-12 validation을 통과했고 `strict-types`/`strict-tuples` error나 warning은 없었다. 이 도구는 repository dependency로 추가하지 않았다.
 

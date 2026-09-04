@@ -9,9 +9,11 @@
 
 DevHarness Dashboard는 관측 도구처럼 많은 정보를 보여 주는 화면이 아니라, 사람이 작업을 **설명하고 검증하고 결정하는 순서**를 짧게 만드는 화면이어야 한다.
 
-추천 조합은 다음과 같다.
+선정 전 초기 추천은 **Graphite Neutral + Signal Teal/Cyan**이었다. 세 방향 비교 뒤 2026-09-04 사용자가 승인한 현재 색상 방향은 **B — Warm Paper Neutral + Ledger Indigo**다.
 
-1. 시각 체계는 **Graphite Neutral + Signal Teal/Cyan**을 기준안으로 사용한다.
+초기 조사에서 도출한 아래 원칙 중 2~6은 M5 UI/UX 설계를 위한 참고 가설이며 M0에서 승인된 제품 계약이 아니다.
+
+1. 색상 방향은 **B — Warm Paper Neutral + Ledger Indigo**를 사용한다. Graphite Neutral + Signal Teal/Cyan은 선정 전 초기 추천으로만 보존한다.
 2. 첫 화면은 결론과 사용자의 다음 행동을 먼저 보여 준다.
 3. 정보 구조는 `Change → Checks → Evidence → Decision`을 따른다.
 4. 탐색은 `Summary → Trace/Flow → Selected Evidence`의 세 단계로 제한한다.

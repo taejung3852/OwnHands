@@ -39,6 +39,25 @@
       "expected_verdict": "not_evaluated"
     },
     {
+      "name": "observed required control failure contradicts the claim",
+      "claim_id": "GM-002",
+      "task_mode": "managed",
+      "realization_results": {
+        "configured": {"result": "pass", "basis": "observed"},
+        "loaded": {"result": "fail", "basis": "observed"},
+        "enforced": {"result": "not_run", "basis": "unobserved"}
+      },
+      "requirement_results": [
+        {
+          "requirement_id": "resolved-config",
+          "result": "pass",
+          "basis": "observed",
+          "conflict_refs": []
+        }
+      ],
+      "expected_verdict": "contradicted"
+    },
+    {
       "name": "conflicting test evidence contradicts the claim",
       "claim_id": "GM-013",
       "task_mode": "managed",
@@ -241,6 +260,63 @@
       ],
       "conflict_refs": [],
       "permitted_statement": "합성 Control Profile 파일을 생성했다",
+      "expected_contract_valid": false
+    },
+    {
+      "name": "observed failed required control cannot be mislabeled not evaluated",
+      "claim_id": "GM-002",
+      "verdict": "not_evaluated",
+      "requirement_results": [
+        {"result": "pass", "basis": "observed", "conflict_refs": []}
+      ],
+      "control_validation_refs": ["control-validation-loaded-failed"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-loaded-failed",
+          "checks": {
+            "configured": {"result": "pass", "basis": "observed"},
+            "loaded": {"result": "fail", "basis": "observed"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": [],
+      "permitted_statement": null,
+      "expected_contract_valid": false
+    },
+    {
+      "name": "conflict evidence cannot be mislabeled not evaluated",
+      "claim_id": "GM-013",
+      "verdict": "not_evaluated",
+      "requirement_results": [
+        {"result": "pass", "basis": "observed", "conflict_refs": ["evidence-test-failure"]}
+      ],
+      "control_validation_refs": [],
+      "control_validations": [],
+      "conflict_refs": ["evidence-test-failure"],
+      "permitted_statement": null,
+      "expected_contract_valid": false
+    },
+    {
+      "name": "unobserved required control cannot be mislabeled contradicted",
+      "claim_id": "GM-002",
+      "verdict": "contradicted",
+      "requirement_results": [
+        {"result": "not_run", "basis": "unobserved", "conflict_refs": []}
+      ],
+      "control_validation_refs": ["control-validation-loaded-not-run"],
+      "control_validations": [
+        {
+          "record_id": "control-validation-loaded-not-run",
+          "checks": {
+            "configured": {"result": "pass", "basis": "observed"},
+            "loaded": {"result": "not_run", "basis": "unobserved"},
+            "enforced": {"result": "not_run", "basis": "unobserved"}
+          }
+        }
+      ],
+      "conflict_refs": [],
+      "permitted_statement": null,
       "expected_contract_valid": false
     },
     {

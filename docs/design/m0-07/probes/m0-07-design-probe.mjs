@@ -47,25 +47,19 @@ function contrast(foreground, background) {
 }
 
 const baseLight = ruleVariables(".prototype {");
-const baseDark = ruleVariables("body:has(#theme-dark:checked) .prototype,");
+const baseDark = ruleVariables('body:not(:has([id^="capture-"]:target)):has(#theme-dark:checked) .prototype,');
 const directionRules = {
-  "signal-light": ruleVariables("body:has(#theme-light:checked):has(#brand-signal:checked) .prototype,"),
-  "ledger-light": ruleVariables("body:has(#theme-light:checked):has(#brand-ledger:checked) .prototype,"),
-  "slate-light": ruleVariables("body:has(#theme-light:checked):has(#brand-slate:checked) .prototype,"),
-  "signal-dark": ruleVariables("body:has(#theme-dark:checked):has(#brand-signal:checked) .prototype,"),
-  "ledger-dark": ruleVariables("body:has(#theme-dark:checked):has(#brand-ledger:checked) .prototype,"),
-  "slate-dark": ruleVariables("body:has(#theme-dark:checked):has(#brand-slate:checked) .prototype,")
-};
-
-const buttonFill = {
-  signal: "#006d73",
-  ledger: "#4a49a8",
-  slate: "#6639a6"
+  "signal-light": ruleVariables('body:not(:has([id^="capture-"]:target)):has(#theme-light:checked):has(#brand-signal:checked) .prototype,'),
+  "ledger-light": ruleVariables('body:not(:has([id^="capture-"]:target)):has(#theme-light:checked):has(#brand-ledger:checked) .prototype,'),
+  "slate-light": ruleVariables('body:not(:has([id^="capture-"]:target)):has(#theme-light:checked):has(#brand-slate:checked) .prototype,'),
+  "signal-dark": ruleVariables('body:not(:has([id^="capture-"]:target)):has(#theme-dark:checked):has(#brand-signal:checked) .prototype,'),
+  "ledger-dark": ruleVariables('body:not(:has([id^="capture-"]:target)):has(#theme-dark:checked):has(#brand-ledger:checked) .prototype,'),
+  "slate-dark": ruleVariables('body:not(:has([id^="capture-"]:target)):has(#theme-dark:checked):has(#brand-slate:checked) .prototype,')
 };
 
 const contrastResults = [];
 for (const [variant, direction] of Object.entries(directionRules)) {
-  const [name, mode] = variant.split("-");
+  const [, mode] = variant.split("-");
   const tokens = mode === "dark"
     ? { ...baseLight, ...baseDark, ...direction }
     : { ...baseLight, ...direction };
@@ -78,7 +72,7 @@ for (const [variant, direction] of Object.entries(directionRules)) {
     ["success/success-soft", tokens.success, tokens["success-soft"], 4.5],
     ["warning/warning-soft", tokens.warning, tokens["warning-soft"], 4.5],
     ["danger/danger-soft", tokens.danger, tokens["danger-soft"], 4.5],
-    ["primary-white/brand-fill", "#ffffff", buttonFill[name], 4.5]
+    ["primary-white/button-fill", "#ffffff", tokens["button-fill"], 4.5]
   ];
   for (const [label, foreground, background, minimum] of pairs) {
     check(Boolean(foreground && background), `${variant} missing tokens for ${label}`);

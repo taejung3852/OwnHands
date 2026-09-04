@@ -13,6 +13,15 @@ const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "devharness-m0-07-chrome-"));
 const writeScreenshots = process.argv.includes("--write-screenshots");
 const captures = [];
+const paletteTokens = ["--page", "--surface", "--text", "--muted", "--brand", "--brand-soft", "--brand-ink", "--focus", "--button-fill", "--success"];
+const expectedPalettes = {
+  "signal-light": ["#f5f7f7", "#ffffff", "#151a1c", "#536166", "#006d73", "#d9f3f2", "#004d51", "#008b92", "#006d73", "#176c45"],
+  "ledger-light": ["#f7f6f2", "#fffefa", "#1d1d23", "#5d5c66", "#4a49a8", "#e8e7fb", "#353478", "#5c5bc2", "#4a49a8", "#176c45"],
+  "slate-light": ["#f4f6f8", "#ffffff", "#171923", "#555d6d", "#6639a6", "#eee5fa", "#482478", "#7950b7", "#6639a6", "#176c45"],
+  "signal-dark": ["#0d1214", "#141a1d", "#f1f5f5", "#aeb9bc", "#68dadd", "#12373a", "#a7f0f1", "#68dadd", "#006d73", "#81d9ad"],
+  "ledger-dark": ["#111116", "#18181f", "#f4f3f8", "#b7b4c0", "#b3b1ff", "#2b2a58", "#dfdeff", "#b3b1ff", "#4a49a8", "#81d9ad"],
+  "slate-dark": ["#101219", "#171a23", "#f3f4f8", "#b3b8c7", "#c6a6ff", "#34254d", "#eadfff", "#c6a6ff", "#6639a6", "#81d9ad"]
+};
 
 for (const brand of ["signal", "ledger", "slate"]) {
   for (const theme of ["light", "dark"]) {
@@ -110,6 +119,8 @@ async function main() {
   let initiallyOpenDetailFailures = 0;
   let focusableMinimum = Number.POSITIVE_INFINITY;
   const overflowDetails = [];
+  const paletteFailures = [];
+  const computedPalettes = new Map();
 
   for (const width of widths) {
     await send("Emulation.setDeviceMetricsOverride", {
@@ -131,6 +142,7 @@ async function main() {
           const panels = [...document.querySelectorAll('.screen')]
             .filter((element) => getComputedStyle(element).display !== 'none')
             .map((element) => element.id.replace('-panel', ''));
+          const style = getComputedStyle(document.querySelector('.prototype'));
           return {
             rootOverflow: root.scrollWidth > root.clientWidth + 1,
             scrollWidth: root.scrollWidth,
@@ -140,6 +152,7 @@ async function main() {
             openDetails: document.querySelectorAll('details[open]').length,
             focusable: document.querySelectorAll('a[href], input:not([disabled]), summary').length,
             positiveTabindex: document.querySelectorAll('[tabindex]:not([tabindex="-1"]):not([tabindex="0"])').length,
+            palette: ${JSON.stringify(paletteTokens)}.map((token) => style.getPropertyValue(token).trim().toLowerCase()),
             offenders: [...document.querySelectorAll('body *')]
               .filter((element) => element.getBoundingClientRect().right > innerWidth + 1)
               .slice(0, 8)
@@ -169,6 +182,13 @@ async function main() {
       if (measurement.panels.length !== 1 || measurement.panels[0] !== measurement.expected) hiddenScreenFailures += 1;
       if (measurement.openDetails !== 0) initiallyOpenDetailFailures += 1;
       if (measurement.positiveTabindex !== 0) throw new Error(`Positive tabindex found in ${capture}`);
+      if (width === 1440) {
+        const paletteKey = capture.split("-").slice(1, 3).join("-");
+        const actual = JSON.stringify(measurement.palette);
+        const expected = JSON.stringify(expectedPalettes[paletteKey]);
+        computedPalettes.set(capture, actual);
+        if (actual !== expected) paletteFailures.push(`${capture}: expected=${expected} actual=${actual}`);
+      }
       focusableMinimum = Math.min(focusableMinimum, measurement.focusable);
     }
   }
@@ -192,6 +212,9 @@ async function main() {
   if (rootOverflowFailures > 0) throw new Error(`Document overflow failures: ${rootOverflowFailures} (${overflowDetails.join(", ")})`);
   if (hiddenScreenFailures > 0) throw new Error(`Screen selection failures: ${hiddenScreenFailures}`);
   if (initiallyOpenDetailFailures > 0) throw new Error(`Initially open detail failures: ${initiallyOpenDetailFailures}`);
+  if (paletteFailures.length > 0) throw new Error(`Capture palette failures: ${paletteFailures.length} (${paletteFailures.join(", ")})`);
+  const distinctComputedPalettes = new Set(computedPalettes.values()).size;
+  if (distinctComputedPalettes !== 6) throw new Error(`Expected 6 distinct direction/theme palettes, found ${distinctComputedPalettes}`);
   if (!disclosureResult.value.opened || !disclosureResult.value.closed) throw new Error("Progressive disclosure did not toggle");
 
   console.log("M0-07 browser probe: PASSED");
@@ -200,6 +223,8 @@ async function main() {
   console.log(`layout_checks=${captures.length * widths.length}`);
   console.log("document_horizontal_overflow=0");
   console.log("screen_selection_failures=0");
+  console.log(`capture_palette_checks=${computedPalettes.size}`);
+  console.log(`distinct_computed_palettes=${distinctComputedPalettes}`);
   console.log("initially_open_details=0");
   console.log("progressive_disclosure_toggle=passed");
   console.log(`focusable_elements_minimum=${focusableMinimum}`);
