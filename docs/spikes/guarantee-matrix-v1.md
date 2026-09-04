@@ -94,7 +94,7 @@ Dashboard의 일반 Verification Status는 Task Report의 requirement `result`�
 
 `contradicted`와 `not_evaluated`에는 허용 주장 문구를 생성하지 않는다. Dashboard의 `제한적 확인`은 별도 verdict가 아니다. 정확히 좁혀 쓴 `supported` claim의 scope·남은 위험을 표시하거나, 관련 claim 일부가 `not_evaluated`임을 함께 보여 주는 presentation이다. 넓은 원 claim을 부분 pass로 바꾸지 않는다.
 
-JSON Schema는 개별 Matrix rule을 읽지 않고도 확인 가능한 구조, 상태 조합, `supported`의 기본 fail-safe 의미를 검증한다. claim별 허용 basis·금지 문구·필요 Control check와 `control_validation_refs`의 실제 record 해석은 Matrix-aware gate가 수행한다. 필요한 Control check마다 참조된 Control Validation record에서 허용 basis의 `pass`를 찾지 못하면 `supported`를 거부한다.
+JSON Schema는 개별 Matrix rule을 읽지 않고도 확인 가능한 구조, 상태 조합, `supported`의 기본 fail-safe 의미를 검증한다. Matrix-aware gate는 Report의 `matrix_version`, `task.mode`, `claim_id`, claim별 requirement ID 집합, 허용 basis·금지 문구와 필요한 Control check를 현재 Matrix와 대조한다. 필요한 Control에 연결된 Validation record를 모두 평가하며, 관찰된 `fail`이나 pass/fail 충돌은 `contradicted`, record 누락·`not_run`·허용되지 않은 basis는 `not_evaluated`로 판정한다.
 
 ## fail-safe 합성 Probe
 
@@ -110,13 +110,22 @@ docs/spikes/probes/m0-04-guarantee-matrix-probe.sh
 json_syntax=passed
 core_category_coverage=passed
 unique_claim_mapping=passed
+unique_requirement_mapping=passed
 task_mode_applicability=passed
 single_control_state_absent=passed
 independent_control_checks=passed
 insufficient_evidence_fail_safe=passed
 conflicting_evidence_fail_safe=passed
+observed_control_failure_verdict=passed
 task_report_wording_gate=passed
+report_fixture_context=passed
 required_control_resolution_gate=passed
+verdict_swap_rejection=passed
+matrix_version_gate=passed
+claim_membership_gate=passed
+requirement_id_gate=passed
+all_control_records_gate=passed
+pre_fix_fail_open_cases_rejected=7
 adversarial_report_contract=passed
 ```
 
@@ -132,6 +141,21 @@ Probe는 다음을 확인했다.
 8. 관찰된 실패·충돌·빈 requirement·허용되지 않은 basis·금지 문구를 각각 독립시킨 adversarial report를 거부한다.
 9. Matrix가 요구한 Control check를 참조하지 않거나 참조 record의 check가 pass하지 않으면 `supported`를 거부한다.
 10. 관찰된 Control `fail` 또는 충돌 Evidence를 `not_evaluated`로, `not_run/unobserved`를 `contradicted`로 바꾼 report를 거부한다.
+11. Report의 Matrix version 불일치, 알 수 없는 Claim, 필수 requirement ID의 누락·추가·중복을 거부한다.
+12. Report의 Task mode를 claim 적용성 판정에 사용하여 Imported Task의 Managed-only claim을 `not_evaluated`로 제한한다.
+13. 필요한 Control에 연결된 모든 Validation record를 평가하고 하나의 pass가 다른 observed fail이나 pass/fail 충돌을 가리지 못하게 한다.
+
+추가한 일곱 adversarial fixture의 RED/GREEN 결과는 다음과 같다. RED는 변경 전 gate에 fixture를 먼저 적용한 결과이며, `skipped fail-open`은 알 수 없는 Claim 조회가 빈 stream이 되어 상위 `all(...)` 검사를 통과한 경우다.
+
+| Adversarial fixture | 변경 전 RED에서 관찰 | 변경 후 기대·결과 |
+|---|---|---|
+| Imported Task + Managed-only `supported` | 허용 | 거부 |
+| 알 수 없는 Claim ID | skipped fail-open | 거부 |
+| 불일치 Matrix version | 허용 | 거부 |
+| 알 수 없는 requirement ID | 허용 | 거부 |
+| 필수 requirement ID 누락 | 허용 | 거부 |
+| requirement ID 중복 | 허용 | 거부 |
+| 동일 Control의 pass/fail Validation record | 허용 | 거부 |
 
 세 schema와 example은 pinned temporary `ajv-cli@5.0.0` + `ajv-formats@3.0.1`로 draft 2020-12 validation을 통과했고 `strict-types`/`strict-tuples` error나 warning은 없었다. 이 도구는 repository dependency로 추가하지 않았다.
 

@@ -13,6 +13,28 @@ fixtures="$repo_root/docs/spikes/guarantee-matrix-fixtures.json"
 
 jq -e . "$matrix" "$matrix_schema" "$control_schema" "$control_example" "$report_schema" "$report_example" "$fixtures" >/dev/null
 
+jq -e 'all(.report_contract_fixtures[];
+  (.matrix_version | type) == "string" and
+  (.task_mode == "managed" or .task_mode == "imported") and
+  all(.requirement_results[]; has("requirement_id"))
+)' "$fixtures" >/dev/null
+
+pre_fix_fail_open_count="$(jq '[.report_contract_fixtures[] | select(has("pre_fix_gate_result"))] | length' "$fixtures")"
+test "$pre_fix_fail_open_count" = "7"
+expected_pre_fix_fail_open_names='conflicting validation records contradict a required control
+duplicate requirement id is rejected
+imported task cannot support a managed-only claim
+mismatched matrix version is rejected
+missing required requirement id is rejected
+unknown claim id is rejected
+unknown requirement id is rejected'
+actual_pre_fix_fail_open_names="$(jq -r '.report_contract_fixtures[] | select(has("pre_fix_gate_result")) | .name' "$fixtures" | sort)"
+test "$actual_pre_fix_fail_open_names" = "$expected_pre_fix_fail_open_names"
+jq -e 'all(.report_contract_fixtures[] | select(has("pre_fix_gate_result"));
+  (.pre_fix_gate_result == "accepted" or .pre_fix_gate_result == "skipped_fail_open") and
+  .expected_contract_valid == false
+)' "$fixtures" >/dev/null
+
 expected_categories='actual_changes_identified
 agents_instruction_loaded
 approval_applied_action
@@ -38,6 +60,11 @@ unique_claim_count="$(jq '[.claims[].claim_id] | unique | length' "$matrix")"
 unique_category_count="$(jq '[.claims[].category] | unique | length' "$matrix")"
 test "$claim_count" = "$unique_claim_count"
 test "$claim_count" = "$unique_category_count"
+
+jq -e 'all(.claims[];
+  [.required_evidence[].requirement_id] as $ids |
+  ($ids | length) == ($ids | unique | length)
+)' "$matrix" >/dev/null
 
 jq -e 'all(.claims[];
   (.required_evidence | length) > 0 and
@@ -128,49 +155,58 @@ jq -n -e \
   --slurpfile control "$control_example" \
   --slurpfile report "$report_example" \
   --slurpfile fixture_data "$fixtures" '
-  def matrix_claim($id): $matrix[0].claims[] | select(.claim_id == $id);
-  def resolved_check($result; $check; $validations):
-    ([$result.control_validation_refs[] as $reference |
+  def matrix_claim($id):
+    ([$matrix[0].claims[] | select(.claim_id == $id)][0] // null);
+  def linked_checks($result; $check; $validations):
+    [$result.control_validation_refs[] as $reference |
       $validations[] |
       select(.record_id == $reference) |
-      .checks[$check]][0] // null);
-  def calculated_verdict($result; $claim; $validations):
-    if ($result.conflict_refs | length) > 0 or
+      .checks[$check]];
+  def validation_refs_resolve($result; $validations):
+    all($result.control_validation_refs[]; . as $reference |
+      any($validations[]; .record_id == $reference));
+  def requirement_ids_match($result; $claim):
+    [$claim.required_evidence[].requirement_id] as $required |
+    [$result.requirement_results[].requirement_id] as $reported |
+    ($reported | length) == ($reported | unique | length) and
+    ($reported | sort) == ($required | sort);
+  def calculated_verdict($result; $claim; $task_mode; $validations):
+    if ($claim.applicable_task_modes | index($task_mode)) == null then
+      "not_evaluated"
+    elif ($result.conflict_refs | length) > 0 or
       any($result.requirement_results[];
         (.conflict_refs | length) > 0 or
         (.result == "fail" and .basis == "observed"))
     then "contradicted"
     elif any($claim.required_realization_checks[];
-      resolved_check($result; .; $validations) as $check |
-      $check != null and $check.result == "fail" and $check.basis == "observed")
+      linked_checks($result; .; $validations) as $checks |
+      any($checks[]; .result == "fail" and .basis == "observed") or
+      (([$checks[].result] | index("pass")) != null and
+       ([$checks[].result] | index("fail")) != null))
     then "contradicted"
-    elif ($result.requirement_results | length) == 0 or
-      any($claim.required_realization_checks[];
-        resolved_check($result; .; $validations) as $check |
-        $check == null or $check.result != "pass" or
-        ($check.basis as $basis | ($claim.allowed_basis | index($basis)) == null)) or
+    elif any($claim.required_realization_checks[];
+        linked_checks($result; .; $validations) as $checks |
+        ($checks | length) == 0 or
+        any($checks[]; .result != "pass" or
+          (.basis as $basis | ($claim.allowed_basis | index($basis)) == null))) or
       any($result.requirement_results[]; . as $requirement |
         $requirement.result != "pass" or
         ($claim.allowed_basis | index($requirement.basis)) == null)
     then "not_evaluated"
     else "supported"
     end;
-  def required_controls_valid($result; $claim; $validations):
-    all($claim.required_realization_checks[]; . as $check |
-      any(
-        $result.control_validation_refs[] as $reference |
-        $validations[] |
-        {reference: $reference, validation: .};
-        .validation.record_id == .reference and
-        .validation.checks[$check].result == "pass" and
-        (.validation.checks[$check].basis as $basis |
-          ($claim.allowed_basis | index($basis)) != null)));
-  def report_contract_valid($validations):
+  def report_contract_valid($matrix_version; $task_mode; $validations):
     . as $result |
     (matrix_claim($result.claim_id)) as $claim |
-    (calculated_verdict($result; $claim; $validations) == $result.verdict) and
-    if $result.verdict == "supported" then
-      ($result.requirement_results | length) > 0 and
+    if $matrix_version != $matrix[0].matrix_version or $claim == null then
+      false
+    elif requirement_ids_match($result; $claim) | not then
+      false
+    elif validation_refs_resolve($result; $validations) | not then
+      false
+    elif calculated_verdict($result; $claim; $task_mode; $validations) != $result.verdict then
+      false
+    elif $result.verdict == "supported" then
       all($result.requirement_results[]; . as $requirement |
         $requirement.result == "pass" and
         ($claim.allowed_basis | index($requirement.basis)) != null and
@@ -178,21 +214,24 @@ jq -n -e \
       ($result.conflict_refs | length) == 0 and
       ($result.permitted_statement | type == "string" and length > 0) and
       all($claim.forbidden_wording[]; . as $forbidden |
-        ($result.permitted_statement | contains($forbidden) | not)) and
-      required_controls_valid($result; $claim; $validations)
+        ($result.permitted_statement | contains($forbidden) | not))
     elif $result.verdict == "contradicted" or $result.verdict == "not_evaluated" then
       $result.permitted_statement == null
     else
       false
     end;
-  all($report[0].claim_results[]; report_contract_valid([$control[0]])) and
+  ($report[0].matrix_version == $matrix[0].matrix_version) and
+  all($report[0].claim_results[];
+    report_contract_valid($report[0].matrix_version; $report[0].task.mode; [$control[0]])) and
   all($fixture_data[0].report_contract_fixtures[]; . as $fixture |
-    (report_contract_valid($fixture.control_validations)) == $fixture.expected_contract_valid)
+    (report_contract_valid($fixture.matrix_version; $fixture.task_mode; $fixture.control_validations)) ==
+      $fixture.expected_contract_valid)
 ' >/dev/null
 
 printf 'json_syntax=passed\n'
 printf 'core_category_coverage=passed\n'
 printf 'unique_claim_mapping=passed\n'
+printf 'unique_requirement_mapping=passed\n'
 printf 'task_mode_applicability=passed\n'
 printf 'single_control_state_absent=passed\n'
 printf 'independent_control_checks=passed\n'
@@ -200,6 +239,12 @@ printf 'insufficient_evidence_fail_safe=passed\n'
 printf 'conflicting_evidence_fail_safe=passed\n'
 printf 'observed_control_failure_verdict=passed\n'
 printf 'task_report_wording_gate=passed\n'
+printf 'report_fixture_context=passed\n'
 printf 'required_control_resolution_gate=passed\n'
 printf 'verdict_swap_rejection=passed\n'
+printf 'matrix_version_gate=passed\n'
+printf 'claim_membership_gate=passed\n'
+printf 'requirement_id_gate=passed\n'
+printf 'all_control_records_gate=passed\n'
+printf 'pre_fix_fail_open_cases_rejected=%s\n' "$pre_fix_fail_open_count"
 printf 'adversarial_report_contract=passed\n'
