@@ -1,0 +1,1 @@
+{"services":[{"name":"OpenAI API","purpose":"optional model invocation","endpoint_host":"api.openai.com"}]}

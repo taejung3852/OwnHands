@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ownhands.local/schemas/task-execution-contract.schema.json",
+  "title": "ownhands Task Execution Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "contract_id", "task", "baseline_ref", "baseline_fingerprint", "overlay_ref", "instruction_overlay", "control_overlay", "writable_paths", "protected_targets", "permissions", "approval_triggers", "validation_criteria", "gate_criteria", "gate_status", "unobserved", "event_refs", "evidence_refs", "realization", "fingerprint"],
+  "properties": {
+    "contract_version": {"const": "1.0"}, "contract_id": {"type": "string", "minLength": 1},
+    "task": {"type": "object", "additionalProperties": false, "required": ["project_id", "worktree_id", "environment_ref", "task_id", "mode", "goal"], "properties": {"project_id": {"type": "string"}, "worktree_id": {"type": "string"}, "environment_ref": {"type": "string"}, "task_id": {"type": "string"}, "mode": {"enum": ["managed", "imported"]}, "goal": {"type": "string"}}},
+    "baseline_ref": {"type": "string"}, "baseline_fingerprint": {"$ref": "#/$defs/hash"}, "overlay_ref": {"type": "string"},
+    "instruction_overlay": {"$ref": "#/$defs/overlay"}, "control_overlay": {"$ref": "#/$defs/overlay"},
+    "writable_paths": {"$ref": "#/$defs/strings"}, "protected_targets": {"$ref": "#/$defs/strings"},
+    "permissions": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["permission", "scope", "reason", "duration", "approval_ref", "active", "basis"], "properties": {"permission": {"type": "string"}, "scope": {"type": "string"}, "reason": {"type": "string"}, "duration": {"const": "task"}, "approval_ref": {"type": "string"}, "active": {"type": "boolean"}, "basis": {"enum": ["observed", "unobserved"]}}}},
+    "approval_triggers": {"$ref": "#/$defs/strings"}, "validation_criteria": {"$ref": "#/$defs/strings"}, "gate_criteria": {"$ref": "#/$defs/strings"},
+    "gate_status": {"enum": ["ready_for_preview", "hard_block"]},
+    "unobserved": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["path", "basis", "reason"], "properties": {"path": {"type": "string"}, "basis": {"const": "unobserved"}, "reason": {"type": "string"}}}},
+    "event_refs": {"$ref": "#/$defs/strings"}, "evidence_refs": {"$ref": "#/$defs/strings"},
+    "realization": {"type": "object", "additionalProperties": false, "required": ["configured", "loaded", "enforced"], "properties": {"configured": {"$ref": "#/$defs/check"}, "loaded": {"$ref": "#/$defs/check"}, "enforced": {"$ref": "#/$defs/check"}}},
+    "fingerprint": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "overlay": {"type": "object", "additionalProperties": false, "required": ["source_refs"], "properties": {"source_refs": {"$ref": "#/$defs/strings"}}}, "check": {"type": "object", "additionalProperties": false, "required": ["result", "basis"], "properties": {"result": {"const": "not_run"}, "basis": {"const": "unobserved"}}}}
+}

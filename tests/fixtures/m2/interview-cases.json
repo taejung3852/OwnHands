@@ -1,0 +1,5 @@
+{
+  "complete": ["low", "none"],
+  "ambiguous": ["maybe", "decline"],
+  "silence": [null, null]
+}
