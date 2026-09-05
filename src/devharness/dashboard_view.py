@@ -4,6 +4,7 @@ import copy
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 from .assurance import fingerprint
 from .dashboard_sources import (
@@ -30,6 +31,7 @@ _VISIBLE_RESULTS = {
 _TASK_FIELDS = ("project_id", "worktree_id", "task_id", "environment_ref", "mode")
 _CONTROL_NAMES = ("config", "agents", "rules", "hooks", "sandbox", "approval")
 _STAGES = ("configured", "loaded", "enforced")
+_MATRIX_PATH = Path(__file__).resolve().parents[2] / "docs/product/guarantee-matrix.v1.json"
 _BASELINE_FIELDS = {
     "baseline_version",
     "baseline_id",
@@ -248,17 +250,12 @@ def _freshness_view(task: TaskIdentity, projection: ProjectionStatus, freshness:
 def _matching_guarantee(
     task: TaskIdentity,
     report: dict | None,
-    evaluator: GuaranteeEvaluator | None,
     evidence_store: EvidenceStore,
 ) -> bool:
-    if (
-        not isinstance(report, dict)
-        or evaluator is None
-        or evaluator.catalog is not evidence_store.catalog
-        or evaluator.evidence is not evidence_store
-    ):
+    if not isinstance(report, dict):
         return False
     try:
+        evaluator = GuaranteeEvaluator(evidence_store.catalog, evidence_store, _MATRIX_PATH)
         evaluator.validate_report(report)
     except (OSError, ValueError):
         return False
@@ -341,17 +338,16 @@ def _completeness(
     task: TaskIdentity,
     m3: SourceClosure,
     m4: SourceClosure,
-    baseline: dict | None,
-    context_status: dict | None,
+    m2: dict[str, str],
     execution_contract: dict | None,
     assurance_packet: dict | None,
     guarantee_matches: bool,
     direct: EvidenceRecord | None,
 ) -> dict:
     missing = []
-    if not _valid_baseline(task, baseline):
+    if m2["project_baseline"] != "closed":
         missing.append("project_baseline")
-    if not _valid_context_status(context_status):
+    if m2["context_status"] != "closed":
         missing.append("context_status")
     if _contract_source(task, execution_contract, assurance_packet, m4).get("status") != "closed":
         missing.append("execution_contract")
@@ -368,6 +364,99 @@ def _completeness(
         "missing": tuple(missing),
         "source_status": {"m3": m3.status, "m4": m4.status},
     }
+
+
+def _m2_references_close(
+    value: object, *, store: EvidenceStore, task: TaskIdentity,
+    event_ids: set[str], manifest_ref: str | None, source_refs: frozenset[str] = frozenset(),
+) -> bool:
+    if isinstance(value, list):
+        return all(_m2_references_close(
+            item, store=store, task=task, event_ids=event_ids,
+            manifest_ref=manifest_ref, source_refs=source_refs,
+        ) for item in value)
+    if not isinstance(value, dict):
+        return True
+    local_sources = frozenset(value.get("source_refs", []))
+    local_sources |= frozenset(value[key] for key in ("source_ref", "source_id") if key in value)
+    scoped_sources = local_sources or source_refs
+    if not set(value.get("event_refs", [])) <= event_ids:
+        return False
+    for reference in value.get("evidence_refs", []) + value.get("conflict_refs", []):
+        resolve_evidence(store, task_id=task.task_id, evidence_id=reference, assurance_packet=None)
+        record = store.resolve(reference)
+        if (
+            record.fields.get("environment", task.environment_ref) != task.environment_ref
+            or record.fields.get("target_commit", task.commit) != task.commit
+            or record.fields.get("task_ref", task.task_id) != task.task_id
+        ):
+            return False
+        if manifest_ref is not None and (
+            record.fields.get("manifest_ref") != manifest_ref
+            or record.fields.get("task_ref") != task.task_id
+        ):
+            return False
+        if scoped_sources:
+            declared = record.fields.get("source_refs", [])
+            if not isinstance(declared, list) or not all(isinstance(ref, str) for ref in declared):
+                return False
+            record_sources = set(declared)
+            if "source_ref" in record.fields:
+                if not isinstance(record.fields["source_ref"], str):
+                    return False
+                record_sources.add(record.fields["source_ref"])
+            if not scoped_sources <= record_sources:
+                return False
+    return all(_m2_references_close(
+        item, store=store, task=task, event_ids=event_ids,
+        manifest_ref=manifest_ref, source_refs=scoped_sources,
+    ) for item in value.values() if isinstance(item, (dict, list)))
+
+
+def _m2_source(
+    *, task: TaskIdentity, artifact: dict | None, kind: str,
+    store: EvidenceStore, records: list[EvidenceRecord], events: list[EventRecord],
+    execution_contract: dict | None, assurance_packet: dict | None, m4: SourceClosure,
+) -> str:
+    if artifact is None:
+        return "unavailable"
+    baseline = kind == "project_baseline"
+    if not (_valid_baseline(task, artifact) if baseline else _valid_context_status(artifact)):
+        return "invalid"
+    if baseline and (
+        _contract_source(task, execution_contract, assurance_packet, m4).get("status") != "closed"
+        or execution_contract.get("baseline_ref") != artifact["baseline_id"]
+        or execution_contract.get("baseline_fingerprint") != artifact["fingerprint"]
+    ):
+        return "unobserved"
+    artifact_ref = artifact["baseline_id" if baseline else "manifest_ref"]
+    artifact_fingerprint = fingerprint(artifact)
+    candidates = [record for record in records if (
+        record.task_id == task.task_id
+        and record.evidence_type == "active_configuration"
+        and record.requirement_id == "M5-05"
+        and record.collection_method == "m2-validated-artifact"
+        and record.result == "pass" and record.basis == "observed"
+        and record.subject_ref == artifact_ref
+        and record.fields.get("artifact_kind") == kind
+        and record.fields.get("artifact_ref") == artifact_ref
+        and record.fields.get("artifact_fingerprint") == artifact_fingerprint
+        and record.fields.get("environment") == task.environment_ref
+        and record.fields.get("target_commit") == task.commit
+        and "sha256:" + record.content_hash == artifact_fingerprint
+    )]
+    for record in candidates:
+        try:
+            resolve_evidence(store, task_id=task.task_id, evidence_id=record.evidence_id, assurance_packet=None)
+            if _m2_references_close(
+                artifact, store=store, task=task,
+                event_ids={event.event_id for event in events if event.task_id == task.task_id},
+                manifest_ref=None if baseline else artifact_ref,
+            ):
+                return "closed"
+        except (OSError, ValueError):
+            continue
+    return "unobserved"
 
 
 def _valid_baseline(task: TaskIdentity, baseline: dict | None) -> bool:
@@ -660,6 +749,7 @@ def _bounded_diagram(
     execution_contract: dict | None,
     assurance_packet: dict | None,
     m4: SourceClosure,
+    baseline_closed: bool,
 ) -> dict:
     if m4.status != "closed" or not isinstance(assurance_packet, dict):
         return {"state": "unobserved", "kind": None, "nodes": (), "edges": ()}
@@ -681,7 +771,7 @@ def _bounded_diagram(
     }
     sources_close = bool(
         contract.get("status") == "closed"
-        and _valid_baseline(task, baseline)
+        and baseline_closed
         and execution_contract.get("baseline_ref") == baseline.get("baseline_id")
         and execution_contract.get("baseline_fingerprint") == baseline.get("fingerprint")
         and isinstance(hypotheses, list)
@@ -902,11 +992,9 @@ def _unobserved_controls(reason: str) -> dict:
     }
 
 
-def _artifact_ref(value: dict | None, id_field: str, *, valid: bool) -> dict:
-    if not isinstance(value, dict):
-        return {"status": "unavailable"}
-    if not valid:
-        return {"status": "invalid"}
+def _artifact_ref(value: dict | None, id_field: str, *, closure: str) -> dict:
+    if closure != "closed":
+        return {"status": closure}
     return {
         "status": "observed",
         id_field: value.get(id_field),
@@ -920,6 +1008,7 @@ def _harness(
     context_status: dict | None,
     m3_packet: dict | None,
     m3: SourceClosure,
+    m2: dict[str, str],
 ) -> dict:
     project_controls = None
     imported_controls = None
@@ -933,12 +1022,12 @@ def _harness(
     )
     return {
         "baseline": _artifact_ref(
-            baseline, "baseline_id", valid=_valid_baseline(task, baseline)
+            baseline, "baseline_id", closure=m2["project_baseline"]
         ),
         "context_status": _artifact_ref(
             context_status,
             "manifest_ref",
-            valid=_valid_context_status(context_status),
+            closure=m2["context_status"],
         ),
         "source": {
             "scope": m3.scope,
@@ -1113,7 +1202,6 @@ def assemble_task_review(
     assurance_packet: dict | None,
     guarantee_report: dict | None,
     assembled_at: str,
-    guarantee_evaluator: GuaranteeEvaluator | None = None,
 ) -> TaskReviewView:
     m3 = validate_m3_source(task=task, packet=m3_packet) if m3_packet is not None else _unavailable("m3")
     m4 = validate_m4_source(task=task, packet=assurance_packet) if assurance_packet is not None else _unavailable("m4")
@@ -1121,8 +1209,17 @@ def assemble_task_review(
     evidence_records = evidence_store.list_for_task(task.task_id)
     direct = _direct_evidence(evidence_store, evidence_records, task)
     guarantee_matches = _matching_guarantee(
-        task, guarantee_report, guarantee_evaluator, evidence_store
+        task, guarantee_report, evidence_store
     )
+    event_records = events.list_for_task(task.task_id)
+    m2 = {
+        kind: _m2_source(
+            task=task, artifact=artifact, kind=kind, store=evidence_store,
+            records=evidence_records, events=event_records,
+            execution_contract=execution_contract, assurance_packet=assurance_packet, m4=m4,
+        ) if events.catalog is evidence_store.catalog else "unobserved"
+        for kind, artifact in (("project_baseline", baseline), ("context_status", context_status))
+    }
     return TaskReviewView(
         task=_task_identity(task),
         summary=_source_backed_summary(task, execution_contract, assurance_packet, m3, m4),
@@ -1131,23 +1228,23 @@ def assemble_task_review(
             task,
             m3,
             m4,
-            baseline,
-            context_status,
+            m2,
             execution_contract,
             assurance_packet,
             guarantee_matches,
             direct,
         ),
         diagram=_bounded_diagram(
-            task, baseline, execution_contract, assurance_packet, m4
+            task, baseline, execution_contract, assurance_packet, m4,
+            m2["project_baseline"] == "closed",
         ),
         relations=_relations(assurance_packet, m4),
         verification=_verification(assurance_packet, m4, direct),
         guarantees=_guarantees(guarantee_report, guarantee_matches),
-        harness=_harness(task, baseline, context_status, m3_packet, m3),
+        harness=_harness(task, baseline, context_status, m3_packet, m3, m2),
         assurance=_assurance(assurance_packet, m4),
         decision=_decision(projection, freshness_view, assurance_packet, m4),
-        history=_history(events.list_for_task(task.task_id)),
+        history=_history(event_records),
         evidence=_evidence_views(evidence_store, task.task_id, assurance_packet),
         assembled_at=_iso_time(assembled_at),
     )

@@ -28,6 +28,7 @@ from devharness.paths import DataPaths
 from devharness.projections import Freshness, ProjectionStatus
 from tests.test_dashboard_identity import m3_packet
 from tests.test_assurance import (
+    RELATIONS,
     contract as assurance_contract,
     disposable_repository,
     receipt,
@@ -38,10 +39,23 @@ from tests.test_assurance import (
 NOW = "2026-09-06T12:00:00+00:00"
 
 
-def relationless_packet(root: Path) -> dict:
-    repository = disposable_repository(root)
+def bound_packet(
+    root: Path, baseline: dict, *, with_relations: bool,
+    task: dict | None = None, repository: Path | None = None,
+) -> tuple[dict, dict]:
+    repository = disposable_repository(root) if repository is None else repository
     contract = assurance_contract()
-    contract["assurance_draft"]["impact_hypotheses"][0]["relation_refs"] = []
+    if task is not None:
+        contract["task"] = task
+        contract["contract_id"] = "contract:" + task["task_id"]
+    contract["baseline_ref"] = baseline["baseline_id"]
+    contract["baseline_fingerprint"] = baseline["fingerprint"]
+    if not with_relations:
+        contract["assurance_draft"]["impact_hypotheses"][0]["relation_refs"] = []
+    else:
+        contract["assurance_draft"]["impact_hypotheses"][0]["relation_refs"] = [
+            item["relation_id"] for item in RELATIONS["relations"]
+        ]
     contract["fingerprint"] = fingerprint(
         {key: value for key, value in contract.items() if key != "fingerprint"}
     )
@@ -51,7 +65,7 @@ def relationless_packet(root: Path) -> dict:
         repository,
         restore,
         contract,
-        {"relations": [], "excluded": [], "unobserved": []},
+        RELATIONS if with_relations else {"relations": [], "excluded": [], "unobserved": []},
         NOW,
     )
     design = build_test_design(contract, impact, requirement_catalog())
@@ -78,8 +92,11 @@ def relationless_packet(root: Path) -> dict:
     comparison = compare_test_runs(before, after)
     gaps = detect_test_gaps(contract, impact, design, comparison)
     gate = evaluate_regression_gate(contract, impact, design, comparison, gaps)
-    refs = sorted({ref for item in receipts for ref in item["evidence_refs"]})
-    return build_assurance_packet(
+    refs = sorted(
+        {ref for item in receipts for ref in item["evidence_refs"]}
+        | {ref for item in impact["relations"] for ref in item["evidence_refs"]}
+    )
+    packet = build_assurance_packet(
         contract=contract,
         restore_point=restore,
         restore_verification=verification,
@@ -93,6 +110,7 @@ def relationless_packet(root: Path) -> dict:
         evidence_refs=refs,
         observed_at=NOW,
     )
+    return packet, contract
 
 
 class DashboardViewTests(unittest.TestCase):
@@ -168,31 +186,6 @@ class DashboardViewTests(unittest.TestCase):
                 for relation in view.relations
             )
         )
-        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
-            packet = relationless_packet(Path(temporary))
-        identity = packet["task"]
-        task = TaskIdentity(
-            task_id=identity["task_id"], project_id=identity["project_id"],
-            worktree_id=identity["worktree_id"], mode=identity["mode"],
-            commit=packet["restore_point"]["start_commit"], branch="main", cwd="/repo",
-            environment_ref=identity["environment_ref"], created_at=NOW,
-        )
-        relationless_view = self.assemble(
-            task=task,
-            projection=ProjectionStatus(
-                task_id=task.task_id, state="ready", projected_sequence=0,
-                projection={}, last_error=None, updated_at=NOW,
-            ),
-            freshness=Freshness(
-                task_id=task.task_id, event_head=0, projected_sequence=0,
-                projection_state="ready", is_fresh=True,
-                collection_completeness="unobserved", last_error=None,
-            ),
-            assurance_packet=packet,
-            execution_contract=packet["contract_snapshot"],
-        )
-        self.assertEqual("closed", relationless_view.assurance["source"]["status"])
-        self.assertEqual("unobserved", relationless_view.diagram["state"])
 
     def test_assembly_is_deterministic_and_does_not_write_catalog_or_files(self) -> None:
         before_catalog = self.catalog.connection.total_changes

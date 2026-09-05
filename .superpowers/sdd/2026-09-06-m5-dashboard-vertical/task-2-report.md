@@ -148,3 +148,96 @@ here: HWPX adapter/subject, input, expected, actual, exact environment,
 generated files/output or tool error, and a material human observation. This
 round does not modify Task 3, raw packets, diagrams, GitHub state, or product
 documentation.
+
+---
+
+## Astra bounded correction after diagnosis
+
+### Result and contract
+
+The remaining M2 provenance/Evidence closure, exact public signature, and
+relationless proof findings are corrected. This section supersedes the prior
+round's claim that adding `guarantee_evaluator` was necessary. The assembler
+again exposes exactly the brief's original keyword parameters and constructs
+`GuaranteeEvaluator` internally using the supplied Store/Catalog and the
+repository-owned `docs/product/guarantee-matrix.v1.json`, following the existing
+managed/imported Task composition.
+
+M2 now requires a current-Task registration in the existing EvidenceStore:
+`active_configuration`, requirement `M5-05`, collection method
+`m2-validated-artifact`, observed/pass, subject equal to the Baseline ID or
+Context manifest reference. Fields bind `artifact_kind`
+(`project_baseline|context_status`), `artifact_ref`, `artifact_fingerprint`,
+`environment`, and `target_commit`. The artifact fingerprint and stored content
+hash must identify the entire exact canonical JSON document, including the
+Baseline's own fingerprint. Producers validate M2 semantics before registration;
+assembly does not create registrations or infer a Manifest from a reference.
+This contract was recorded in the Task 2 brief before the correction; the brief
+and diagnosis remain local ledger material rather than new tracked files.
+
+The read path resolves explicit Evidence/Event references, including nested
+source realization and Context conflict references. Supporting objects use the
+existing resolver's Task, purge, record/object integrity, redaction, and symlink
+checks. Context support also closes manifest, Task, and explicit source scope;
+supplied environment/commit bindings must match. The Baseline closes to the
+original execution Contract's ID/fingerprint references. The same M2 closure
+result feeds completeness, Harness references, and the Diagram prerequisite.
+
+### RED and proof evidence
+
+- **R3:** a real authoritative report supplied with only the original public
+  arguments was incorrectly listed as missing TGR. After internal composition,
+  the behavioral check and exact-signature assertion pass.
+- **R1:** a schema-valid changed and re-fingerprinted Baseline was accepted as
+  collected with no missing-source entry. The regression also verifies that
+  removing its registration makes completeness and the Diagram unobserved.
+- **R2:** purged Context support still counted as complete. Additional isolated
+  cases showed the same failure for missing support, another Task's support,
+  mismatched manifest/source bindings, and tampered object bytes. All now fail
+  closed. Exact registered artifact bytes, explicit Event refs, and nested
+  conflict refs have additional boundary coverage.
+- **Relationless proof:** the new positive control has a registered bound
+  Baseline, original execution Contract, and valid M4 packet and produces an
+  observed graph. Its relationless variant preserves all those bindings and
+  a nonempty declared hypothesis, and produces no nodes/edges with unobserved
+  state. No correct production branch was changed to manufacture RED evidence.
+
+One initial test-helper error omitted relation Evidence from the packet's
+reference set; it was corrected before recording the R1/R2 REDs. The first M2
+GREEN attempt revealed that M4's intentionally reduced Contract snapshot omits
+Baseline references. Supplying the actual original execution Contract from
+the fixture builder resolved that positive-control failure. The subsequent
+M2/TGR suite passed; no repeated unresolved required-check failure occurred.
+
+### Validation
+
+Executed with the worktree's existing Python **3.12.14** environment and
+`PYTHONPATH=src`:
+
+- Dashboard Identity/Evidence/View/Freshness: **26 tests passed**.
+- Dashboard plus affected Evidence, Assurance, Projections, Guarantees,
+  Context Architecture, and Control Profile regression set: **149 passed**.
+- Full repository discovery: **281 tests passed**. The emitted M3 live-fixture
+  drift refusal is expected negative-case output; the suite exited successfully.
+- Python compilation of all six Task 2 implementation/test files: passed.
+  `py_compile` could not write an existing bytecode-cache location in the
+  sandbox; compiling the same six sources in memory succeeded without writes.
+- `git diff --check`: passed.
+- Complete registered-source assembly repeated twice: identical views,
+  unchanged SQLite change count, and byte-identical data-root files. The
+  original missing-source non-persistence test also passed.
+
+### Scoped self-review and limits
+
+Only `dashboard_view.py` and the two view/freshness test modules changed in
+production/test code. Existing M1/M2 schemas, Evidence types, source resolver,
+Guarantee semantics, runtime dependencies, and public parameters were not added
+or changed. Registration writes exist only in test/source preparation; the
+assembler reads. No Task 3, GitHub, actual-packet, raw-output or diagram artifact
+work was performed.
+
+This closes the bounded code/proof issues; independent re-review is still
+required. Actual vertical-slice producers must create the specified validated
+M2 registrations, or the Dashboard will correctly remain unobserved. The read
+path verifies registered provenance and current supporting objects; it does not
+independently rerun the M2 interview or reconstruct a missing Context Manifest.
