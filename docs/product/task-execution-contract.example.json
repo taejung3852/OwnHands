@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0",
+  "contract_version": "1.1",
   "contract_id": "contract:task-example",
   "task": {"project_id": "project-example", "worktree_id": "worktree-example", "environment_ref": "macos-arm64-python-3.12", "task_id": "task-example", "mode": "managed", "goal": "Review a synthetic profile"},
   "baseline_ref": "baseline:project-example:v1",
@@ -18,6 +18,7 @@
     "tests": [
       {
         "test_id": "test:validation-1",
+        "subject_ref": "validation:1",
         "command": "python -m unittest -v",
         "selection_scope": "python -m unittest -v",
         "classification": "regression",
@@ -39,5 +40,5 @@
   "event_refs": ["event-profile"],
   "evidence_refs": ["evidence-profile"],
   "realization": {"configured": {"result": "not_run", "basis": "unobserved"}, "loaded": {"result": "not_run", "basis": "unobserved"}, "enforced": {"result": "not_run", "basis": "unobserved"}},
-  "fingerprint": "sha256:c251415bf95df88ab6191249bfc448369f9462aeab72833174c0091c1e73fa09"
+  "fingerprint": "sha256:964388490ff324180b00ac93653f93fa0c7267298ae0504262e2c3e593d57428"
 }

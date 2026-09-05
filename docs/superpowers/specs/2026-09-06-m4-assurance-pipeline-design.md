@@ -38,7 +38,7 @@ Test result and evidence basis remain separate axes:
 
 - Result: `pass`, `fail`, `not_run`, `inconclusive`, `missing`.
 - Basis: `observed`, `inferred`, `unobserved`.
-- Comparison: `comparable_pass`, `regression`, `missing_before`, `missing_after`, `stale`, `incomparable`, `not_run`, `inconclusive`, `contradicted`.
+- Comparison: `comparable_pass` only for observed pass→pass, `fixed_failure` for fail→pass, `unchanged_failure` for fail→fail, `regression` for pass→fail, plus `missing_before`, `missing_after`, `stale`, `incomparable`, `not_run`, `inconclusive`, and `contradicted`.
 
 Only observed, comparable results can establish regression success. Absence, uncertainty, staleness, conflict, and unsupported paths never collapse into pass.
 

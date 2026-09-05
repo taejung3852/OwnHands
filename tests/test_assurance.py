@@ -94,6 +94,7 @@ def contract() -> dict:
         "tests": [
             {
                 "test_id": "test:widget-regression",
+                "subject_ref": "subject:widget-runtime",
                 "command": "python -m unittest tests.test_widget",
                 "selection_scope": "tests.test_widget",
                 "classification": "regression",
@@ -101,6 +102,7 @@ def contract() -> dict:
             },
             {
                 "test_id": "test:schema-errors",
+                "subject_ref": "subject:widget-schema",
                 "command": "python -m unittest tests.test_schema",
                 "selection_scope": "tests.test_schema",
                 "classification": "new_feature",
@@ -127,7 +129,7 @@ def contract() -> dict:
         ],
     }
     result = {
-        "contract_version": "1.0",
+        "contract_version": "1.1",
         "contract_id": "contract:task-m4",
         "task": {
             "project_id": "project-ownhands",
@@ -165,12 +167,15 @@ def receipt(
         command = "python -m unittest tests.test_widget"
         selection_scope = "tests.test_widget"
         code_refs = ["tests/test_widget.py"]
+        subject_ref = "subject:widget-runtime"
     else:
         command = "python -m unittest tests.test_schema"
         selection_scope = "tests.test_schema"
         code_refs = ["tests/test_schema.py"]
+        subject_ref = "subject:widget-schema"
     return {
         "test_id": test_id,
+        "subject_ref": subject_ref,
         "criterion_id": criterion_id,
         "classification": classification,
         "validation_command": command,
@@ -298,7 +303,7 @@ class AssuranceTests(unittest.TestCase):
             "unobserved_paths": [],
             "assurance_draft": {
                 "impact_hypotheses": [],
-                "tests": [{"test_id": "test:all", "command": "python -m unittest", "selection_scope": "tests", "classification": "regression", "code_refs": ["tests/"]}],
+                "tests": [{"test_id": "test:all", "subject_ref": "subject:all", "command": "python -m unittest", "selection_scope": "tests", "classification": "regression", "code_refs": ["tests/"]}],
                 "mappings": [{"criterion_id": "tests_pass", "test_ids": ["test:all"], "viewpoints": ["regression"], "reason": "existing suite"}],
                 "criteria": [{"criterion_id": "tests_pass", "block_level": "hard"}],
             },
@@ -308,7 +313,16 @@ class AssuranceTests(unittest.TestCase):
         changed["assurance_draft"]["criteria"][0]["block_level"] = "soft"
         second = build_execution_contract(baseline, changed, [], now=NOW)
         self.assertIn("assurance_draft", first)
+        self.assertEqual("1.1", first["contract_version"])
         self.assertNotEqual(first["fingerprint"], second["fingerprint"])
+
+    def test_legacy_v10_contract_is_read_compatible_but_cannot_enter_m4(self) -> None:
+        legacy = contract()
+        legacy["contract_version"] = "1.0"
+        legacy.pop("assurance_draft")
+        legacy["fingerprint"] = fingerprint({key: value for key, value in legacy.items() if key != "fingerprint"})
+        with self.assertRaisesRegex(AssuranceError, "v1.0.*M4"):
+            build_test_design(legacy, {"relations": []}, requirement_catalog())
 
     def test_receipts_require_exact_selection_and_observed_evidence(self) -> None:
         selected = contract()["assurance_draft"]["tests"]
@@ -324,6 +338,22 @@ class AssuranceTests(unittest.TestCase):
         forged[0]["evidence_refs"] = []
         with self.assertRaisesRegex(AssuranceError, "observed.*Evidence"):
             record_test_baseline(contract(), selected, forged, NOW)
+
+    def test_receipts_bind_exact_contract_assignment_and_reject_raw_fields(self) -> None:
+        selected = contract()["assurance_draft"]["tests"]
+        swapped = [
+            receipt("test:widget-regression", criterion_id="schema_compatible", classification="regression"),
+            receipt("test:schema-errors", criterion_id="tests_pass", classification="new_feature"),
+        ]
+        with self.assertRaisesRegex(AssuranceError, "criterion_id.*mapping"):
+            record_test_baseline(contract(), selected, swapped, NOW)
+        leaked = [
+            receipt("test:widget-regression", criterion_id="tests_pass", classification="regression"),
+            receipt("test:schema-errors", criterion_id="schema_compatible", classification="new_feature"),
+        ]
+        leaked[0]["raw_output"] = "SECRET_RAW_SENTINEL"
+        with self.assertRaisesRegex(AssuranceError, "unexpected.*raw_output"):
+            record_test_baseline(contract(), selected, leaked, NOW)
 
     def test_before_after_comparison_binds_meaning_environment_contract_and_patch_hashes(self) -> None:
         selected = contract()["assurance_draft"]["tests"]
@@ -371,6 +401,27 @@ class AssuranceTests(unittest.TestCase):
         after = record_test_baseline(contract(), selected, conflicted, NOW)
         indexed = {item["test_id"]: item for item in compare_test_runs(before, after)["comparisons"]}
         self.assertEqual("contradicted", indexed["test:widget-regression"]["status"])
+
+    def test_comparison_classifies_all_observed_pass_fail_transitions(self) -> None:
+        selected = contract()["assurance_draft"]["tests"]
+        expected = {
+            ("pass", "pass"): "comparable_pass",
+            ("fail", "pass"): "fixed_failure",
+            ("fail", "fail"): "unchanged_failure",
+            ("pass", "fail"): "regression",
+        }
+        for transition, status in expected.items():
+            with self.subTest(transition=transition):
+                before_receipts = [
+                    receipt("test:widget-regression", criterion_id="tests_pass", classification="regression", result=transition[0]),
+                    receipt("test:schema-errors", criterion_id="schema_compatible", classification="new_feature"),
+                ]
+                after_receipts = copy.deepcopy(before_receipts)
+                after_receipts[0] = receipt("test:widget-regression", criterion_id="tests_pass", classification="regression", result=transition[1])
+                before = record_test_baseline(contract(), selected, before_receipts, NOW)
+                after = record_test_baseline(contract(), selected, after_receipts, NOW)
+                indexed = {item["test_id"]: item for item in compare_test_runs(before, after)["comparisons"]}
+                self.assertEqual(status, indexed["test:widget-regression"]["status"])
 
     def test_gap_detection_reports_no_adequate_test_and_wrong_classification(self) -> None:
         impact = {
@@ -457,8 +508,7 @@ class AssuranceTests(unittest.TestCase):
             after = record_test_baseline(c, selected, copy.deepcopy(receipts), NOW)
             comparison = compare_test_runs(before, after)
             gaps = detect_test_gaps(c, impact, design, comparison)
-            impact_without_residual = {**impact, "unobserved": []}
-            gate = evaluate_regression_gate(c, impact_without_residual, design, comparison, gaps)
+            gate = evaluate_regression_gate(c, impact, design, comparison, gaps)
             evidence_refs = sorted({ref for item in receipts for ref in item["evidence_refs"]} | {ref for item in impact["relations"] for ref in item["evidence_refs"]})
             arguments = dict(
                 contract=c, restore_point=restore, restore_verification=verification,
@@ -483,6 +533,23 @@ class AssuranceTests(unittest.TestCase):
             failed_restore["restore_verification"]["result"] = "fail"
             with self.assertRaisesRegex(AssuranceError, "Restore verification"):
                 build_assurance_packet(**failed_restore)
+            stale_after = copy.deepcopy(arguments)
+            stale_after["after"]["receipts"][0]["result"] = "fail"
+            with self.assertRaisesRegex(AssuranceError, "after.*fingerprint"):
+                build_assurance_packet(**stale_after)
+            wrong_after_ref = copy.deepcopy(arguments)
+            wrong_after_ref["comparison"]["after_ref"] = HASH_A
+            wrong_after_ref["comparison"]["fingerprint"] = fingerprint({key: value for key, value in wrong_after_ref["comparison"].items() if key != "fingerprint"})
+            with self.assertRaisesRegex(AssuranceError, "comparison"):
+                build_assurance_packet(**wrong_after_ref)
+            forged_gate = copy.deepcopy(arguments)
+            forged_gate["gate"]["decision"] = "pass"
+            forged_gate["gate"]["initial_decision"] = "pass"
+            forged_gate["gate"]["soft_reasons"] = []
+            forged_gate["gate"]["basis"] = "observed"
+            forged_gate["gate"]["fingerprint"] = fingerprint({key: value for key, value in forged_gate["gate"].items() if key != "fingerprint"})
+            with self.assertRaisesRegex(AssuranceError, "Gate.*authoritative"):
+                build_assurance_packet(**forged_gate)
 
 
 if __name__ == "__main__":

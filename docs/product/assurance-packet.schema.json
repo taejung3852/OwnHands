@@ -4,12 +4,13 @@
   "title": "ownhands Assurance Packet",
   "type": "object",
   "additionalProperties": false,
-  "required": ["packet_version", "packet_id", "contract_id", "contract_fingerprint", "task", "observed_at", "input_fingerprint", "restore_point", "restore_verification", "impact", "test_design", "before", "after", "comparison", "gaps", "gate", "evidence_refs", "fingerprint"],
+  "required": ["packet_version", "packet_id", "contract_id", "contract_fingerprint", "contract_snapshot", "task", "observed_at", "input_fingerprint", "restore_point", "restore_verification", "impact", "test_design", "before", "after", "comparison", "gaps", "gate", "evidence_refs", "fingerprint"],
   "properties": {
     "packet_version": {"const": "1.0"},
     "packet_id": {"type": "string", "pattern": "^assurance:[0-9a-f]{64}$"},
     "contract_id": {"$ref": "#/$defs/nonempty"},
     "contract_fingerprint": {"$ref": "#/$defs/hash"},
+    "contract_snapshot": {"$ref": "#/$defs/contractSnapshot"},
     "task": {"$ref": "#/$defs/task"},
     "observed_at": {"type": "string", "format": "date-time"},
     "input_fingerprint": {"$ref": "#/$defs/hash"},
@@ -53,6 +54,38 @@
         "goal": {"$ref": "#/$defs/nonempty"}
       }
     },
+    "contractSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_version", "contract_version", "contract_id", "source_contract_fingerprint", "task", "protected_targets", "validation_criteria", "gate_criteria", "gate_status", "assurance_draft", "fingerprint"],
+      "properties": {
+        "snapshot_version": {"const": "1.0"},
+        "contract_version": {"const": "1.1"},
+        "contract_id": {"$ref": "#/$defs/nonempty"},
+        "source_contract_fingerprint": {"$ref": "#/$defs/hash"},
+        "task": {"$ref": "#/$defs/task"},
+        "protected_targets": {"$ref": "#/$defs/strings"},
+        "validation_criteria": {"$ref": "#/$defs/strings"},
+        "gate_criteria": {"$ref": "#/$defs/strings"},
+        "gate_status": {"type": ["string", "null"]},
+        "assurance_draft": {"$ref": "#/$defs/assuranceDraft"},
+        "fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "assuranceDraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["impact_hypotheses", "tests", "mappings", "criteria"],
+      "properties": {
+        "impact_hypotheses": {"type": "array", "items": {"$ref": "#/$defs/impactHypothesis"}},
+        "tests": {"type": "array", "items": {"$ref": "#/$defs/testSelection"}},
+        "mappings": {"type": "array", "items": {"$ref": "#/$defs/assuranceMapping"}},
+        "criteria": {"type": "array", "items": {"$ref": "#/$defs/assuranceCriterion"}}
+      }
+    },
+    "impactHypothesis": {"type": "object", "additionalProperties": false, "required": ["hypothesis_id", "path_globs", "relation_refs", "basis"], "properties": {"hypothesis_id": {"$ref": "#/$defs/nonempty"}, "path_globs": {"$ref": "#/$defs/strings"}, "relation_refs": {"$ref": "#/$defs/strings"}, "basis": {"enum": ["declared", "static_observed"]}}},
+    "assuranceMapping": {"type": "object", "additionalProperties": false, "required": ["criterion_id", "test_ids", "viewpoints", "reason"], "properties": {"criterion_id": {"$ref": "#/$defs/nonempty"}, "test_ids": {"$ref": "#/$defs/strings"}, "viewpoints": {"$ref": "#/$defs/strings"}, "reason": {"$ref": "#/$defs/nonempty"}}},
+    "assuranceCriterion": {"type": "object", "additionalProperties": false, "required": ["criterion_id", "block_level"], "properties": {"criterion_id": {"$ref": "#/$defs/nonempty"}, "block_level": {"enum": ["hard", "soft"]}}},
     "boundary": {
       "type": "object",
       "additionalProperties": false,
@@ -145,9 +178,10 @@
     "testSelection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["test_id", "command", "selection_scope", "classification", "code_refs"],
+      "required": ["test_id", "subject_ref", "command", "selection_scope", "classification", "code_refs"],
       "properties": {
         "test_id": {"$ref": "#/$defs/nonempty"},
+        "subject_ref": {"$ref": "#/$defs/nonempty"},
         "command": {"$ref": "#/$defs/nonempty"},
         "selection_scope": {"$ref": "#/$defs/nonempty"},
         "classification": {"enum": ["new_feature", "regression"]},
@@ -185,9 +219,10 @@
     "receipt": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["test_id", "criterion_id", "classification", "validation_command", "command_fingerprint", "selection_scope", "environment_fingerprint", "contract_fingerprint", "start_patch_hash", "target_patch_hash", "code_refs", "result", "basis", "evidence_refs", "conflict_refs"],
+      "required": ["test_id", "subject_ref", "criterion_id", "classification", "validation_command", "command_fingerprint", "selection_scope", "environment_fingerprint", "contract_fingerprint", "start_patch_hash", "target_patch_hash", "code_refs", "result", "basis", "evidence_refs", "conflict_refs"],
       "properties": {
         "test_id": {"$ref": "#/$defs/nonempty"},
+        "subject_ref": {"$ref": "#/$defs/nonempty"},
         "criterion_id": {"$ref": "#/$defs/nonempty"},
         "classification": {"enum": ["new_feature", "regression"]},
         "validation_command": {"$ref": "#/$defs/nonempty"},
@@ -228,7 +263,7 @@
         "test_id": {"$ref": "#/$defs/nonempty"},
         "criterion_id": {"$ref": "#/$defs/nonempty"},
         "classification": {"enum": ["new_feature", "regression"]},
-        "status": {"enum": ["comparable_pass", "regression", "missing_before", "missing_after", "stale", "incomparable", "not_run", "inconclusive", "contradicted"]},
+        "status": {"enum": ["comparable_pass", "fixed_failure", "unchanged_failure", "regression", "missing_before", "missing_after", "stale", "incomparable", "not_run", "inconclusive", "contradicted"]},
         "evidence_refs": {"$ref": "#/$defs/strings"}
       }
     },

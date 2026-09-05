@@ -320,6 +320,7 @@ def build_execution_contract(baseline: dict, overlay: dict, approvals: list[dict
         assurance_tests = [
             {
                 "test_id": f"test:validation-{index}",
+                "subject_ref": f"validation:{index}",
                 "command": command,
                 "selection_scope": command,
                 "classification": "regression",
@@ -351,7 +352,7 @@ def build_execution_contract(baseline: dict, overlay: dict, approvals: list[dict
     assurance_draft = validate_assurance_draft(assurance_draft, overlay["gate_criteria"])
 
     contract = {
-        "contract_version": "1.0",
+        "contract_version": "1.1",
         "contract_id": f"contract:{task['task_id']}",
         "task": task,
         "baseline_ref": baseline["baseline_id"],

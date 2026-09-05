@@ -19,6 +19,7 @@ from .assurance import (
     evaluate_regression_gate,
     fingerprint,
     record_test_baseline,
+    validate_assurance_packet,
     verify_restore_point,
 )
 
@@ -32,6 +33,7 @@ PACKET_FIELDS = {
     "packet_id",
     "contract_id",
     "contract_fingerprint",
+    "contract_snapshot",
     "task",
     "observed_at",
     "input_fingerprint",
@@ -75,30 +77,10 @@ def _evidence_refs(value: object) -> set[str]:
 
 
 def validate_packet_document(packet: object) -> dict:
-    if not isinstance(packet, dict):
-        raise M4ReviewError("Assurance packet must be an object")
-    missing = sorted(PACKET_FIELDS - set(packet))
-    unexpected = sorted(set(packet) - PACKET_FIELDS)
-    if missing or unexpected:
-        raise M4ReviewError(f"Assurance packet fields mismatch; missing={missing}, unexpected={unexpected}")
-    if packet.get("packet_version") != "1.0":
-        raise M4ReviewError("Assurance packet version is invalid")
-    for name in ("contract_fingerprint", "input_fingerprint", "fingerprint"):
-        if not _is_hash(packet.get(name)):
-            raise M4ReviewError(f"Assurance packet {name} is invalid")
-    if not isinstance(packet.get("evidence_refs"), list) or len(packet["evidence_refs"]) != len(set(packet["evidence_refs"])):
-        raise M4ReviewError("Assurance packet Evidence index is invalid")
-    declared = set(packet["evidence_refs"])
-    sections = {key: value for key, value in packet.items() if key != "evidence_refs"}
-    unresolved = sorted(_evidence_refs(sections) - declared)
-    if unresolved:
-        raise M4ReviewError(f"Assurance packet reference closure failed: {unresolved}")
-    for name in ("restore_point", "restore_verification", "impact", "test_design", "before", "after", "comparison", "gaps", "gate"):
-        if not isinstance(packet.get(name), dict):
-            raise M4ReviewError(f"Assurance packet {name} is invalid")
-    if packet["contract_id"] != packet["gate"].get("contract_id") or packet["contract_fingerprint"] != packet["gate"].get("contract_fingerprint"):
-        raise M4ReviewError("Assurance packet Gate identity mismatch")
-    return packet
+    try:
+        return validate_assurance_packet(packet)
+    except ValueError as error:
+        raise M4ReviewError(str(error)) from error
 
 
 def _write(path: Path, content: str) -> None:
@@ -149,7 +131,7 @@ def _fixture_repository(root: Path) -> Path:
 def _contract() -> dict:
     command = "python -m unittest discover -s tests -v"
     contract = {
-        "contract_version": "1.0",
+        "contract_version": "1.1",
         "contract_id": "contract:m4-synthetic-review",
         "task": {
             "project_id": "project:ownhands-fixture",
@@ -174,6 +156,7 @@ def _contract() -> dict:
             "tests": [
                 {
                     "test_id": "test:widget-regression",
+                    "subject_ref": "subject:widget-runtime",
                     "command": command,
                     "selection_scope": "tests/test_widget.py",
                     "classification": "regression",
@@ -217,6 +200,7 @@ def _receipt(
     test = contract["assurance_draft"]["tests"][0]
     return {
         "test_id": test["test_id"],
+        "subject_ref": test["subject_ref"],
         "criterion_id": "tests_pass",
         "classification": test["classification"],
         "validation_command": test["command"],
