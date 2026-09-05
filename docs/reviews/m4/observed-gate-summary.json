@@ -33,12 +33,13 @@
       "dynamic_runtime_relationships"
     ]
   },
-  "observed_at": "2026-09-06T18:30:00+09:00",
+  "observed_at": "2026-09-06T20:00:00+09:00",
   "packet": {
-    "fingerprint": "sha256:75c801fdadf4a430a531e0e84d18f29b50006ec81568e7e93fe1ae0cdcebdff0",
-    "input_fingerprint": "sha256:97f51738bb9df218b9616e0db8bc64d1da653e0dbd44643db0ce95645613ed22",
-    "local_path": "/tmp/ownhands-m4-actual-packet-455337a.json",
-    "raw_evidence_committed": false
+    "fingerprint": "sha256:ed7816d46153679fbac415e756514c539f67cc590dc6a73e7f376b4725057902",
+    "input_fingerprint": "sha256:c4e00fd13a9271b9c8475f576b9c5577bbb1b06b4c3177c866576922cfe9c5b3",
+    "local_path": "/tmp/ownhands-m4-actual-packet-568c46e.json",
+    "raw_evidence_committed": false,
+    "review_path": "/tmp/ownhands-m4-actual-review-568c46e.html"
   },
   "restore": {
     "basis": "observed",
@@ -52,10 +53,10 @@
     "source_worktree_unchanged": true,
     "start_commit": "f2a1dd332258c01007c3c4d61d53a84f26fedd74",
     "start_patch_hash": "sha256:e2ed69d76c3ecae3feefd433bdc896976111f4947e1e52e1d5918c6accf6c7f5",
-    "target_patch_hash": "sha256:07729180a34496476e86e4024162a1bf02a1552460bb60997970e6e841cf14a3"
+    "target_patch_hash": "sha256:5e1f56f0c571ca83ca7cbcdcffb710888fd0a8b8115ac9a547204f7cf5d18f3e"
   },
   "summary_version": "1.0",
-  "target_commit": "455337a9023524f090e0b4abd208d2c06276cc8c",
+  "target_commit": "568c46ea1e439e2d0f0584aaacaf6edd3882f194",
   "tests": {
     "after": {
       "test:compile": "pass",

@@ -70,6 +70,6 @@ git diff --check
 
 ## Actual branch observation
 
-`observed-gate-summary.json` records the allowlisted result for base `f2a1dd3` through target `5ce66a9`. Restore reconstruction passed without changing the source worktree; 18 tracked paths were analyzed, all five before/after meanings were comparable after the change, and no required test Gap remained. The resulting Gate is `soft_block / unobserved`, not Pass: declared path relations do not establish complete dynamic runtime dependency coverage, and no exact product override was supplied.
+`observed-gate-summary.json` records the allowlisted result for base `f2a1dd3` through target `568c46e`. Restore reconstruction passed without changing the source worktree; 19 tracked paths were analyzed, all five after tests passed, two new-feature checks were `fixed_failure`, three regression checks were `comparable_pass`, and no required test Gap remained. The resulting Gate is `soft_block / unobserved`, not Pass: declared path relations do not establish complete dynamic runtime dependency coverage, and no exact product override was supplied.
 
-The full actual packet is local at `/tmp/ownhands-m4-actual-packet-5ce66a9.json`; its raw before/after command output is local under `/tmp/ownhands-m4-actual-raw-5ce66a9/`. Those paths are intentionally not committed.
+The full actual packet is local at `/tmp/ownhands-m4-actual-packet-568c46e.json`, the review is at `/tmp/ownhands-m4-actual-review-568c46e.html`, and raw before/after command output is under `/tmp/ownhands-m4-actual-raw-568c46e/`. Those paths are intentionally not committed.
