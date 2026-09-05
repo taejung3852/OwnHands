@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -531,6 +532,57 @@ class AppServerAdapterTests(unittest.TestCase):
             )
 
         self.assertEqual(4, len(transport.sent))
+
+    def test_stdio_transport_drains_batched_lines_without_new_os_data(self) -> None:
+        # A real pipe exposes read-ahead that the in-memory protocol fake misses.
+        process = subprocess.Popen(
+            [sys.executable, "-u", "-c",
+             'import os,sys; os.write(sys.stdout.fileno(), b\'first\\nsecond\\n\'); sys.stdin.read()'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, bufsize=1,
+        )
+        try:
+            with patch("devharness.codex_app_server.subprocess.Popen", return_value=process):
+                transport = StdioJsonRpcTransport(CONFIG)
+            self.assertEqual("first\n", transport.receive(2.0))
+            try:
+                second = transport.receive(0.2)
+            except TimeoutError:
+                self.fail("the second complete line was already delivered and must not time out")
+            self.assertEqual("second\n", second)
+        finally:
+            process.terminate()
+            process.wait(timeout=2)
+            process.stdin.close()
+            process.stdout.close()
+
+    def test_stdio_transport_preserves_partial_utf8_across_timeout_and_eof(self) -> None:
+        process = subprocess.Popen(
+            [sys.executable, "-u", "-c",
+             'import os,sys,select; os.write(sys.stdout.fileno(), b"\\xed"); '
+             'sys.stderr.write("ready\\n"); sys.stderr.flush(); '
+             'select.select([sys.stdin], [], [], 1.0); '
+             'os.write(sys.stdout.fileno(), b"\\x95\\x9c\\nlast")'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, bufsize=1,
+        )
+        try:
+            with patch("devharness.codex_app_server.subprocess.Popen", return_value=process):
+                transport = StdioJsonRpcTransport(CONFIG)
+            self.assertEqual("ready\n", process.stderr.readline())
+            with self.assertRaises(TimeoutError):
+                transport.receive(0.05)
+            transport.send({"continue": True})
+            self.assertEqual("한\n", transport.receive(2.0))
+            self.assertEqual("last", transport.receive(2.0))
+            self.assertIsNone(transport.receive(0.2))
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            process.wait(timeout=2)
+            process.stdin.close()
+            process.stdout.close()
+            process.stderr.close()
 
     @patch("devharness.codex_app_server.subprocess.Popen")
     def test_stdio_transport_starts_only_its_own_app_server_child(self, popen) -> None:

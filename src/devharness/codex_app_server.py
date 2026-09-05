@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import selectors
 import subprocess
 import time
@@ -88,6 +89,7 @@ class JsonRpcTransport(Protocol):
 
 class StdioJsonRpcTransport:
     def __init__(self, config: AppServerConfig) -> None:
+        self._stdout_buffer = b""
         self._process = subprocess.Popen(
             [config.executable, "app-server", "--listen", "stdio://"],
             cwd=config.cwd,
@@ -107,12 +109,23 @@ class StdioJsonRpcTransport:
     def receive(self, timeout_seconds: float) -> str | None:
         if self._process.stdout is None:
             raise AppServerError("App Server stdout is unavailable")
+        deadline = time.monotonic() + timeout_seconds
         with selectors.DefaultSelector() as selector:
             selector.register(self._process.stdout, selectors.EVENT_READ)
-            if not selector.select(timeout_seconds):
-                raise TimeoutError("App Server receive deadline expired")
-        line = self._process.stdout.readline()
-        return line if line else None
+            while True:
+                # Drain complete lines before waiting for more OS-level bytes.
+                # TextIOWrapper.readline() can hide read-ahead from selectors.
+                if b"\n" in self._stdout_buffer:
+                    line, self._stdout_buffer = self._stdout_buffer.split(b"\n", 1)
+                    return (line + b"\n").decode("utf-8")
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not selector.select(remaining):
+                    raise TimeoutError("App Server receive deadline expired")
+                chunk = os.read(self._process.stdout.fileno(), 65536)
+                if not chunk:
+                    final, self._stdout_buffer = self._stdout_buffer, b""
+                    return final.decode("utf-8") if final else None
+                self._stdout_buffer += chunk
 
     def poll(self) -> int | None:
         return self._process.poll()
