@@ -233,6 +233,17 @@ class AssuranceTests(unittest.TestCase):
             )
             self.assertNotIn("untracked-secret", canonical_json(verification))
 
+    def test_restore_reconstructs_intent_to_add_files_in_captured_patch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repository = disposable_repository(Path(temporary))
+            added = repository / "src/new_widget.py"
+            added.write_text("VALUE = 'new'\n", encoding="utf-8")
+            git(repository, "add", "-N", "src/new_widget.py")
+            restore = capture_restore_point(repository, contract()["task"], NOW)
+            verification = verify_restore_point(repository, restore)
+            self.assertEqual("pass", verification["result"])
+            self.assertEqual(restore["tracked_patch_hash"], verification["reconstructed_patch_hash"])
+
     def test_actual_diff_joins_only_declared_relations_and_records_boundaries(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             repository = disposable_repository(Path(temporary))

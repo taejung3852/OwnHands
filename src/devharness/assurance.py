@@ -243,7 +243,7 @@ def verify_restore_point(repository: Path | str, restore_point: dict) -> dict:
             raise AssuranceError("disposable clone creation failed") from error
         _git(clone, "checkout", "--quiet", restore_point["start_commit"])
         if patch:
-            _git(clone, "apply", "--binary", "-", input_bytes=patch)
+            _git(clone, "apply", "--intent-to-add", "--binary", "-", input_bytes=patch)
         reconstructed = _git(clone, "diff", "--binary", "HEAD", "--")
         reconstructed_hash = fingerprint(reconstructed)
     source_after = _git(repository, "status", "--porcelain=v1", "-z")
