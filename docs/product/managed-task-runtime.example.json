@@ -1,0 +1,93 @@
+{
+  "packet_id": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "schema_version": "1.0",
+  "generated_at": "2026-09-05T12:00:00+00:00",
+  "probe_kind": "fixture",
+  "runtime": {
+    "codex_version": "0.153.3",
+    "protocol_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "model": "gpt-5.6-luna",
+    "reasoning_effort": "low",
+    "terminal_status": "completed"
+  },
+  "managed": {
+    "mode": "managed",
+    "task_ref": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "thread_ref": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "event_refs": ["evidence-recorded:evidence:agents:loaded", "evidence-recorded:evidence:approval:declined", "evidence-recorded:evidence:restore", "evidence-recorded:evidence:sandbox:denied"],
+    "evidence_refs": ["evidence:agents:loaded", "evidence:approval:declined", "evidence:restore", "evidence:sandbox:denied"],
+    "controls": {
+      "config": {
+        "configured": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:config:configured"]},
+        "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []},
+        "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}
+      },
+      "agents": {
+        "configured": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:agents:configured"]},
+        "loaded": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:agents:loaded"]},
+        "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}
+      },
+      "rules": {
+        "configured": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:rules:configured"]},
+        "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []},
+        "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}
+      },
+      "hooks": {
+        "configured": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:hooks:configured"]},
+        "loaded": {"result": "fail", "basis": "observed", "evidence_refs": ["evidence:hooks:failed"]},
+        "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}
+      },
+      "sandbox": {
+        "configured": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:sandbox:configured"]},
+        "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []},
+        "enforced": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:sandbox:denied"]}
+      },
+      "approval": {
+        "configured": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:approval:configured"]},
+        "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []},
+        "enforced": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:approval:declined"]}
+      }
+    },
+    "restore": {
+      "result": "pass",
+      "basis": "observed",
+      "commit_ref": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "patch_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence_refs": ["evidence:restore"]
+    }
+  },
+  "imported": {
+    "mode": "imported",
+    "task_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "evidence_refs": ["evidence:imported:snapshot", "evidence:imported:diff", "evidence:imported:test"],
+    "controls": {
+      "config": {"configured": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}},
+      "agents": {"configured": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}},
+      "rules": {"configured": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}},
+      "hooks": {"configured": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}},
+      "sandbox": {"configured": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}},
+      "approval": {"configured": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "loaded": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}, "enforced": {"result": "not_run", "basis": "unobserved", "evidence_refs": []}}
+    },
+    "limitation": "Historical managed runtime state is not_run/unobserved"
+  },
+  "runtime_gate": {
+    "result": "blocked",
+    "basis": "unobserved",
+    "checks": {
+      "event_evidence_closure": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:agents:loaded", "evidence:approval:declined", "evidence:restore", "evidence:sandbox:denied"]},
+      "protocol_version": {"result": "pass", "basis": "observed", "evidence_refs": []},
+      "identity_closure": {"result": "pass", "basis": "observed", "evidence_refs": []},
+      "instruction_loaded": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:agents:loaded"]},
+      "sandbox_denial": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:sandbox:denied"]},
+      "approval_chain": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:approval:declined"]},
+      "restore_receipt": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence:restore"]},
+      "terminal_turn": {"result": "pass", "basis": "observed", "evidence_refs": []}
+    },
+    "residual_risks": ["Fixture transport cannot satisfy the live runtime Gate"]
+  },
+  "human_friction": {
+    "result": "not_run",
+    "basis": "unobserved",
+    "issue": "https://github.com/taejung3852/own-hands/issues/38"
+  }
+}

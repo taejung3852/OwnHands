@@ -39,6 +39,7 @@ class AppServerConfig:
     timeout_seconds: float
     codex_version: str
     protocol_fingerprint: str
+    reasoning_effort: str
 
 
 @dataclass(frozen=True)
@@ -158,6 +159,7 @@ def _validate_config(config: AppServerConfig) -> None:
         "prompt",
         "codex_version",
         "protocol_fingerprint",
+        "reasoning_effort",
     ):
         _required_text(getattr(config, name), name)
     if not isinstance(config.cwd, Path) or not config.cwd.is_absolute():
@@ -299,6 +301,7 @@ def run_app_server(
             {
                 "threadId": thread_id,
                 "input": [{"type": "text", "text": config.prompt}],
+                "effort": config.reasoning_effort,
             },
         )
         turn = _required_dict(turn_start.get("turn"), "turn/start turn")

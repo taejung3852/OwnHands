@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ownhands.local/schemas/managed-task-runtime.schema.json",
+  "title": "M3 sanitized managed task runtime review packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["packet_id", "schema_version", "generated_at", "probe_kind", "runtime", "managed", "imported", "runtime_gate", "human_friction"],
+  "properties": {
+    "packet_id": {"$ref": "#/$defs/hash"},
+    "schema_version": {"const": "1.0"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "probe_kind": {"enum": ["fixture", "live"]},
+    "runtime": {"$ref": "#/$defs/runtime"},
+    "managed": {"$ref": "#/$defs/managed"},
+    "imported": {"$ref": "#/$defs/imported"},
+    "runtime_gate": {"$ref": "#/$defs/gate"},
+    "human_friction": {"$ref": "#/$defs/friction"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "refs": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "basis", "evidence_refs"],
+      "properties": {
+        "result": {"enum": ["pass", "fail", "not_run", "not_applicable"]},
+        "basis": {"enum": ["observed", "inferred", "unobserved"]},
+        "evidence_refs": {"$ref": "#/$defs/refs"}
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["configured", "loaded", "enforced"],
+      "properties": {
+        "configured": {"$ref": "#/$defs/check"},
+        "loaded": {"$ref": "#/$defs/check"},
+        "enforced": {"$ref": "#/$defs/check"}
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config", "agents", "rules", "hooks", "sandbox", "approval"],
+      "properties": {
+        "config": {"$ref": "#/$defs/control"},
+        "agents": {"$ref": "#/$defs/control"},
+        "rules": {"$ref": "#/$defs/control"},
+        "hooks": {"$ref": "#/$defs/control"},
+        "sandbox": {"$ref": "#/$defs/control"},
+        "approval": {"$ref": "#/$defs/control"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codex_version", "protocol_fingerprint", "model", "reasoning_effort", "terminal_status"],
+      "properties": {
+        "codex_version": {"type": "string", "minLength": 1},
+        "protocol_fingerprint": {"$ref": "#/$defs/hash"},
+        "model": {"type": "string", "minLength": 1},
+        "reasoning_effort": {"type": "string", "minLength": 1},
+        "terminal_status": {"enum": ["completed", "failed", "interrupted", "unavailable"]}
+      }
+    },
+    "restore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "basis", "commit_ref", "patch_hash", "evidence_refs"],
+      "properties": {
+        "result": {"const": "pass"},
+        "basis": {"const": "observed"},
+        "commit_ref": {"$ref": "#/$defs/hash"},
+        "patch_hash": {"$ref": "#/$defs/hash"},
+        "evidence_refs": {"$ref": "#/$defs/refs"}
+      }
+    },
+    "managed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "task_ref", "thread_ref", "event_refs", "evidence_refs", "controls", "restore"],
+      "properties": {
+        "mode": {"const": "managed"},
+        "task_ref": {"$ref": "#/$defs/hash"},
+        "thread_ref": {"$ref": "#/$defs/hash"},
+        "event_refs": {"$ref": "#/$defs/refs"},
+        "evidence_refs": {"$ref": "#/$defs/refs"},
+        "controls": {"$ref": "#/$defs/controls"},
+        "restore": {"$ref": "#/$defs/restore"}
+      }
+    },
+    "imported": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "task_ref", "evidence_refs", "controls", "limitation"],
+      "properties": {
+        "mode": {"const": "imported"},
+        "task_ref": {"$ref": "#/$defs/hash"},
+        "evidence_refs": {"$ref": "#/$defs/refs"},
+        "controls": {"$ref": "#/$defs/controls"},
+        "limitation": {"const": "Historical managed runtime state is not_run/unobserved"}
+      }
+    },
+    "gateCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "basis", "evidence_refs"],
+      "properties": {
+        "result": {"enum": ["pass", "fail"]},
+        "basis": {"const": "observed"},
+        "evidence_refs": {"$ref": "#/$defs/refs"}
+      }
+    },
+    "gateChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_evidence_closure", "protocol_version", "identity_closure", "instruction_loaded", "sandbox_denial", "approval_chain", "restore_receipt", "terminal_turn"],
+      "properties": {
+        "event_evidence_closure": {"$ref": "#/$defs/gateCheck"},
+        "protocol_version": {"$ref": "#/$defs/gateCheck"},
+        "identity_closure": {"$ref": "#/$defs/gateCheck"},
+        "instruction_loaded": {"$ref": "#/$defs/gateCheck"},
+        "sandbox_denial": {"$ref": "#/$defs/gateCheck"},
+        "approval_chain": {"$ref": "#/$defs/gateCheck"},
+        "restore_receipt": {"$ref": "#/$defs/gateCheck"},
+        "terminal_turn": {"$ref": "#/$defs/gateCheck"}
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "basis", "checks", "residual_risks"],
+      "properties": {
+        "result": {"enum": ["pass", "blocked"]},
+        "basis": {"enum": ["observed", "unobserved"]},
+        "checks": {"$ref": "#/$defs/gateChecks"},
+        "residual_risks": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "friction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "basis", "issue"],
+      "properties": {
+        "result": {"const": "not_run"},
+        "basis": {"const": "unobserved"},
+        "issue": {"const": "https://github.com/taejung3852/own-hands/issues/38"}
+      }
+    }
+  }
+}
