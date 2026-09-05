@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | 사람의 이해·검토·판단 병목 감소 | Design Rationale, Dashboard | M0-01 기준선 | M5, M6 | Blocked by Evidence |
 | Dashboard와 Control 동등성 | 전체 | M0-01, ADR-0006 | M1~M5 | M0 Verified · M1 #10~#15 merged/Verified |
-| Managed / Imported Task | Control, Dashboard | M0-04 machine-readable Claim applicability, ADR-0001/0003 | M1~M3 | M3 계약 구현 · two authorized live initialize failures · Blocked |
+| Managed / Imported Task | Control, Dashboard | M0-04 machine-readable Claim applicability, ADR-0001/0003 | M1~M3 | M3 계약 구현 · three authorized live pre-turn failures · Blocked |
 | Project Baseline / Task Overlay / Contract | Control | M0-03 validation semantics | M2 | M2 #25~#28 구현 후보 · 검토 전 |
 | Context Placement / Task Harness Manifest | 전체 | ADR-0002/0005, M1.5 #16/#17 | M1.5, M2 | ADR-0009 Accepted · 사용자 사전 위임에 따른 에이전트 결정 |
 | Context Lint / Applicability Gate | Control | M1.5 #18/#19 deterministic Probe | M1.5, M2 | M1.5 검증됨 · M2 dry-run Compiler/Lint 후보 · 검토 전 |
