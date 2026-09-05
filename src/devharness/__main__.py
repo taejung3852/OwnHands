@@ -17,6 +17,7 @@ from .dashboard_actions import (
     run_feature_validation,
     submit_task_decision,
 )
+from .dashboard_export import export_masked_history
 from .dashboard_server import (
     DashboardConfig,
     DashboardServices,
@@ -96,13 +97,12 @@ def _dashboard_services(data_root: Path) -> tuple[DashboardServices, Catalog]:
         )
 
     def export_history(view, sections: tuple[str, ...]) -> bytes:
-        selected = {"history": view.history} if "history" in sections else {}
-        return json.dumps(
-            selected,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
+        return export_masked_history(
+            view=view,
+            sections=sections,
+            private_roots=(data_root,),
+            exported_at=_now(),
+        )
 
     return (
         DashboardServices(

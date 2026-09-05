@@ -10,6 +10,7 @@ from devharness.dashboard_server import (
     DashboardServices,
     create_dashboard_server,
 )
+from tests.test_dashboard_render import review_view
 
 
 TASK = "task:opaque-1"
@@ -21,7 +22,9 @@ class DashboardHttpSecurityTests(unittest.TestCase):
 
         def load_view(task_id: str) -> object:
             self.load_count += 1
-            return type("View", (), {"task": {"task_id": task_id}})()
+            view = review_view()
+            view.task["task_id"] = task_id
+            return view
 
         self.config = DashboardConfig(
             host="127.0.0.1",
@@ -117,6 +120,20 @@ class DashboardHttpSecurityTests(unittest.TestCase):
 
     def test_missing_token_is_rejected_before_unknown_route_is_disclosed(self) -> None:
         self.assertEqual(403, self.request("GET", "/").status)
+
+    def test_unauthenticated_post_is_rejected_before_its_body_is_parsed(self) -> None:
+        response = self.request(
+            "POST",
+            f"/tasks/{TASK}",
+            headers={
+                "Origin": f"http://127.0.0.1:{self.port}",
+                "Content-Type": "text/plain",
+            },
+            body=b"not-a-form",
+        )
+
+        self.assertEqual(403, response.status)
+        self.assertIn(b"session token is invalid", response.body)
 
     def test_every_response_has_no_store_csp_nosniff_and_no_referrer(self) -> None:
         cookie, clean_path = self.bootstrap()

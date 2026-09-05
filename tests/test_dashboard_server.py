@@ -26,6 +26,7 @@ from devharness.__main__ import main
 from devharness.catalog import Catalog
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
+from tests.test_dashboard_render import review_view
 
 
 TASK = "task:opaque-1"
@@ -42,10 +43,8 @@ class View:
 class ServiceRecorder:
     def __init__(self) -> None:
         self.calls: list[tuple] = []
-        self.current_view = View(
-            task={"task_id": TASK},
-            decision={"submission_allowed": True, "gate": "soft_block"},
-        )
+        self.current_view = review_view()
+        self.current_view.task["task_id"] = TASK
 
     def load_view(self, task_id: str) -> View:
         self.calls.append(("load_view", task_id))
@@ -279,10 +278,12 @@ class DashboardRouteTests(unittest.TestCase):
             )
             catalog.close()
 
-            def load_view(task_id: str) -> View:
+            def load_view(task_id: str):
                 if task_id != task.task_id:
                     raise ValueError(f"unknown task: {task_id}")
-                return View(task={"task_id": task_id}, decision={})
+                view = review_view()
+                view.task["task_id"] = task_id
+                return view
 
             services = DashboardServices(
                 load_view=load_view,

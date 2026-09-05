@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import hashlib
 import re
 import secrets
 import socket
@@ -16,8 +17,17 @@ from .catalog import Catalog
 from .dashboard_security import (
     RequestSecurityError,
     issue_csrf_token,
+    private_atomic_write,
     require_opaque_identifier,
     validate_request_security,
+)
+from .dashboard_render import (
+    render_document,
+    render_evidence_detail,
+    render_feature_validation,
+    render_harness_status,
+    render_history,
+    render_task_review,
 )
 from .paths import DataPaths
 
@@ -138,13 +148,14 @@ def _response(
     *,
     content_type: str = "text/html; charset=utf-8",
     headers: Sequence[tuple[str, str]] = (),
+    nonce: str | None = None,
 ) -> DashboardResponse:
     payload = body.encode("utf-8") if isinstance(body, str) else body
-    nonce = secrets.token_urlsafe(18)
+    response_nonce = nonce or secrets.token_urlsafe(18)
     all_headers = (
         ("Content-Type", content_type),
         ("Content-Length", str(len(payload))),
-        *_security_headers(nonce),
+        *_security_headers(response_nonce),
         *headers,
     )
     return DashboardResponse(status=status, headers=tuple(all_headers), body=payload)
@@ -245,12 +256,26 @@ def _parse_form(headers: Mapping[str, str], body: bytes) -> dict[str, str]:
     return {name: values[0] for name, values in parsed.items()}
 
 
-def _placeholder(title: str, detail: object = None) -> bytes:
-    rendered = "" if detail is None else html.escape(str(detail))
-    return (
-        f"<!doctype html><html><head><title>{html.escape(title)}</title></head>"
-        f"<body><main><h1>{html.escape(title)}</h1><pre>{rendered}</pre></main></body></html>"
-    ).encode("utf-8")
+def _page(
+    *, title: str, view: Any, main: str, nonce: str
+) -> DashboardResponse:
+    freshness = getattr(view, "freshness", {})
+    completeness = getattr(view, "completeness", {})
+    status = (
+        f"Freshness {freshness.get('state', 'unknown')}; "
+        f"collection completeness {completeness.get('state', 'unknown')}"
+    )
+    return _response(
+        200,
+        render_document(
+            title=title,
+            task_id=view.task["task_id"],
+            main=main,
+            status=status,
+            nonce=nonce,
+        ),
+        nonce=nonce,
+    )
 
 
 def route_request(
@@ -278,6 +303,31 @@ def route_request(
         )
         if bootstrap is not None:
             return bootstrap
+    parsed_form: dict[str, str] | None = None
+    csrf_header = _header(headers, "X-CSRF-Token")
+    csrf_value = csrf_header
+    if method == "POST":
+        try:
+            validate_request_security(
+                host=_header(headers, "Host") or "",
+                token=_session_cookie(headers),
+                expected_token=config.session_token,
+                method=method,
+                origin=_header(headers, "Origin"),
+                expected_origin=config.origin,
+                csrf_token=csrf_header or config.csrf_token,
+                expected_csrf_token=config.csrf_token,
+            )
+        except RequestSecurityError as error:
+            return _error(403, str(error))
+        try:
+            parsed_form = _parse_form(headers, body)
+        except ValueError as error:
+            return _error(400, str(error))
+        hidden_csrf = parsed_form.pop("csrf_token", None)
+        if csrf_header is not None and hidden_csrf is not None and csrf_header != hidden_csrf:
+            return _error(403, "CSRF token is ambiguous")
+        csrf_value = csrf_header or hidden_csrf
     try:
         validate_request_security(
             host=_header(headers, "Host") or "",
@@ -286,7 +336,7 @@ def route_request(
             method=method,
             origin=_header(headers, "Origin"),
             expected_origin=config.origin,
-            csrf_token=_header(headers, "X-CSRF-Token"),
+            csrf_token=csrf_value,
             expected_csrf_token=config.csrf_token,
         )
     except RequestSecurityError as error:
@@ -301,6 +351,7 @@ def route_request(
     if method == "GET":
         try:
             view = services.load_view(route.task_id)
+            nonce = secrets.token_urlsafe(18)
             if route.name == "evidence":
                 raw_values = query.get("raw", ())
                 if raw_values not in ((), ("1",), ["1"]):
@@ -310,29 +361,61 @@ def route_request(
                     route.evidence_id or "",
                     bool(raw_values),
                 )
-                detail = {"metadata": evidence.metadata}
-                if raw is not None:
-                    detail["raw"] = raw.decode("utf-8", errors="replace")
-                return _response(200, _placeholder("Evidence Detail", detail))
+                return _page(
+                    title="Evidence Detail",
+                    view=view,
+                    main=render_evidence_detail(view, evidence=evidence, raw=raw),
+                    nonce=nonce,
+                )
             if route.name == "history" and query.get("format") in (("json",), ["json"]):
                 sections = tuple(query.get("section", ("history",)))
                 exported = services.export_history(view, sections)
-                return _response(200, exported, content_type="application/json; charset=utf-8")
+                save_values = query.get("save", ())
+                if save_values not in ((), ("1",), ["1"]):
+                    return _error(400, "saved export must be exactly save=1")
+                if save_values:
+                    task_digest = hashlib.sha256(
+                        route.task_id.encode("utf-8")
+                    ).hexdigest()[:16]
+                    private_atomic_write(
+                        config.data_root / "exports" / f"task-{task_digest}.json",
+                        exported,
+                    )
+                return _response(
+                    200,
+                    exported,
+                    content_type="application/json; charset=utf-8",
+                    headers=(("Content-Disposition", "attachment; filename=devharness-history.json"),),
+                )
             titles = {
                 "task": "Task Review",
                 "harness": "Harness Status",
                 "validation": "Feature Validation",
                 "history": "Audit History",
             }
-            detail = route.subject_ref if route.name == "validation" else None
-            return _response(200, _placeholder(titles[route.name], detail))
+            renderers = {
+                "task": lambda: render_task_review(view, csrf_token=config.csrf_token),
+                "harness": lambda: render_harness_status(view),
+                "validation": lambda: render_feature_validation(
+                    view,
+                    subject_ref=route.subject_ref or "",
+                    csrf_token=config.csrf_token,
+                ),
+                "history": lambda: render_history(view),
+            }
+            return _page(
+                title=titles[route.name],
+                view=view,
+                main=renderers[route.name](),
+                nonce=nonce,
+            )
         except (OSError, ValueError) as error:
             return _error(404, str(error))
 
     if method != "POST" or route.name not in {"task", "validation"}:
         return _error(405, "method not allowed")
     try:
-        form = _parse_form(headers, body)
+        form = parsed_form if parsed_form is not None else _parse_form(headers, body)
         if route.name == "task":
             current_view = services.load_view(route.task_id)
             services.decide(current_view, form)
