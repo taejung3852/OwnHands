@@ -2,9 +2,9 @@
 
 ## Current status
 
-The M3 runtime Gate is **blocked**. The single live App Server attempt on 2026-09-05 failed during the initial handshake with `AppServerError: App Server returned malformed JSON-RPC`. The raw attempt ledger remains local under `/tmp/ownhands-m3-live-evidence-20260905` with status `failed`; no runtime transcript packet was produced or committed.
+The M3 runtime Gate is **blocked**. The initial live App Server attempt on 2026-09-05 failed during the handshake because the adapter required a legacy JSON-RPC envelope member. After explicit user authorization, one fresh attempt used the corrected adapter and failed at the next initialize check because the returned upstream user-agent string did not exactly equal the adapter's assumed literal. Both raw attempt ledgers remain local under separate `/tmp` roots with status `failed`; no runtime transcript packet was produced or committed.
 
-The generated Codex CLI 0.153.3 schema showed that current wire messages omit the legacy `jsonrpc` member. Commit `19f8224` corrected the adapter and added schema-shaped regressions, but the one-shot rule forbids rerunning the live probe for a favorable result. Therefore issues #32–#36 still lack their required real runtime Evidence, while #37's fixture-only Imported boundary remains independently testable. The committed example remains `blocked / unobserved` and M4 must not start.
+The generated Codex CLI 0.153.3 schema showed that current wire messages omit the legacy `jsonrpc` member. Commit `19f8224` corrected that defect. The official initialize contract describes `userAgent` as the upstream service identity, not a stable exact mirror of the local CLI version; the adapter's exact literal check is therefore a separate compatibility defect. The authorized fresh attempt has been consumed and must not be silently retried. Issues #32–#36 still lack their required real runtime Evidence, while #37's fixture-only Imported boundary remains independently testable. The committed example remains `blocked / unobserved` and M4 must not start.
 
 ## Safety boundary
 
