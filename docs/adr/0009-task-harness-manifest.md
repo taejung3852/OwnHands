@@ -1,8 +1,9 @@
 # ADR-0009 — Task Harness Manifest와 Context 적용성
 
-- **상태:** Proposed
+- **상태:** Accepted
 - **일자:** 2026-09-05
 - **관련 Issue:** #16–#21
+- **승인 방식:** 사용자 사전 위임에 따른 에이전트 결정
 
 ## Context
 
@@ -23,6 +24,7 @@ M0/M1 계약은 Configured/Loaded/Enforced와 Observed/Inferred/Unobserved를 �
 11. 비교 평가는 A(추가 Context 없음), B(최소 `AGENTS.md`), C(수동 Context Profile)를 같은 Fixture에서 각 3회 실행한다. 모델, effort, prompt, commit, environment와 Control을 고정하고 Context만 변경한다.
 12. `Loaded`만으로 improvement를 주장하지 않는다. token은 runtime receipt가 있을 때만 observed 값으로 기록하며 사람 이해도·검토 시간은 사람 기록 전까지 Unobserved다.
 13. Harness Status 계약은 Active Context와 Active Controls를 분리하고 모든 요약을 Evidence로 drill-down한다. M5 전 Production UI는 구현하지 않는다.
+14. M2의 기본 Context 구성은 비교 조건 C처럼 얇은 `AGENTS.md`와 Task에 필요한 on-demand Reference를 조합한다. C의 단일 Fixture 결과를 다른 작업이나 모델의 일반적 우월성으로 확대하지 않는다.
 
 ## Alternatives
 
@@ -50,4 +52,6 @@ M0/M1 계약은 Configured/Loaded/Enforced와 Observed/Inferred/Unobserved를 �
 
 ## Acceptance gate
 
-이 ADR은 실제 1 Fixture × A/B/C × 3회(총 9회) 비교와 독립 검토 전까지 `Proposed`다. gate 충족 뒤 승인 기록의 결정 주체 표기는 `사용자 사전 위임에 따른 에이전트 결정`으로 남긴다. 현재 문서는 그 결정을 실행하거나 Accepted로 표시하지 않는다.
+2026-09-05에 고정 commit `71f6a8220c4e929ece39e76fadbdcdd15af9c7d7`에서 1 Fixture × A/B/C × 3회(총 9회)를 실행했다. A와 B는 각각 3회 중 2회, C는 3회 모두 요구사항과 테스트를 충족했고 모든 조건에서 범위 밖 변경은 0건이었다. 제한 Gate Review는 #20의 순서 바꿔치기 fail-open 한 건을 차단 결함으로 판정했으며, 같은 구현 담당자의 단일 수정 뒤 영향을 받는 검사 10/10과 전체 134/134가 통과했다. 기존 9회 record를 다시 실행하지 않고 재평가했을 때 C 추천이 유지됐다.
+
+이에 따라 분리형 Manifest 계약과 조건 C의 최소 Context 조합을 채택한다. 결정 주체는 **사용자 사전 위임에 따른 에이전트 결정**이다. 사용자가 결과를 직접 검토하거나 승인했다고 기록하지 않는다. 사람 이해도와 검토 시간은 `Unobserved`이며, 한 Fixture·한 모델 설정의 결과는 일반화하지 않는다.

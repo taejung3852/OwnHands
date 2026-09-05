@@ -596,6 +596,17 @@ class GuaranteeAndComparisonTests(unittest.TestCase):
         self.assertEqual(9, result["terminal_run_count"])
         self.assertEqual(1, result["failure_counts"]["failed"])
 
+    def test_comparison_rejects_crossover_order_swap_with_balanced_pairs(self) -> None:
+        runs = self.completed_runs()
+        first, second = runs[0], runs[1]
+        first["condition"], second["condition"] = second["condition"], first["condition"]
+        first["context_fingerprint"], second["context_fingerprint"] = (
+            second["context_fingerprint"],
+            first["context_fingerprint"],
+        )
+        with self.assertRaisesRegex(ContextArchitectureError, "fixed comparison plan"):
+            evaluate_comparison(self.package, runs)
+
 
 class ContextArchitectureCliTests(unittest.TestCase):
     def run_cli(self, *arguments: str) -> subprocess.CompletedProcess[str]:

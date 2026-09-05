@@ -629,6 +629,13 @@ def evaluate_comparison(package: dict, runs: list[dict]) -> dict:
         for item in runs
     ):
         raise ContextArchitectureError("comparison context fingerprint does not match condition")
+    expected_plan = build_comparison_plan(package, runs[0]["target_commit"])
+    plan_fields = ("sequence", "condition", "repetition", "run_id", "context_fingerprint")
+    if any(
+        any(run.get(field) != expected.get(field) for field in plan_fields)
+        for run, expected in zip(runs, expected_plan)
+    ):
+        raise ContextArchitectureError("runs do not match the fixed comparison plan")
     required_metrics = set(package["metrics"])
     for run in runs:
         metrics = run.get("metrics")

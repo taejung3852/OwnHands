@@ -12,4 +12,4 @@ M0부터 중요한 기술·제품 결정은 Context, Decision, Alternatives, Con
 | [ADR-0006](0006-assurance-dashboard-sequencing.md) | Assurance 단계와 review artifact 순서 | Accepted |
 | [ADR-0007](0007-brand-dashboard-design-foundation.md) | Brand 색상 기반 | Accepted(색상 범위), UI/UX는 M5 Gate |
 | [ADR-0008](0008-python-core-runtime.md) | M1–M4 Local Core runtime | Accepted(M1 구현 기준선) |
-| [ADR-0009](0009-task-harness-manifest.md) | Task Harness Manifest와 Context 적용성 | Proposed — 9-run Gate 전 |
+| [ADR-0009](0009-task-harness-manifest.md) | Task Harness Manifest와 Context 적용성 | Accepted — 사용자 사전 위임에 따른 에이전트 결정 |
