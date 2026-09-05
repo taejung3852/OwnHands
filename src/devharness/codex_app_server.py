@@ -23,6 +23,7 @@ _APPROVAL_DECISIONS = {
 }
 _TERMINAL_TURN_STATUSES = {"completed", "interrupted", "failed"}
 _MAX_PENDING_MESSAGES = 128
+_SANDBOX_PROBE_MARKER = "../ownhands-m3-denied-marker"
 
 
 class AppServerError(RuntimeError):
@@ -41,6 +42,7 @@ class AppServerConfig:
     codex_version: str
     protocol_fingerprint: str
     reasoning_effort: str
+    absolute_timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,8 @@ class AppServerRecord:
     item_type: str | None = None
     status: str | None = None
     decision: str | None = None
+    exit_code: int | None = None
+    probe: str | None = None
 
 
 @dataclass(frozen=True)
@@ -192,6 +196,12 @@ def _validate_config(config: AppServerConfig) -> None:
         or config.timeout_seconds <= 0
     ):
         raise AppServerError("timeout_seconds must be positive")
+    if config.absolute_timeout_seconds is not None and (
+        isinstance(config.absolute_timeout_seconds, bool)
+        or not isinstance(config.absolute_timeout_seconds, (int, float))
+        or config.absolute_timeout_seconds < config.timeout_seconds
+    ):
+        raise AppServerError("absolute_timeout_seconds must be at least timeout_seconds")
 
 
 def run_app_server(
@@ -199,10 +209,17 @@ def run_app_server(
     transport_factory: Callable[[AppServerConfig], JsonRpcTransport],
     sink: Callable[[AppServerRecord], None],
     approval_handler: Callable[[AppServerRecord], str],
+    wire_observer: Callable[[str, dict], None] | None = None,
 ) -> AppServerRun:
     _validate_config(config)
     transport = transport_factory(config)
-    deadline = time.monotonic() + config.timeout_seconds
+    started_at = time.monotonic()
+    idle_deadline = started_at + config.timeout_seconds
+    absolute_deadline = started_at + (
+        config.absolute_timeout_seconds
+        if config.absolute_timeout_seconds is not None
+        else config.timeout_seconds * 2
+    )
     next_request_id = 1
     seen_response_ids: set[int | str] = set()
     records: list[AppServerRecord] = []
@@ -219,14 +236,24 @@ def run_app_server(
         records.append(record)
         sink(record)
 
+    def send_message(message: dict) -> None:
+        if wire_observer is not None:
+            wire_observer("outbound", message)
+        transport.send(message)
+
     def receive_message() -> dict:
-        remaining = deadline - time.monotonic()
+        nonlocal idle_deadline
+        now = time.monotonic()
+        if now >= absolute_deadline:
+            raise AppServerError("App Server absolute timeout")
+        remaining = min(idle_deadline, absolute_deadline) - now
         if remaining <= 0:
-            raise AppServerError("App Server timeout")
+            raise AppServerError("App Server inactivity timeout")
         try:
             line = transport.receive(remaining)
         except TimeoutError as error:
-            raise AppServerError("App Server timeout") from error
+            timeout_kind = "absolute" if absolute_deadline <= idle_deadline else "inactivity"
+            raise AppServerError(f"App Server {timeout_kind} timeout") from error
         if line is None:
             raise AppServerError(
                 f"App Server premature exit before terminal turn: {transport.poll()}"
@@ -235,7 +262,11 @@ def run_app_server(
             message = json.loads(line)
         except (json.JSONDecodeError, TypeError) as error:
             raise AppServerError("App Server returned malformed JSON") from error
-        return _validate_wire_envelope(message)
+        validated = _validate_wire_envelope(message)
+        if wire_observer is not None:
+            wire_observer("inbound", validated)
+        idle_deadline = time.monotonic() + config.timeout_seconds
+        return validated
 
     def request(method: str, params: dict) -> dict:
         nonlocal next_request_id
@@ -243,7 +274,7 @@ def run_app_server(
         next_request_id += 1
         interleaved_count = 0
         terminal_status: str | None = None
-        transport.send(
+        send_message(
             {
                 "jsonrpc": "2.0",
                 "id": request_id,
@@ -363,7 +394,7 @@ def run_app_server(
                 "id": request_id,
                 "result": {"decision": decision},
             }
-            transport.send(decision_message)
+            send_message(decision_message)
             approvals[request_id] = {
                 "method": method,
                 "item_id": item_id,
@@ -440,6 +471,21 @@ def run_app_server(
             item_type = _required_text(item.get("type"), f"{method} item type")
             status_value = item.get("status")
             status = status_value if isinstance(status_value, str) else None
+            command = item.get("command")
+            probe = (
+                "sibling_write"
+                if isinstance(command, str) and _SANDBOX_PROBE_MARKER in command
+                else None
+            )
+            exit_value = item.get("exitCode")
+            if isinstance(exit_value, bool) or (
+                exit_value is not None
+                and (
+                    not isinstance(exit_value, int)
+                    or not -(2**31) <= exit_value < 2**31
+                )
+            ):
+                raise AppServerError(f"{method} exitCode must be an integer or null")
             if method == "item/started":
                 active_items.add(item_id)
             else:
@@ -455,6 +501,8 @@ def run_app_server(
                     item_id=item_id,
                     item_type=item_type,
                     status=status,
+                    exit_code=exit_value,
+                    probe=probe,
                     payload_hash=_payload_hash(message),
                 )
             )
@@ -563,7 +611,7 @@ def run_app_server(
         terminal_status = initialize["_terminal_status"]
         if terminal_status is not None:
             return completed_run(terminal_status)
-        transport.send({"jsonrpc": "2.0", "method": "initialized", "params": {}})
+        send_message({"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
         thread_start = request(
             "thread/start",

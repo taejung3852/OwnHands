@@ -282,13 +282,14 @@ class M3ReviewTests(unittest.TestCase):
                     AppServerRecord(
                         kind="notification",
                         method="item/started",
-                        payload_hash="sha256:private-payload",
+                        payload_hash="a" * 64,
                         request_id="private-request",
                         thread_id="private-thread",
                         turn_id="private-turn",
                         item_id="private-item",
                         item_type="commandExecution",
-                        status="inProgress",
+                        status="failed",
+                        exit_code=1,
                     )
                 )
                 for _index in range(300):
@@ -296,7 +297,7 @@ class M3ReviewTests(unittest.TestCase):
                         AppServerRecord(
                             kind="notification",
                             method="private-method",
-                            payload_hash="sha256:private-payload",
+                            payload_hash="b" * 64,
                             item_type="private-output",
                             status="private-status",
                         )
@@ -312,14 +313,72 @@ class M3ReviewTests(unittest.TestCase):
             self.assertEqual("failed", progress["status"])
             self.assertEqual("app_server", progress["stage"])
             self.assertEqual(
-                {"kind": "notification", "method": "item/started", "item_type": "commandExecution", "status": "inProgress"},
+                {"kind": "notification", "method": "item/started", "item_type": "commandExecution", "status": "failed", "exit_code": 1, "probe": None, "payload_hash": "a" * 64},
                 progress["records"][0],
             )
             self.assertEqual(256, len(progress["records"]))
-            self.assertEqual({"schema_version", "status", "stage", "records"}, set(progress))
+            self.assertEqual(301, progress["observed_count"])
+            self.assertTrue(progress["truncated"])
+            self.assertEqual({"schema_version", "status", "stage", "records", "observed_count", "truncated"}, set(progress))
             rendered = progress_path.read_text()
             for forbidden in ("private prompt", "private-request", "private-thread", "private-turn", "private-item", "private-output", "private-payload"):
                 self.assertNotIn(forbidden, rendered)
+
+    def test_wire_evidence_filters_secrets_and_links_to_sanitized_record(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            root = Path(temporary)
+            wire = m3_review._WireEvidence(root)
+            message = {
+                "method": "item/completed",
+                "params": {
+                    "threadId": "private-thread",
+                    "turnId": "private-turn",
+                    "item": {
+                        "id": "private-item",
+                        "type": "commandExecution",
+                        "status": "failed",
+                        "exitCode": 1,
+                        "command": "touch ../ownhands-m3-denied-marker private-command",
+                        "aggregatedOutput": "private output API_TOKEN=secret",
+                        "cwd": "/Users/private/repository",
+                        "env": {"API_TOKEN": "secret"},
+                    },
+                },
+            }
+            wire.record("inbound", message)
+
+            document = json.loads((root / "runtime-wire.json").read_text())
+            self.assertEqual(1, document["observed_count"])
+            self.assertFalse(document["truncated"])
+            entry = document["records"][0]
+            self.assertEqual("item/completed", entry["method"])
+            self.assertEqual("commandExecution", entry["item_type"])
+            self.assertEqual("failed", entry["status"])
+            self.assertEqual(1, entry["exit_code"])
+            self.assertEqual("sibling_write", entry["probe"])
+            self.assertEqual(m3_review._wire_payload_hash(message), entry["payload_hash"])
+            self.assertEqual(0o600, (root / "runtime-wire.json").stat().st_mode & 0o777)
+            rendered = (root / "runtime-wire.json").read_text()
+            for forbidden in ("private-thread", "private-turn", "private-item", "private-command", "private output", "/Users/private", "API_TOKEN", "secret", "ownhands-m3-denied-marker"):
+                self.assertNotIn(forbidden, rendered)
+
+    def test_sandbox_observation_requires_nonzero_exit_and_exact_probe_linkage(self) -> None:
+        base = {
+            "kind": "notification",
+            "method": "item/completed",
+            "payload_hash": "a" * 64,
+            "item_id": "sandbox-item",
+            "item_type": "commandExecution",
+            "status": "completed",
+        }
+        missing_link = AppServerRecord(**base, exit_code=1)
+        denied = AppServerRecord(**base, exit_code=1, probe="sibling_write")
+
+        self.assertNotIn("sandbox", m3_review._runtime_observations([missing_link]))
+        self.assertEqual(
+            "sandbox-item",
+            m3_review._runtime_observations([denied])["sandbox"]["item_id"],
+        )
 
     def test_live_probe_uses_the_sandbox_boundary_for_one_approval_request(self) -> None:
         prompt = m3_review._live_probe_prompt()

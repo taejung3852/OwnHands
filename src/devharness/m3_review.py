@@ -73,6 +73,8 @@ _PROGRESS_ITEM_TYPES = {
     "plan",
 }
 _MAX_PROGRESS_RECORDS = 256
+_MAX_WIRE_RECORDS = 512
+_SANDBOX_PROBE_MARKER = "../ownhands-m3-denied-marker"
 
 
 class M3ReviewError(ValueError):
@@ -91,6 +93,10 @@ def _canonical_json(value: object) -> str:
 
 def _fingerprint(value: object) -> str:
     return _HASH + hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def _wire_payload_hash(message: dict) -> str:
+    return hashlib.sha256(_canonical_json(message).encode("utf-8")).hexdigest()
 
 
 def _masked(value: object, name: str) -> str:
@@ -477,7 +483,8 @@ class _LiveProgress:
             raise M3ReviewError("runtime progress must be under /tmp")
         self.path = data_root / "runtime-progress.json"
         self.stage = "version_check"
-        self.records: list[dict[str, str | None]] = []
+        self.records: list[dict[str, object]] = []
+        self.observed_count = 0
         self._write("running")
 
     def set_stage(self, stage: str) -> None:
@@ -485,7 +492,9 @@ class _LiveProgress:
         self._write("running")
 
     def record(self, record: AppServerRecord) -> None:
+        self.observed_count += 1
         if len(self.records) >= _MAX_PROGRESS_RECORDS:
+            self._write("running")
             return
         self.records.append(
             {
@@ -493,6 +502,9 @@ class _LiveProgress:
                 "method": record.method if record.method in _PROGRESS_METHODS else "other",
                 "item_type": record.item_type if record.item_type in _PROGRESS_ITEM_TYPES else None,
                 "status": record.status if record.status in _PROGRESS_STATUSES else None,
+                "exit_code": record.exit_code,
+                "probe": record.probe if record.probe == "sibling_write" else None,
+                "payload_hash": record.payload_hash if re.fullmatch(r"[0-9a-f]{64}", record.payload_hash) else None,
             }
         )
         self._write("running")
@@ -512,6 +524,84 @@ class _LiveProgress:
                     "status": status,
                     "stage": self.stage,
                     "records": self.records,
+                    "observed_count": self.observed_count,
+                    "truncated": self.observed_count > len(self.records),
+                }
+            )
+            + "\n",
+        )
+
+
+class _WireEvidence:
+    def __init__(self, data_root: Path) -> None:
+        data_root = data_root.resolve()
+        if not data_root.is_relative_to(Path("/tmp").resolve()):
+            raise M3ReviewError("runtime wire evidence must be under /tmp")
+        self.path = data_root / "runtime-wire.json"
+        self.records: list[dict] = []
+        self.observed_count = 0
+        self.request_methods: dict[int | str, str] = {}
+        self._write()
+
+    def record(self, direction: str, message: dict) -> None:
+        if direction not in {"inbound", "outbound"}:
+            raise M3ReviewError("runtime wire direction is invalid")
+        self.observed_count += 1
+        if len(self.records) >= _MAX_WIRE_RECORDS:
+            self._write()
+            return
+        request_id = message.get("id")
+        raw_method = message.get("method")
+        if isinstance(raw_method, str) and raw_method in _PROGRESS_METHODS:
+            method = raw_method
+            if isinstance(request_id, (int, str)) and not isinstance(request_id, bool):
+                self.request_methods[request_id] = method
+        elif "method" not in message and isinstance(request_id, (int, str)) and not isinstance(request_id, bool):
+            method = self.request_methods.get(request_id, "other")
+        else:
+            method = "other"
+        params = message.get("params")
+        item = params.get("item") if isinstance(params, dict) else None
+        item_type = item.get("type") if isinstance(item, dict) else None
+        status = item.get("status") if isinstance(item, dict) else None
+        exit_code = item.get("exitCode") if isinstance(item, dict) else None
+        if isinstance(exit_code, bool) or not isinstance(exit_code, int):
+            exit_code = None
+        command = item.get("command") if isinstance(item, dict) else None
+        probe = (
+            "sibling_write"
+            if isinstance(command, str) and _SANDBOX_PROBE_MARKER in command
+            else None
+        )
+        turn = params.get("turn") if isinstance(params, dict) else None
+        error = turn.get("error") if isinstance(turn, dict) else None
+        sandbox_error = isinstance(error, dict) and error.get("codexErrorInfo") == "sandboxError"
+        self.records.append(
+            {
+                "sequence": len(self.records) + 1,
+                "direction": direction,
+                "kind": "request" if "method" in message and "id" in message else "notification" if "method" in message else "response",
+                "method": method,
+                "payload_hash": _wire_payload_hash(message),
+                "request_ref": _fingerprint({"request_id": request_id}) if isinstance(request_id, (int, str)) and not isinstance(request_id, bool) else None,
+                "item_type": item_type if item_type in _PROGRESS_ITEM_TYPES else None,
+                "status": status if status in _PROGRESS_STATUSES else None,
+                "exit_code": exit_code,
+                "probe": probe,
+                "sandbox_error": sandbox_error,
+            }
+        )
+        self._write()
+
+    def _write(self) -> None:
+        _write_text(
+            self.path,
+            _canonical_json(
+                {
+                    "schema_version": "1.0",
+                    "records": self.records,
+                    "observed_count": self.observed_count,
+                    "truncated": self.observed_count > len(self.records),
                 }
             )
             + "\n",
@@ -655,7 +745,9 @@ def _runtime_observations(records: list[AppServerRecord]) -> dict:
             for record in records
             if record.method == "item/completed"
             and record.item_type == "commandExecution"
-            and record.status in {"failed", "declined"}
+            and record.status in {"completed", "failed"}
+            and record.exit_code not in {None, 0}
+            and record.probe == "sibling_write"
             and record.item_id not in approval_item_ids
         ),
         None,
@@ -786,6 +878,7 @@ def _execute_live_probe(preflight: dict, progress: _LiveProgress) -> dict:
         request = _managed_request(repository, task, start_commit, patch_hash, observed_at, {})
         prepare_managed_task(request, now=observed_at)
         raw_records: list[AppServerRecord] = []
+        wire_evidence = _WireEvidence(data_root)
         progress.set_stage("app_server")
 
         def observe_record(record: AppServerRecord) -> None:
@@ -804,10 +897,12 @@ def _execute_live_probe(preflight: dict, progress: _LiveProgress) -> dict:
                 codex_version=_EXPECTED_VERSION,
                 protocol_fingerprint=protocol,
                 reasoning_effort="low",
+                absolute_timeout_seconds=preflight["timeout"] * 2,
             ),
             StdioJsonRpcTransport,
             observe_record,
             lambda _record: "decline",
+            wire_evidence.record,
         )
         progress.set_stage("managed_recording")
         observations = _runtime_observations(run.records)
@@ -853,6 +948,8 @@ def _execute_live_probe(preflight: dict, progress: _LiveProgress) -> dict:
                 "item_type": record.item_type,
                 "status": record.status,
                 "decision": record.decision,
+                "exit_code": record.exit_code,
+                "probe": record.probe,
             }
             for record in raw_records
         ],

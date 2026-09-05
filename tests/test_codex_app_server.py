@@ -434,6 +434,51 @@ class AppServerAdapterTests(unittest.TestCase):
         self.assertTrue(transport.terminated)
         self.assertTrue(transport.closed)
 
+    def test_active_protocol_traffic_refreshes_idle_timeout(self) -> None:
+        clock = type("Clock", (), {"now": 0.0})()
+
+        class ActiveTransport(FakeTransport):
+            def receive(self, timeout_seconds: float) -> str | None:
+                clock.now += 1.0
+                return super().receive(timeout_seconds)
+
+        config = copy.copy(CONFIG)
+        object.__setattr__(config, "timeout_seconds", 2.0)
+        object.__setattr__(config, "absolute_timeout_seconds", 20.0)
+        with patch("devharness.codex_app_server.time.monotonic", side_effect=lambda: clock.now):
+            run = run_app_server(
+                config,
+                transport_factory(ActiveTransport(success_messages())),
+                lambda _record: None,
+                decline,
+            )
+
+        self.assertEqual("completed", run.terminal_status)
+        self.assertGreater(clock.now, config.timeout_seconds)
+
+    def test_continuous_traffic_cannot_exceed_absolute_timeout(self) -> None:
+        clock = type("Clock", (), {"now": 0.0})()
+        messages = [success_messages()[0]] + [
+            {"method": "thread/status/changed", "params": {}} for _ in range(20)
+        ]
+
+        class ActiveTransport(FakeTransport):
+            def receive(self, timeout_seconds: float) -> str | None:
+                clock.now += 1.0
+                return super().receive(timeout_seconds)
+
+        config = copy.copy(CONFIG)
+        object.__setattr__(config, "timeout_seconds", 2.0)
+        object.__setattr__(config, "absolute_timeout_seconds", 5.0)
+        with patch("devharness.codex_app_server.time.monotonic", side_effect=lambda: clock.now):
+            with self.assertRaisesRegex(AppServerError, "absolute timeout"):
+                run_app_server(
+                    config,
+                    transport_factory(ActiveTransport(messages)),
+                    lambda _record: None,
+                    decline,
+                )
+
     def test_unknown_terminal_turn_state_is_rejected(self) -> None:
         messages = success_messages()
         messages[8]["params"]["turn"].update(
