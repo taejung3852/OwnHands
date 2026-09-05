@@ -25,6 +25,8 @@ evidence_free_report_fixture="$schema_fixture_dir/evidence-free-report.json"
 different_control_id_fixture="$schema_fixture_dir/different-control-id.json"
 different_control_boundary_fixture="$schema_fixture_dir/different-control-boundary.json"
 different_control_check_scope_fixture="$schema_fixture_dir/different-control-check-scope.json"
+missing_category_matrix_fixture="$schema_fixture_dir/missing-category-matrix.json"
+duplicate_category_matrix_fixture="$schema_fixture_dir/duplicate-category-matrix.json"
 cleanup_schema_fixtures() {
   unlink "$empty_claim_results_fixture" "$duplicate_claim_result_fixture" \
     "$distinct_duplicate_claim_id_fixture" "$foreign_task_control_fixture" \
@@ -32,7 +34,8 @@ cleanup_schema_fixtures() {
     "$overclaim_report_fixture" "$empty_residual_risks_fixture" \
     "$duplicate_control_record_fixture" "$evidence_free_report_fixture" \
     "$different_control_id_fixture" "$different_control_boundary_fixture" \
-    "$different_control_check_scope_fixture" 2>/dev/null || true
+    "$different_control_check_scope_fixture" "$missing_category_matrix_fixture" \
+    "$duplicate_category_matrix_fixture" 2>/dev/null || true
   rmdir "$schema_fixture_dir" 2>/dev/null || true
 }
 trap cleanup_schema_fixtures EXIT
@@ -41,6 +44,12 @@ validate_report_schema() {
   npm_config_offline=true npx --yes --package ajv-cli@5.0.0 --package ajv-formats@3.0.1 \
     ajv validate --spec=draft2020 --strict-types=true --strict-tuples=true \
     -c ajv-formats -s "$report_schema" -d "$1"
+}
+
+validate_matrix_schema() {
+  npm_config_offline=true npx --yes --package ajv-cli@5.0.0 --package ajv-formats@3.0.1 \
+    ajv validate --spec=draft2020 --strict-types=true --strict-tuples=true \
+    -c ajv-formats -s "$matrix_schema" -d "$1"
 }
 
 validate_control_schema() {
@@ -61,7 +70,25 @@ expect_report_schema_rejection() {
   fi
 }
 
+expect_matrix_schema_rejection() {
+  local output status
+  set +e
+  output="$(validate_matrix_schema "$1" 2>&1)"
+  status=$?
+  set -e
+  if [ "$status" -ne 1 ] || ! rg -q 'invalid' <<<"$output"; then
+    printf '%s\n' "$output" >&2
+    return 1
+  fi
+}
+
 jq -e . "$matrix" "$matrix_schema" "$control_schema" "$control_example" "$report_schema" "$report_example" "$fixtures" >/dev/null
+
+validate_matrix_schema "$matrix" >/dev/null
+jq '.claims = .claims[:-1]' "$matrix" >"$missing_category_matrix_fixture"
+jq '.claims[1].category = .claims[0].category' "$matrix" >"$duplicate_category_matrix_fixture"
+expect_matrix_schema_rejection "$missing_category_matrix_fixture"
+expect_matrix_schema_rejection "$duplicate_category_matrix_fixture"
 
 validate_report_schema "$report_example" >/dev/null
 jq '.claim_results = []' "$report_example" >"$empty_claim_results_fixture"
@@ -558,6 +585,7 @@ printf 'schema_empty_claim_results_rejected=passed\n'
 printf 'schema_exact_duplicate_claim_rejected=passed\n'
 printf 'schema_distinct_duplicate_claim_id_requires_gate=passed\n'
 printf 'schema_empty_supported_residual_risks_rejected=passed\n'
+printf 'matrix_schema_category_mutations_rejected=2\n'
 printf 'core_category_coverage=passed\n'
 printf 'unique_claim_mapping=passed\n'
 printf 'unique_requirement_mapping=passed\n'

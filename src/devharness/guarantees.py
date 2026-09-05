@@ -332,6 +332,18 @@ class GuaranteeEvaluator:
             raise GuaranteeValidationError("matrix claim_id does not match schema")
         if len(claim_ids) != len(set(claim_ids)):
             raise GuaranteeValidationError("matrix duplicate claim_id")
+        categories = [claim.get("category") for claim in claims]
+        if any(
+            not isinstance(category, str) or category not in CATEGORIES
+            for category in categories
+        ):
+            raise GuaranteeValidationError("matrix category is invalid")
+        if len(categories) != len(set(categories)):
+            raise GuaranteeValidationError("matrix duplicate category")
+        if set(categories) != CATEGORIES:
+            raise GuaranteeValidationError(
+                "matrix categories must match the complete category registry"
+            )
         all_requirement_ids: list[str] = []
         for claim in claims:
             required_claim_fields = {

@@ -109,6 +109,28 @@ class EventLogTests(unittest.TestCase):
                 "DELETE FROM events WHERE event_id='event-1'"
             )
 
+    def test_event_read_recomputes_fingerprint_after_raw_payload_tampering(self) -> None:
+        self.log.append(self.draft, redact_payload)
+        self.catalog.connection.execute("DROP TRIGGER events_no_update")
+        self.catalog.connection.execute(
+            "UPDATE events SET payload_json=? WHERE event_id=?",
+            ('{"mode":"imported"}', self.draft.event_id),
+        )
+
+        with self.assertRaisesRegex(ValueError, "fingerprint"):
+            self.log.list_for_task(self.task.task_id)
+
+    def test_event_head_recomputes_fingerprint_after_raw_metadata_tampering(self) -> None:
+        self.log.append(self.draft, redact_payload)
+        self.catalog.connection.execute("DROP TRIGGER events_no_update")
+        self.catalog.connection.execute(
+            "UPDATE events SET collection_method=? WHERE event_id=?",
+            ("forged-collector", self.draft.event_id),
+        )
+
+        with self.assertRaisesRegex(ValueError, "fingerprint"):
+            self.log.head_sequence(self.task.task_id)
+
     def test_unknown_task_and_invalid_envelope_are_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "unknown task"):
             self.log.append(replace(self.draft, task_id="missing"), redact_payload)

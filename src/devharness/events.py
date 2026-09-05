@@ -130,15 +130,16 @@ class EventLog:
         rows = self.catalog.connection.execute(
             "SELECT * FROM events WHERE task_id=? ORDER BY sequence", (task_id,)
         ).fetchall()
-        return [self._from_row(row) for row in rows]
+        records = [self._from_row(row) for row in rows]
+        if [record.sequence for record in records] != list(
+            range(1, len(records) + 1)
+        ):
+            raise ValueError("event sequence integrity failure")
+        return records
 
     def head_sequence(self, task_id: str) -> int:
-        return int(
-            self.catalog.query_value(
-                "SELECT COALESCE(MAX(sequence), 0) FROM events WHERE task_id=?",
-                (task_id,),
-            )
-        )
+        records = self.list_for_task(task_id)
+        return records[-1].sequence if records else 0
 
     @staticmethod
     def _validate(draft: EventDraft) -> None:
@@ -169,15 +170,26 @@ class EventLog:
 
     @staticmethod
     def _from_row(row: object) -> EventRecord:
-        return EventRecord(
+        try:
+            payload = json.loads(row["payload_json"])
+        except (json.JSONDecodeError, TypeError) as error:
+            raise ValueError("event payload is not valid JSON") from error
+        draft = EventDraft(
             event_id=row["event_id"],
             task_id=row["task_id"],
             event_type=row["event_type"],
             event_version=row["event_version"],
             occurred_at=row["occurred_at"],
-            payload=json.loads(row["payload_json"]),
+            payload=payload,
             collection_method=row["collection_method"],
             redaction_status=row["redaction_status"],
+        )
+        EventLog._validate(draft)
+        expected_fingerprint = EventLog._fingerprint(draft, row["payload_json"])
+        if row["fingerprint"] != expected_fingerprint:
+            raise ValueError("event fingerprint mismatch")
+        return EventRecord(
+            **asdict(draft),
             sequence=row["sequence"],
             fingerprint=row["fingerprint"],
         )

@@ -10,9 +10,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 
-from devharness.catalog import Catalog, projection_fingerprint
+from devharness.catalog import Catalog
+from devharness.evidence import EvidenceStore
+from devharness.events import EventLog
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
+from devharness.projections import ProjectionEngine
 
 
 class IdentityRegistryTests(unittest.TestCase):
@@ -219,7 +222,7 @@ class IdentityRegistryTests(unittest.TestCase):
                 ),
             )
 
-    def test_v1_projection_catalog_migrates_with_integrity_hash(self) -> None:
+    def test_v1_projection_catalog_is_discarded_until_canonical_replay(self) -> None:
         root = Path(self.temporary_directory.name) / "legacy-v1"
         root.mkdir()
         database = root / "catalog.sqlite3"
@@ -255,17 +258,155 @@ class IdentityRegistryTests(unittest.TestCase):
 
         with Catalog.open(DataPaths.resolve(root)) as catalog:
             row = catalog.connection.execute(
-                "SELECT projection_hash FROM task_projections WHERE task_id='legacy-task'"
+                "SELECT * FROM task_projections WHERE task_id='legacy-task'"
             ).fetchone()
             self.assertEqual("2", catalog.query_value(
                 "SELECT value FROM schema_metadata WHERE key='schema_version'"
             ))
-            self.assertEqual(
-                projection_fingerprint(
-                    "legacy-task", 0, "ready", projection_json
-                ),
-                row["projection_hash"],
+            self.assertIsNone(row)
+
+    def test_full_v1_catalog_migrates_legacy_evidence_and_discards_projection(self) -> None:
+        root = Path(self.temporary_directory.name) / "full-legacy-v1"
+        root.mkdir()
+        paths = DataPaths.resolve(root)
+        content_hash = "8f6682fa8a90b77ca07b61bd7ba6637aea607f5d6cf8bfe73c17ebff965d4a1b"
+        legacy_fingerprint = "b6cc3272f93efec6f200e7a2b26544fb129d4c0e35da90db6e22c9edb368a14c"
+        expected_v2_fingerprint = "94c1e8cf4caf62ec642ac9171ddbea2acfec59d363c691994c158c5b12a8fad8"
+        projection_json = (
+            '{"event_counts":{},"evidence":{"active_ids":["legacy-evidence"],'
+            '"purged_ids":[]},"guarantee":{"report_ids":[]},'
+            '"task":{"mode":"managed"}}'
+        )
+        connection = sqlite3.connect(paths.catalog)
+        connection.executescript(
+            """
+            CREATE TABLE schema_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
+            INSERT INTO schema_metadata VALUES ('schema_version', '1');
+            CREATE TABLE projects (
+                project_id TEXT PRIMARY KEY, locator TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL
+            ) STRICT;
+            CREATE TABLE worktrees (
+                worktree_id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL REFERENCES projects(project_id),
+                locator TEXT NOT NULL, created_at TEXT NOT NULL,
+                UNIQUE(project_id, locator)
+            ) STRICT;
+            CREATE TABLE tasks (
+                task_id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL REFERENCES projects(project_id),
+                worktree_id TEXT NOT NULL REFERENCES worktrees(worktree_id),
+                mode TEXT NOT NULL CHECK(mode IN ('managed', 'imported')),
+                commit_hash TEXT NOT NULL, branch TEXT NOT NULL, cwd TEXT NOT NULL,
+                environment_ref TEXT NOT NULL, created_at TEXT NOT NULL
+            ) STRICT;
+            CREATE TABLE events (
+                event_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(task_id),
+                sequence INTEGER NOT NULL CHECK(sequence > 0),
+                event_type TEXT NOT NULL,
+                event_version INTEGER NOT NULL CHECK(event_version > 0),
+                occurred_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+                collection_method TEXT NOT NULL, redaction_status TEXT NOT NULL,
+                fingerprint TEXT NOT NULL, UNIQUE(task_id, sequence)
+            ) STRICT;
+            CREATE TABLE evidence (
+                evidence_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(task_id),
+                requirement_id TEXT NOT NULL, evidence_type TEXT NOT NULL,
+                subject_ref TEXT NOT NULL, exact_scope TEXT NOT NULL,
+                result TEXT NOT NULL, basis TEXT NOT NULL, fields_json TEXT NOT NULL,
+                content_hash TEXT NOT NULL, object_relpath TEXT NOT NULL,
+                content_size INTEGER NOT NULL, collection_method TEXT NOT NULL,
+                redaction_status TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                created_at TEXT NOT NULL, purged_at TEXT, purge_reason TEXT
+            ) STRICT;
+            CREATE TABLE task_projections (
+                task_id TEXT PRIMARY KEY REFERENCES tasks(task_id),
+                projected_sequence INTEGER NOT NULL, state TEXT NOT NULL,
+                projection_json TEXT NOT NULL, last_error TEXT,
+                updated_at TEXT NOT NULL
+            ) STRICT;
+            CREATE TABLE retention_policy (
+                singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+                mode TEXT NOT NULL, days INTEGER
+            ) STRICT;
+            INSERT INTO retention_policy VALUES (1, 'keep_until_user_deletes', NULL);
+            CREATE TABLE control_validations (
+                record_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(task_id),
+                record_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            ) STRICT;
+            """
+        )
+        connection.execute(
+            "INSERT INTO projects VALUES (?, ?, ?)",
+            ("legacy-project", "file:///legacy", "2026-09-04T00:00:00+00:00"),
+        )
+        connection.execute(
+            "INSERT INTO worktrees VALUES (?, ?, ?, ?)",
+            (
+                "legacy-worktree", "legacy-project", "file:///legacy/main",
+                "2026-09-04T00:00:00+00:00",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "legacy-task", "legacy-project", "legacy-worktree", "managed",
+                "abc123", "main", "/legacy", "legacy-runtime",
+                "2026-09-04T00:00:00+00:00",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO evidence VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
+            """,
+            (
+                "legacy-evidence", "legacy-task", "legacy-requirement",
+                "test_execution", "test:legacy", "tests/test_legacy.py", "pass",
+                "observed", '{"result":"pass"}', content_hash,
+                f"{content_hash[:2]}/{content_hash[2:]}", 23, "legacy-fixture",
+                "not_needed", legacy_fingerprint, "2026-09-04T00:00:00+00:00",
+                None, None,
+            ),
+        )
+        connection.execute(
+            "INSERT INTO task_projections VALUES (?, 0, 'ready', ?, NULL, ?)",
+            ("legacy-task", projection_json, "2026-09-04T00:00:00+00:00"),
+        )
+        connection.commit()
+        connection.close()
+        object_path = paths.objects / f"{content_hash[:2]}/{content_hash[2:]}"
+        object_path.parent.mkdir(parents=True)
+        object_path.write_bytes(b"legacy evidence content")
+
+        with Catalog.open(paths) as catalog:
+            columns = {
+                row["name"]
+                for row in catalog.connection.execute("PRAGMA table_info(evidence)")
+            }
+            row = catalog.connection.execute(
+                "SELECT * FROM evidence WHERE evidence_id='legacy-evidence'"
+            ).fetchone()
+            record = EvidenceStore(catalog, EventLog(catalog)).resolve(
+                "legacy-evidence"
+            )
+            freshness = ProjectionEngine(catalog, EventLog(catalog)).freshness(
+                "legacy-task"
+            )
+
+            self.assertTrue({"inference_from_json", "conflict_refs_json"} <= columns)
+            self.assertEqual(
+                ("[]", "[]"),
+                (row["inference_from_json"], row["conflict_refs_json"]),
+            )
+            self.assertEqual(expected_v2_fingerprint, record.fingerprint)
+            self.assertEqual("missing", freshness.projection_state)
+            self.assertFalse(freshness.is_fresh)
 
     def test_concurrent_v1_catalog_open_migrates_once(self) -> None:
         root = Path(self.temporary_directory.name) / "concurrent-legacy-v1"

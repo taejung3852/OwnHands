@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 import hashlib
 import json
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -26,6 +26,37 @@ def projection_fingerprint(
         separators=(",", ":"),
     )
     return hashlib.sha256(envelope.encode("utf-8")).hexdigest()
+
+
+def _evidence_fingerprint(row: sqlite3.Row, *, include_lineage: bool) -> str:
+    try:
+        document = {
+            "evidence_id": row["evidence_id"],
+            "task_id": row["task_id"],
+            "requirement_id": row["requirement_id"],
+            "evidence_type": row["evidence_type"],
+            "subject_ref": row["subject_ref"],
+            "exact_scope": row["exact_scope"],
+            "result": row["result"],
+            "basis": row["basis"],
+            "fields": json.loads(row["fields_json"]),
+            "collection_method": row["collection_method"],
+            "redaction_status": row["redaction_status"],
+            "content_hash": row["content_hash"],
+        }
+        if include_lineage:
+            document["inference_from"] = json.loads(row["inference_from_json"])
+            document["conflict_refs"] = json.loads(row["conflict_refs_json"])
+        canonical = json.dumps(
+            document,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (json.JSONDecodeError, TypeError, ValueError) as error:
+        raise RuntimeError("legacy Evidence metadata is invalid") from error
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class Catalog:
@@ -339,39 +370,78 @@ class Catalog:
                 raise RuntimeError(
                     f"unsupported catalog schema version during migration: {version!r}"
                 )
-            columns = {
+            projection_columns = {
                 row["name"]
                 for row in connection.execute(
                     "PRAGMA table_info(task_projections)"
                 ).fetchall()
             }
-            if "projection_hash" not in columns:
+            if "projection_hash" not in projection_columns:
                 connection.execute(
                     """
                     ALTER TABLE task_projections
                     ADD COLUMN projection_hash TEXT NOT NULL DEFAULT ''
                     """
                 )
-            rows = connection.execute(
-                """
-                SELECT task_id, projected_sequence, state, projection_json
-                FROM task_projections
-                """
-            ).fetchall()
+            connection.execute("DELETE FROM task_projections")
+
+            evidence_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(evidence)").fetchall()
+            }
+            has_lineage_columns = {
+                "inference_from_json",
+                "conflict_refs_json",
+            } <= evidence_columns
+            connection.execute("DROP TRIGGER IF EXISTS evidence_canonical_fields_immutable")
+            for column in ("inference_from_json", "conflict_refs_json"):
+                if column not in evidence_columns:
+                    connection.execute(
+                        f"ALTER TABLE evidence ADD COLUMN {column} "
+                        "TEXT NOT NULL DEFAULT '[]'"
+                    )
+            rows = connection.execute("SELECT * FROM evidence").fetchall()
             for row in rows:
-                projection_hash = projection_fingerprint(
-                    row["task_id"],
-                    row["projected_sequence"],
-                    row["state"],
-                    row["projection_json"],
+                legacy_fingerprint = _evidence_fingerprint(
+                    row, include_lineage=has_lineage_columns
                 )
+                if row["fingerprint"] != legacy_fingerprint:
+                    raise RuntimeError("legacy Evidence fingerprint mismatch")
                 connection.execute(
-                    """
-                    UPDATE task_projections SET projection_hash=?
-                    WHERE task_id=?
-                    """,
-                    (projection_hash, row["task_id"]),
+                    "UPDATE evidence SET fingerprint=? WHERE evidence_id=?",
+                    (
+                        _evidence_fingerprint(row, include_lineage=True),
+                        row["evidence_id"],
+                    ),
                 )
+            connection.execute(
+                """
+                CREATE TRIGGER evidence_canonical_fields_immutable
+                BEFORE UPDATE ON evidence
+                WHEN
+                    NEW.evidence_id != OLD.evidence_id OR
+                    NEW.task_id != OLD.task_id OR
+                    NEW.requirement_id != OLD.requirement_id OR
+                    NEW.evidence_type != OLD.evidence_type OR
+                    NEW.subject_ref != OLD.subject_ref OR
+                    NEW.exact_scope != OLD.exact_scope OR
+                    NEW.result != OLD.result OR
+                    NEW.basis != OLD.basis OR
+                    NEW.fields_json != OLD.fields_json OR
+                    NEW.content_hash != OLD.content_hash OR
+                    NEW.object_relpath != OLD.object_relpath OR
+                    NEW.content_size != OLD.content_size OR
+                    NEW.collection_method != OLD.collection_method OR
+                    NEW.redaction_status != OLD.redaction_status OR
+                    NEW.inference_from_json != OLD.inference_from_json OR
+                    NEW.conflict_refs_json != OLD.conflict_refs_json OR
+                    NEW.fingerprint != OLD.fingerprint OR
+                    NEW.created_at != OLD.created_at
+                BEGIN
+                    SELECT RAISE(ABORT, 'canonical evidence fields are immutable');
+                END
+                """
+            )
             connection.execute(
                 "UPDATE schema_metadata SET value='2' WHERE key='schema_version'"
             )

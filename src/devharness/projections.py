@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable
@@ -95,19 +96,33 @@ class ProjectionEngine:
                         last_error=last_error,
                         updated_at=updated_at,
                     )
+                if stored["state"] == "failed" and "integrity failure" in (
+                    stored["last_error"] or ""
+                ):
+                    return ProjectionStatus(
+                        task_id=task_id,
+                        state="failed",
+                        projected_sequence=projected_sequence,
+                        projection=projection,
+                        last_error=stored["last_error"],
+                        updated_at=stored["updated_at"],
+                    )
 
-            rows = connection.execute(
-                """
-                SELECT * FROM events
-                WHERE task_id=? AND sequence>?
-                ORDER BY sequence
-                """,
-                (task_id, projected_sequence),
-            ).fetchall()
+            try:
+                events = self.events.list_for_task(task_id)
+            except ValueError as error:
+                return self._record_failure(
+                    connection,
+                    task_id,
+                    projected_sequence,
+                    projection,
+                    f"event log integrity failure: {error}",
+                )
             state = "ready"
             last_error = None
-            for row in rows:
-                event = self.events._from_row(row)
+            for event in events:
+                if event.sequence <= projected_sequence:
+                    continue
                 try:
                     projection = self._apply(projection, event)
                 except (KeyError, TypeError, ValueError) as error:
@@ -169,42 +184,117 @@ class ProjectionEngine:
             "SELECT 1 FROM tasks WHERE task_id=?", (task_id,)
         ) is None:
             raise ValueError(f"unknown task: {task_id}")
-        row = self.catalog.connection.execute(
-            "SELECT * FROM task_projections WHERE task_id=?", (task_id,)
-        ).fetchone()
-        event_head = self.events.head_sequence(task_id)
-        if row is None:
+        with self.catalog.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM task_projections WHERE task_id=?", (task_id,)
+            ).fetchone()
+            projected_sequence = 0
+            projection = _initial_projection()
+            if row is not None:
+                try:
+                    projection = self._validated_stored_projection(row)
+                    projected_sequence = row["projected_sequence"]
+                except ValueError as error:
+                    failure = self._record_failure(
+                        connection,
+                        task_id,
+                        0,
+                        _initial_projection(),
+                        f"stored projection integrity failure: {error}",
+                    )
+                    return Freshness(
+                        task_id=task_id,
+                        event_head=0,
+                        projected_sequence=failure.projected_sequence,
+                        projection_state="failed",
+                        is_fresh=False,
+                        collection_completeness="unobserved",
+                        last_error=failure.last_error,
+                    )
+            try:
+                event_head = self.events.head_sequence(task_id)
+            except ValueError as error:
+                failure = self._record_failure(
+                    connection,
+                    task_id,
+                    projected_sequence,
+                    projection,
+                    f"event log integrity failure: {error}",
+                )
+                return Freshness(
+                    task_id=task_id,
+                    event_head=0,
+                    projected_sequence=failure.projected_sequence,
+                    projection_state="failed",
+                    is_fresh=False,
+                    collection_completeness="unobserved",
+                    last_error=failure.last_error,
+                )
+            if row is None:
+                return Freshness(
+                    task_id=task_id,
+                    event_head=event_head,
+                    projected_sequence=0,
+                    projection_state="missing",
+                    is_fresh=False,
+                    collection_completeness="unobserved",
+                    last_error=None,
+                )
             return Freshness(
                 task_id=task_id,
                 event_head=event_head,
-                projected_sequence=0,
-                projection_state="missing",
-                is_fresh=False,
+                projected_sequence=projected_sequence,
+                projection_state=row["state"],
+                is_fresh=(
+                    row["state"] == "ready" and projected_sequence == event_head
+                ),
                 collection_completeness="unobserved",
-                last_error=None,
+                last_error=row["last_error"],
             )
-        try:
-            self._validated_stored_projection(row)
-        except ValueError as error:
-            return Freshness(
-                task_id=task_id,
-                event_head=event_head,
-                projected_sequence=row["projected_sequence"],
-                projection_state="failed",
-                is_fresh=False,
-                collection_completeness="unobserved",
-                last_error=f"stored projection integrity failure: {error}",
-            )
-        return Freshness(
-            task_id=task_id,
-            event_head=event_head,
-            projected_sequence=row["projected_sequence"],
-            projection_state=row["state"],
-            is_fresh=(
-                row["state"] == "ready" and row["projected_sequence"] == event_head
+
+    def _record_failure(
+        self,
+        connection: sqlite3.Connection,
+        task_id: str,
+        projected_sequence: int,
+        projection: dict,
+        last_error: str,
+    ) -> ProjectionStatus:
+        updated_at = _now()
+        projection_json = self._canonical_json(projection)
+        projection_hash = projection_fingerprint(
+            task_id, projected_sequence, "failed", projection_json
+        )
+        connection.execute(
+            """
+            INSERT INTO task_projections(
+                task_id, projected_sequence, state, projection_json,
+                projection_hash, last_error, updated_at
+            ) VALUES (?, ?, 'failed', ?, ?, ?, ?)
+            ON CONFLICT(task_id) DO UPDATE SET
+                projected_sequence=excluded.projected_sequence,
+                state=excluded.state,
+                projection_json=excluded.projection_json,
+                projection_hash=excluded.projection_hash,
+                last_error=excluded.last_error,
+                updated_at=excluded.updated_at
+            """,
+            (
+                task_id,
+                projected_sequence,
+                projection_json,
+                projection_hash,
+                last_error,
+                updated_at,
             ),
-            collection_completeness="unobserved",
-            last_error=row["last_error"],
+        )
+        return ProjectionStatus(
+            task_id=task_id,
+            state="failed",
+            projected_sequence=projected_sequence,
+            projection=projection,
+            last_error=last_error,
+            updated_at=updated_at,
         )
 
     def _apply(self, current: dict, event: EventRecord) -> dict:

@@ -11,7 +11,11 @@ from pathlib import Path
 from devharness.catalog import Catalog
 from devharness.evidence import EVIDENCE_TYPES, EvidenceDraft, EvidenceStore
 from devharness.events import EventDraft, EventLog
-from devharness.guarantees import GuaranteeEvaluator, GuaranteeValidationError
+from devharness.guarantees import (
+    CATEGORIES,
+    GuaranteeEvaluator,
+    GuaranteeValidationError,
+)
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
 from devharness.projections import PROJECTION_VERSION, ProjectionEngine
@@ -667,6 +671,25 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
         matrix_path.write_text(json.dumps(matrix), encoding="utf-8")
 
         with self.assertRaisesRegex(GuaranteeValidationError, "unknown Evidence type"):
+            GuaranteeEvaluator(self.catalog, self.store, matrix_path)
+
+    def test_matrix_missing_a_required_category_is_rejected_at_runtime(self) -> None:
+        matrix = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
+        missing_category = matrix["claims"].pop()["category"]
+        self.assertIn(missing_category, CATEGORIES)
+        matrix_path = Path(self.temporary_directory.name) / "missing-category.json"
+        matrix_path.write_text(json.dumps(matrix), encoding="utf-8")
+
+        with self.assertRaisesRegex(GuaranteeValidationError, "categor"):
+            GuaranteeEvaluator(self.catalog, self.store, matrix_path)
+
+    def test_matrix_duplicate_category_is_rejected_at_runtime(self) -> None:
+        matrix = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
+        matrix["claims"][1]["category"] = matrix["claims"][0]["category"]
+        matrix_path = Path(self.temporary_directory.name) / "duplicate-category.json"
+        matrix_path.write_text(json.dumps(matrix), encoding="utf-8")
+
+        with self.assertRaisesRegex(GuaranteeValidationError, "categor"):
             GuaranteeEvaluator(self.catalog, self.store, matrix_path)
 
     def test_runtime_and_matrix_schema_evidence_type_registries_match(self) -> None:

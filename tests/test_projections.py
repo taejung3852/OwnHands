@@ -166,6 +166,54 @@ class ProjectionEngineTests(unittest.TestCase):
         self.assertEqual("failed", freshness.projection_state)
         self.assertIn("hash mismatch", freshness.last_error)
 
+    def test_tampered_unreplayed_event_marks_projection_failed_without_advancing(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        self.engine.project(self.task.task_id)
+        self.append_event(
+            "evidence.recorded",
+            {"evidence_id": "evidence-1", "evidence_type": "test_execution"},
+        )
+        self.catalog.connection.execute("DROP TRIGGER events_no_update")
+        self.catalog.connection.execute(
+            "UPDATE events SET payload_json=? WHERE event_id='projection-event-2'",
+            ('{"evidence_id":"forged","evidence_type":"test_execution"}',),
+        )
+
+        status = self.engine.project(self.task.task_id)
+
+        self.assertEqual("failed", status.state)
+        self.assertEqual(1, status.projected_sequence)
+        self.assertIn("fingerprint", status.last_error)
+        self.assertEqual(
+            "failed",
+            self.catalog.query_value(
+                "SELECT state FROM task_projections WHERE task_id=?",
+                (self.task.task_id,),
+            ),
+        )
+
+    def test_tampered_projected_event_marks_freshness_and_projection_failed(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        self.engine.project(self.task.task_id)
+        self.catalog.connection.execute("DROP TRIGGER events_no_update")
+        self.catalog.connection.execute(
+            "UPDATE events SET collection_method=? WHERE event_id='projection-event-1'",
+            ("forged-collector",),
+        )
+
+        freshness = self.engine.freshness(self.task.task_id)
+
+        self.assertFalse(freshness.is_fresh)
+        self.assertEqual("failed", freshness.projection_state)
+        self.assertIn("fingerprint", freshness.last_error)
+        self.assertEqual(
+            "failed",
+            self.catalog.query_value(
+                "SELECT state FROM task_projections WHERE task_id=?",
+                (self.task.task_id,),
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
