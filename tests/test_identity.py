@@ -766,6 +766,223 @@ class IdentityRegistryTests(unittest.TestCase):
         )
         self.assertEqual(before, after)
 
+    def test_v1_bad_evidence_fingerprint_refusal_preserves_entire_catalog(self) -> None:
+        paths, _expected_v2_fingerprint = self._create_full_v1_catalog(
+            "atomic-bad-evidence-v1"
+        )
+        connection = sqlite3.connect(paths.catalog)
+        connection.execute(
+            "UPDATE evidence SET fingerprint=? WHERE evidence_id='legacy-evidence'",
+            ("0" * 64,),
+        )
+        connection.commit()
+        connection.close()
+        before = self._v1_migration_snapshot(paths)
+
+        with self.assertRaisesRegex(RuntimeError, "legacy Evidence fingerprint"):
+            Catalog.open(paths)
+
+        after = self._v1_migration_snapshot(paths)
+        self.assertEqual("1", before["version"])
+        self.assertEqual(1, len(before["events"]))
+        self.assertEqual(before, after)
+
+    def test_v1_bad_event_fingerprint_refusal_preserves_entire_catalog(self) -> None:
+        paths, _expected_v2_fingerprint = self._create_full_v1_catalog(
+            "atomic-bad-event-v1"
+        )
+        connection = sqlite3.connect(paths.catalog)
+        connection.execute(
+            "UPDATE events SET fingerprint=? WHERE event_id='legacy-event'",
+            ("0" * 64,),
+        )
+        connection.commit()
+        connection.close()
+        before = self._v1_migration_snapshot(paths)
+
+        with self.assertRaisesRegex(RuntimeError, "legacy Event fingerprint"):
+            Catalog.open(paths)
+
+        after = self._v1_migration_snapshot(paths)
+        self.assertEqual(before, after)
+
+    def test_v1_malformed_evidence_json_refusal_preserves_entire_catalog(self) -> None:
+        for case in ("fields", "lineage"):
+            with self.subTest(case=case):
+                paths, _expected_v2_fingerprint = self._create_full_v1_catalog(
+                    f"atomic-malformed-{case}-v1"
+                )
+                connection = sqlite3.connect(paths.catalog)
+                if case == "fields":
+                    connection.execute(
+                        """
+                        UPDATE evidence SET fields_json='not-json'
+                        WHERE evidence_id='legacy-evidence'
+                        """
+                    )
+                else:
+                    connection.execute(
+                        """
+                        ALTER TABLE evidence ADD COLUMN inference_from_json
+                        TEXT NOT NULL DEFAULT '[]'
+                        """
+                    )
+                    connection.execute(
+                        """
+                        ALTER TABLE evidence ADD COLUMN conflict_refs_json
+                        TEXT NOT NULL DEFAULT '[]'
+                        """
+                    )
+                    connection.execute(
+                        """
+                        UPDATE evidence SET inference_from_json='not-json'
+                        WHERE evidence_id='legacy-evidence'
+                        """
+                    )
+                connection.commit()
+                connection.close()
+                before = self._v1_migration_snapshot(paths)
+
+                with self.assertRaisesRegex(
+                    RuntimeError, "legacy Evidence metadata is invalid"
+                ):
+                    Catalog.open(paths)
+
+                after = self._v1_migration_snapshot(paths)
+                self.assertEqual(before, after)
+
+    def test_unknown_schema_version_is_rejected_before_bootstrap(self) -> None:
+        root = Path(self.temporary_directory.name) / "unknown-schema-version"
+        root.mkdir()
+        paths = DataPaths.resolve(root)
+        connection = sqlite3.connect(paths.catalog)
+        connection.executescript(
+            """
+            CREATE TABLE schema_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            ) STRICT;
+            INSERT INTO schema_metadata VALUES ('schema_version', '999');
+            CREATE TABLE future_only (
+                future_id TEXT PRIMARY KEY,
+                future_value TEXT NOT NULL
+            ) STRICT;
+            INSERT INTO future_only VALUES ('future-row', 'preserve-me');
+            """
+        )
+        before_schema = connection.execute(
+            "SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name"
+        ).fetchall()
+        before_rows = {
+            "schema_metadata": connection.execute(
+                "SELECT * FROM schema_metadata ORDER BY key"
+            ).fetchall(),
+            "future_only": connection.execute(
+                "SELECT * FROM future_only ORDER BY future_id"
+            ).fetchall(),
+        }
+        connection.close()
+        self.assertEqual(4, len(before_schema))
+
+        with self.assertRaisesRegex(RuntimeError, "unsupported catalog schema version"):
+            Catalog.open(paths)
+
+        connection = sqlite3.connect(paths.catalog)
+        after_schema = connection.execute(
+            "SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name"
+        ).fetchall()
+        after_rows = {
+            "schema_metadata": connection.execute(
+                "SELECT * FROM schema_metadata ORDER BY key"
+            ).fetchall(),
+            "future_only": connection.execute(
+                "SELECT * FROM future_only ORDER BY future_id"
+            ).fetchall(),
+        }
+        connection.close()
+        self.assertEqual(before_schema, after_schema)
+        self.assertEqual(before_rows, after_rows)
+
+    def test_existing_database_without_version_row_is_not_fresh_bootstrapped(self) -> None:
+        root = Path(self.temporary_directory.name) / "missing-schema-version"
+        root.mkdir()
+        paths = DataPaths.resolve(root)
+        connection = sqlite3.connect(paths.catalog)
+        connection.executescript(
+            """
+            CREATE TABLE schema_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            ) STRICT;
+            CREATE TABLE existing_data (
+                item_id TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            ) STRICT;
+            INSERT INTO existing_data VALUES ('existing-row', 'preserve-me');
+            """
+        )
+        before_schema = connection.execute(
+            "SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name"
+        ).fetchall()
+        before_rows = connection.execute(
+            "SELECT * FROM existing_data ORDER BY item_id"
+        ).fetchall()
+        connection.close()
+
+        with self.assertRaisesRegex(RuntimeError, "missing catalog schema version"):
+            Catalog.open(paths)
+
+        connection = sqlite3.connect(paths.catalog)
+        after_schema = connection.execute(
+            "SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name"
+        ).fetchall()
+        after_rows = connection.execute(
+            "SELECT * FROM existing_data ORDER BY item_id"
+        ).fetchall()
+        version_count = connection.execute(
+            "SELECT COUNT(*) FROM schema_metadata WHERE key='schema_version'"
+        ).fetchone()[0]
+        connection.close()
+        self.assertEqual(before_schema, after_schema)
+        self.assertEqual(before_rows, after_rows)
+        self.assertEqual(0, version_count)
+
+    def test_nonempty_database_without_schema_metadata_is_not_fresh_bootstrapped(self) -> None:
+        root = Path(self.temporary_directory.name) / "missing-schema-metadata"
+        root.mkdir()
+        paths = DataPaths.resolve(root)
+        connection = sqlite3.connect(paths.catalog)
+        connection.executescript(
+            """
+            CREATE TABLE existing_data (
+                item_id TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            ) STRICT;
+            INSERT INTO existing_data VALUES ('existing-row', 'preserve-me');
+            """
+        )
+        before_schema = connection.execute(
+            "SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name"
+        ).fetchall()
+        before_rows = connection.execute(
+            "SELECT * FROM existing_data ORDER BY item_id"
+        ).fetchall()
+        connection.close()
+
+        with self.assertRaisesRegex(RuntimeError, "missing catalog schema metadata"):
+            Catalog.open(paths)
+
+        connection = sqlite3.connect(paths.catalog)
+        after_schema = connection.execute(
+            "SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name"
+        ).fetchall()
+        after_rows = connection.execute(
+            "SELECT * FROM existing_data ORDER BY item_id"
+        ).fetchall()
+        connection.close()
+        self.assertEqual(before_schema, after_schema)
+        self.assertEqual(before_rows, after_rows)
+
     def test_full_v1_catalog_migrates_legacy_evidence_and_discards_projection(self) -> None:
         paths, expected_v2_fingerprint = self._create_full_v1_catalog(
             "full-legacy-v1"

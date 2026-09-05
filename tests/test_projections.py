@@ -23,6 +23,7 @@ class ProjectionEngineTests(unittest.TestCase):
         paths = DataPaths.resolve(Path(self.temporary_directory.name) / "data")
         self.catalog = Catalog.open(paths)
         registry = IdentityRegistry(self.catalog)
+        self.registry = registry
         project = registry.register_project("file:///repo")
         worktree = registry.register_worktree(project.project_id, "file:///repo/main")
         self.task = registry.create_task(
@@ -64,8 +65,95 @@ class ProjectionEngineTests(unittest.TestCase):
             identity_redactor,
         )
 
+    def insert_evidence_reference(
+        self,
+        evidence_id: str,
+        *,
+        task_id: str | None = None,
+        purged: bool = False,
+    ) -> None:
+        bound_task_id = task_id or self.task.task_id
+        fingerprint_document = {
+            "evidence_id": evidence_id,
+            "task_id": bound_task_id,
+            "requirement_id": "REQ-1",
+            "evidence_type": "test_execution",
+            "subject_ref": "subject",
+            "exact_scope": "scope",
+            "result": "pass",
+            "basis": "observed",
+            "fields": {},
+            "collection_method": "projection-test",
+            "redaction_status": "not_needed",
+            "content_hash": "a" * 64,
+            "inference_from": [],
+            "conflict_refs": [],
+        }
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                fingerprint_document,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        self.catalog.connection.execute(
+            """
+            INSERT INTO evidence(
+                evidence_id, task_id, requirement_id, evidence_type,
+                subject_ref, exact_scope, result, basis, fields_json,
+                content_hash, object_relpath, content_size, collection_method,
+                redaction_status, inference_from_json, conflict_refs_json,
+                fingerprint, created_at, purged_at, purge_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                evidence_id,
+                bound_task_id,
+                "REQ-1",
+                "test_execution",
+                "subject",
+                "scope",
+                "pass",
+                "observed",
+                "{}",
+                "a" * 64,
+                f"objects/{evidence_id}",
+                0,
+                "projection-test",
+                "not_needed",
+                "[]",
+                "[]",
+                fingerprint,
+                "2026-09-04T12:00:00+00:00",
+                "2026-09-04T12:00:03+00:00" if purged else None,
+                "test purge" if purged else None,
+            ),
+        )
+
+    def insert_control_reference(
+        self, record_id: str, *, task_id: str | None = None
+    ) -> None:
+        document = "{}"
+        self.catalog.connection.execute(
+            """
+            INSERT INTO control_validations(
+                record_id, task_id, record_json, fingerprint, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                record_id,
+                task_id or self.task.task_id,
+                document,
+                hashlib.sha256(document.encode("utf-8")).hexdigest(),
+                "2026-09-04T12:00:00+00:00",
+            ),
+        )
+
     def test_rebuild_recreates_the_same_projection(self) -> None:
         self.append_event("task.created", {"mode": "managed"})
+        self.insert_evidence_reference("evidence-1")
         self.append_event(
             "evidence.recorded",
             {"evidence_id": "evidence-1", "evidence_type": "test_execution"},
@@ -83,6 +171,7 @@ class ProjectionEngineTests(unittest.TestCase):
         self.engine.project(self.task.task_id)
         self.assertTrue(self.engine.freshness(self.task.task_id).is_fresh)
 
+        self.insert_evidence_reference("evidence-1")
         self.append_event(
             "evidence.recorded",
             {"evidence_id": "evidence-1", "evidence_type": "test_execution"},
@@ -110,15 +199,18 @@ class ProjectionEngineTests(unittest.TestCase):
         self.assertEqual("failed", freshness.projection_state)
 
     def test_malformed_known_event_records_failure(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
         self.append_event("evidence.recorded", {"evidence_type": "test_execution"})
 
         status = self.engine.project(self.task.task_id)
 
         self.assertEqual("failed", status.state)
-        self.assertEqual(0, status.projected_sequence)
+        self.assertEqual(1, status.projected_sequence)
         self.assertIn("evidence_id", status.last_error)
 
     def test_purge_updates_active_and_purged_evidence(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        self.insert_evidence_reference("evidence-1", purged=True)
         self.append_event(
             "evidence.recorded",
             {"evidence_id": "evidence-1", "evidence_type": "test_execution"},
@@ -277,9 +369,11 @@ class ProjectionEngineTests(unittest.TestCase):
 
     def test_raw_sequence_swap_cannot_reverse_replay_and_stay_fresh(self) -> None:
         self.append_event("task.created", {"mode": "managed"})
-        self.append_event("task.created", {"mode": "imported"})
+        self.insert_control_reference("control-1")
+        self.append_event("control.validation.recorded", {"record_id": "control-1"})
         before = self.engine.project(self.task.task_id)
-        self.assertEqual({"mode": "imported"}, before.projection["task"])
+        self.assertEqual("ready", before.state)
+        self.assertEqual(2, before.projected_sequence)
         self.catalog.connection.execute("DROP TRIGGER events_no_update")
         self.catalog.connection.execute(
             "UPDATE events SET sequence=99 WHERE event_id='projection-event-1'"
@@ -295,8 +389,136 @@ class ProjectionEngineTests(unittest.TestCase):
         freshness = self.engine.freshness(self.task.task_id)
 
         self.assertEqual("failed", rebuilt.state)
-        self.assertNotEqual({"mode": "managed"}, rebuilt.projection["task"])
         self.assertIn("fingerprint", rebuilt.last_error)
+        self.assertFalse(freshness.is_fresh)
+        self.assertEqual("failed", freshness.projection_state)
+
+    def test_rebuild_cannot_launder_a_deleted_event_tail(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        self.insert_control_reference("control-1")
+        self.append_event("control.validation.recorded", {"record_id": "control-1"})
+        ready = self.engine.project(self.task.task_id)
+        ready_row = self.catalog.connection.execute(
+            "SELECT * FROM task_projections WHERE task_id=?", (self.task.task_id,)
+        ).fetchone()
+        self.assertEqual(("ready", 2), (ready.state, ready.projected_sequence))
+
+        self.catalog.connection.execute("DROP TRIGGER events_no_delete")
+        self.catalog.connection.execute(
+            "DELETE FROM events WHERE event_id='projection-event-2'"
+        )
+        stale = self.engine.freshness(self.task.task_id)
+        self.assertFalse(stale.is_fresh)
+        self.assertEqual((1, 2), (stale.event_head, stale.projected_sequence))
+        self.assertEqual("failed", stale.projection_state)
+
+        rebuilt = self.engine.rebuild(self.task.task_id)
+        rebuilt_row = self.catalog.connection.execute(
+            "SELECT * FROM task_projections WHERE task_id=?", (self.task.task_id,)
+        ).fetchone()
+        freshness = self.engine.freshness(self.task.task_id)
+
+        self.assertEqual("failed", rebuilt.state)
+        self.assertEqual(2, rebuilt.projected_sequence)
+        self.assertEqual(ready.projection, rebuilt.projection)
+        self.assertIn("event head", rebuilt.last_error)
+        self.assertEqual(2, rebuilt_row["projected_sequence"])
+        self.assertEqual(ready_row["projection_json"], rebuilt_row["projection_json"])
+        expected_hash = hashlib.sha256(
+            json.dumps(
+                [
+                    self.task.task_id,
+                    2,
+                    "failed",
+                    rebuilt_row["projection_json"],
+                ],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        self.assertEqual(expected_hash, rebuilt_row["projection_hash"])
+        self.assertFalse(freshness.is_fresh)
+        self.assertEqual("failed", freshness.projection_state)
+
+    def test_rebuild_allows_verified_event_head_ahead_of_projection(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        initial = self.engine.project(self.task.task_id)
+        self.insert_control_reference("control-1")
+        self.append_event("control.validation.recorded", {"record_id": "control-1"})
+
+        rebuilt = self.engine.rebuild(self.task.task_id)
+
+        self.assertEqual("ready", rebuilt.state)
+        self.assertEqual(2, rebuilt.projected_sequence)
+        self.assertEqual({"mode": "managed"}, rebuilt.projection["task"])
+        self.assertEqual(1, initial.projected_sequence)
+        self.assertTrue(self.engine.freshness(self.task.task_id).is_fresh)
+
+    def test_missing_evidence_reference_cannot_produce_ready_projection(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        self.append_event(
+            "evidence.recorded",
+            {"evidence_id": "missing", "evidence_type": "test_execution"},
+        )
+
+        status = self.engine.project(self.task.task_id)
+
+        self.assertEqual("failed", status.state)
+        self.assertEqual(1, status.projected_sequence)
+        self.assertIn("unknown Evidence", status.last_error)
+
+    def test_cross_task_control_reference_cannot_produce_ready_projection(self) -> None:
+        other = self.registry.create_task(
+            self.task.worktree_id,
+            mode="managed",
+            commit="def456",
+            branch="other",
+            cwd="/repo/main",
+            environment_ref="local-test",
+        )
+        self.insert_control_reference("control-other", task_id=other.task_id)
+        self.append_event("task.created", {"mode": "managed"})
+        self.append_event(
+            "control.validation.recorded", {"record_id": "control-other"}
+        )
+
+        status = self.engine.project(self.task.task_id)
+
+        self.assertEqual("failed", status.state)
+        self.assertEqual(1, status.projected_sequence)
+        self.assertIn("Task binding", status.last_error)
+
+    def test_evidence_purge_requires_active_recorded_reference(self) -> None:
+        self.insert_evidence_reference("evidence-1", purged=True)
+        self.append_event("task.created", {"mode": "managed"})
+        self.append_event("evidence.purged", {"evidence_id": "evidence-1"})
+
+        status = self.engine.project(self.task.task_id)
+
+        self.assertEqual("failed", status.state)
+        self.assertEqual(1, status.projected_sequence)
+        self.assertIn("active Evidence", status.last_error)
+
+    def test_guarantee_event_requires_nonempty_report_reference(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        self.append_event("guarantee.evaluated", {"report_id": ""})
+
+        status = self.engine.project(self.task.task_id)
+
+        self.assertEqual("failed", status.state)
+        self.assertEqual(1, status.projected_sequence)
+        self.assertIn("report_id", status.last_error)
+
+    def test_nonempty_event_log_requires_task_created_at_sequence_one(self) -> None:
+        self.insert_control_reference("control-1")
+        self.append_event("control.validation.recorded", {"record_id": "control-1"})
+
+        status = self.engine.project(self.task.task_id)
+        freshness = self.engine.freshness(self.task.task_id)
+
+        self.assertEqual("failed", status.state)
+        self.assertEqual(0, status.projected_sequence)
+        self.assertIn("task.created", status.last_error)
         self.assertFalse(freshness.is_fresh)
         self.assertEqual("failed", freshness.projection_state)
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 import tempfile
 import unittest
@@ -17,6 +19,35 @@ def redact_payload(payload: dict) -> dict:
     if "token" in redacted:
         redacted["token"] = "[REDACTED]"
     return redacted
+
+
+def raw_event_fingerprint(
+    row: sqlite3.Row,
+    payload: dict,
+    sequence: int,
+    *,
+    event_id: str | None = None,
+    occurred_at: str | None = None,
+) -> str:
+    document = {
+        "event_id": event_id or row["event_id"],
+        "task_id": row["task_id"],
+        "event_type": row["event_type"],
+        "event_version": row["event_version"],
+        "occurred_at": occurred_at or row["occurred_at"],
+        "payload": payload,
+        "collection_method": row["collection_method"],
+        "redaction_status": row["redaction_status"],
+        "sequence": sequence,
+    }
+    canonical = json.dumps(
+        document,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class EventLogTests(unittest.TestCase):
@@ -76,6 +107,7 @@ class EventLogTests(unittest.TestCase):
         event = self.log.append(
             replace(
                 self.draft,
+                event_type="tool.completed",
                 payload={"token": "m1-secret-marker", "safe": True},
                 redaction_status="redacted",
             ),
@@ -155,6 +187,84 @@ class EventLogTests(unittest.TestCase):
                 replace(self.draft, occurred_at="2026-09-04T12:00:00"),
                 redact_payload,
             )
+
+    def test_task_created_mode_must_match_immutable_task_snapshot(self) -> None:
+        with self.assertRaisesRegex(ValueError, "task.created.*mode"):
+            self.log.append(
+                replace(self.draft, payload={"mode": "imported"}),
+                redact_payload,
+            )
+
+        self.assertEqual(0, self.log.head_sequence(self.task.task_id))
+
+    def test_task_created_can_only_be_the_first_event_once(self) -> None:
+        self.log.append(self.draft, redact_payload)
+
+        with self.assertRaisesRegex(ValueError, "task.created.*sequence 1|exactly once"):
+            self.log.append(
+                replace(self.draft, event_id="event-2"),
+                redact_payload,
+            )
+
+        self.assertEqual(1, self.log.head_sequence(self.task.task_id))
+
+    def test_raw_resigned_task_created_mode_mismatch_is_rejected_on_read(self) -> None:
+        self.log.append(self.draft, redact_payload)
+        self.catalog.connection.execute("DROP TRIGGER events_no_update")
+        row = self.catalog.connection.execute(
+            "SELECT * FROM events WHERE event_id=?", (self.draft.event_id,)
+        ).fetchone()
+        payload = {"mode": "imported"}
+        payload_json = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+        fingerprint = raw_event_fingerprint(row, payload, 1)
+        self.catalog.connection.execute(
+            """
+            UPDATE events SET payload_json=?, fingerprint=?
+            WHERE event_id=?
+            """,
+            (payload_json, fingerprint, self.draft.event_id),
+        )
+
+        with self.assertRaisesRegex(ValueError, "task.created.*mode"):
+            self.log.list_for_task(self.task.task_id)
+
+    def test_raw_resigned_duplicate_task_created_is_rejected_on_read(self) -> None:
+        self.log.append(self.draft, redact_payload)
+        first = self.catalog.connection.execute(
+            "SELECT * FROM events WHERE event_id=?", (self.draft.event_id,)
+        ).fetchone()
+        payload = {"mode": "managed"}
+        fingerprint = raw_event_fingerprint(
+            first,
+            payload,
+            2,
+            event_id="event-2",
+            occurred_at="2026-09-04T12:00:01+00:00",
+        )
+        self.catalog.connection.execute(
+            """
+            INSERT INTO events(
+                event_id, task_id, sequence, event_type, event_version,
+                occurred_at, payload_json, collection_method,
+                redaction_status, fingerprint
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "event-2",
+                self.task.task_id,
+                2,
+                "task.created",
+                1,
+                "2026-09-04T12:00:01+00:00",
+                json.dumps(payload, separators=(",", ":"), sort_keys=True),
+                "m1-test",
+                "not_needed",
+                fingerprint,
+            ),
+        )
+
+        with self.assertRaisesRegex(ValueError, "task.created.*sequence 1|exactly once"):
+            self.log.list_for_task(self.task.task_id)
 
 
 if __name__ == "__main__":

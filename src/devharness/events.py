@@ -90,18 +90,34 @@ class EventLog:
                 raise EventConflict(
                     f"event_id {draft.event_id!r} already has different content"
                 )
-            return self._from_row(existing)
+            record = self._from_row(existing)
+            self._validate_task_created(
+                connection,
+                record.task_id,
+                record.event_type,
+                record.sequence,
+                record.payload,
+            )
+            return record
 
-        task_exists = connection.execute(
-            "SELECT 1 FROM tasks WHERE task_id=?", (draft.task_id,)
+        task = connection.execute(
+            "SELECT mode FROM tasks WHERE task_id=?", (draft.task_id,)
         ).fetchone()
-        if task_exists is None:
+        if task is None:
             raise ValueError(f"unknown task: {draft.task_id}")
 
         sequence = connection.execute(
             "SELECT COALESCE(MAX(sequence), 0) + 1 FROM events WHERE task_id=?",
             (draft.task_id,),
         ).fetchone()[0]
+        self._validate_task_created(
+            connection,
+            draft.task_id,
+            draft.event_type,
+            sequence,
+            redacted_payload,
+            task_mode=task["mode"],
+        )
         fingerprint = self._fingerprint(draft, payload_json, sequence)
         connection.execute(
             """
@@ -138,6 +154,21 @@ class EventLog:
             range(1, len(records) + 1)
         ):
             raise ValueError("event sequence integrity failure")
+        task = self.catalog.connection.execute(
+            "SELECT mode FROM tasks WHERE task_id=?", (task_id,)
+        ).fetchone()
+        if task is None and records:
+            raise ValueError(f"unknown task: {task_id}")
+        if task is not None:
+            for record in records:
+                self._validate_task_created(
+                    self.catalog.connection,
+                    task_id,
+                    record.event_type,
+                    record.sequence,
+                    record.payload,
+                    task_mode=task["mode"],
+                )
         return records
 
     def head_sequence(self, task_id: str) -> int:
@@ -173,6 +204,32 @@ class EventLog:
         envelope["payload"] = json.loads(payload_json)
         envelope["sequence"] = sequence
         return hashlib.sha256(_canonical_json(envelope).encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _validate_task_created(
+        connection: sqlite3.Connection,
+        task_id: str,
+        event_type: str,
+        sequence: int,
+        payload: dict,
+        *,
+        task_mode: str | None = None,
+    ) -> None:
+        if event_type != "task.created":
+            return
+        if sequence != 1:
+            raise ValueError(
+                "task.created must occur exactly once at sequence 1"
+            )
+        if task_mode is None:
+            task = connection.execute(
+                "SELECT mode FROM tasks WHERE task_id=?", (task_id,)
+            ).fetchone()
+            if task is None:
+                raise ValueError(f"unknown task: {task_id}")
+            task_mode = task["mode"]
+        if payload.get("mode") != task_mode:
+            raise ValueError("task.created payload mode does not match Task mode")
 
     @staticmethod
     def _from_row(row: object) -> EventRecord:

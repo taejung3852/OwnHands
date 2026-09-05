@@ -12,7 +12,9 @@ M1은 SQLite transaction, SHA-256 object, 운영체제 data path, 파일 권한�
 
 M1–M4 Local Core는 Python 3.12 이상과 표준 라이브러리만 사용한다.
 
-SQLite catalog schema는 명시적으로 versioning한다. schema v2는 Projection integrity hash와 Evidence lineage를 추가하지만, hash가 없던 v1 Projection은 무결성을 증명할 수 없으므로 migration transaction에서 폐기하고 canonical Event replay를 요구한다. schema v3 Event fingerprint는 sequence를 포함한다. sequence가 없던 v1/v2 Event fingerprint는 Task별 Event가 없거나 정확히 하나이고 그 Event의 legacy fingerprint와 `sequence=1`을 검증할 수 있을 때만 v3로 이행한다. 한 Task에 legacy Event가 둘 이상이면 외부 순서 anchor 없이 원래 순서를 증명할 수 없으므로 자동 migration을 거부한다. v1 catalog는 공통 schema bootstrap, Evidence column 추가, fingerprint 변환이나 Projection 폐기보다 먼저 잠금된 v3 Event preflight를 수행하므로, 거부되는 multi-step migration은 schema version 1과 `sqlite_schema`, 모든 legacy row/column을 원상태로 유지한다. 알 수 없는 schema version은 열지 않는다.
+SQLite catalog schema는 명시적으로 versioning한다. schema v2는 Projection integrity hash와 Evidence lineage를 추가하지만, hash가 없던 v1 Projection은 무결성을 증명할 수 없으므로 migration transaction에서 폐기하고 canonical Event replay를 요구한다. schema v3 Event fingerprint는 sequence를 포함한다. sequence가 없던 v1/v2 Event fingerprint는 Task별 Event가 없거나 정확히 하나이고 그 Event의 legacy fingerprint와 `sequence=1`을 검증할 수 있을 때만 v3로 이행한다. 한 Task에 legacy Event가 둘 이상이면 외부 순서 anchor 없이 원래 순서를 증명할 수 없으므로 자동 migration을 거부한다. 기존 database는 어떤 DDL보다 먼저 schema version row와 지원 version allowlist를 검사하며, version row가 없거나 알 수 없는 version이면 원본 `sqlite_schema`와 row를 바꾸지 않고 거부한다. v1 catalog의 공통 schema bootstrap, Evidence lineage와 fingerprint 변환, Projection 폐기, v3 Event migration은 하나의 `BEGIN IMMEDIATE` transaction에서 처리하므로 어느 검증이 실패해도 schema version 1과 전체 schema/row가 원상태로 유지된다. 완전히 빈 database만 새 schema v3로 bootstrap한다.
+
+새 Event에서 `task.created`는 sequence 1에서 한 번만 허용하며 payload mode가 immutable Task snapshot의 mode와 일치해야 한다. 이 불변식은 append와 read/replay 양쪽에서 검사한다. Projection replay와 freshness는 Evidence 및 Control reference의 존재와 Task binding, Evidence purge의 recorded→purged 전이를 검증한다. 저장 Projection의 검증된 `projected_sequence`를 monotonic checkpoint로 취급하며 현재 Event head가 그보다 작으면 rebuild는 Projection을 삭제하거나 축소하지 않고 self-consistent `failed` 상태로 전환한다.
 
 - `sqlite3`: catalog와 명시적 transaction
 - `pathlib`, `os`: 운영체제 data path와 파일 권한
@@ -36,6 +38,7 @@ Runtime dependency는 0개로 유지한다. 초기 database 설정은 ADR-0004�
 - M5 UI는 저장 schema를 읽는 별도 adapter 위에서 구현하며 Python 렌더링을 Production UI 계약으로 고정하지 않는다.
 - 실행 가능한 Python packaging과 설치 UX는 M7까지 미결정이다.
 - 애플리케이션 자체 암호화는 제공하거나 보장하지 않는다.
+- Projection checkpoint가 생성되기 전에 일어난 Event tail 삭제는 외부 monotonic anchor 없이 탐지할 수 없다. 또한 DB와 별도 anchor를 함께 변조할 권한을 가진 공격자는 비밀키 서명이나 원격 신뢰 저장소가 없으면 이 계층에서 방어할 수 없다.
 
 ## Evidence
 

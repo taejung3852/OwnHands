@@ -107,6 +107,38 @@ class ProjectionEngine:
                     projection,
                     f"event log integrity failure: {error}",
                 )
+            try:
+                self._validate_event_lifecycle(events)
+            except ValueError as error:
+                return self._record_failure(
+                    connection,
+                    task_id,
+                    projected_sequence,
+                    projection,
+                    f"event log semantic failure: {error}",
+                )
+            event_head = events[-1].sequence if events else 0
+            if stored is not None and projected_sequence > event_head:
+                return self._record_failure(
+                    connection,
+                    task_id,
+                    projected_sequence,
+                    projection,
+                    "event head regressed below trusted projection checkpoint",
+                )
+            if stored is not None:
+                try:
+                    self._validate_event_semantics(
+                        events, through_sequence=projected_sequence
+                    )
+                except ValueError as error:
+                    return self._record_failure(
+                        connection,
+                        task_id,
+                        projected_sequence,
+                        projection,
+                        f"event log semantic failure: {error}",
+                    )
             state = "ready"
             last_error = None
             for event in events:
@@ -163,6 +195,53 @@ class ProjectionEngine:
 
     def rebuild(self, task_id: str) -> ProjectionStatus:
         with self.catalog.transaction() as connection:
+            if connection.execute(
+                "SELECT 1 FROM tasks WHERE task_id=?", (task_id,)
+            ).fetchone() is None:
+                raise ValueError(f"unknown task: {task_id}")
+            stored = connection.execute(
+                "SELECT * FROM task_projections WHERE task_id=?", (task_id,)
+            ).fetchone()
+            if stored is not None:
+                try:
+                    projection = self._validated_stored_projection(stored)
+                except ValueError as error:
+                    return self._record_failure(
+                        connection,
+                        task_id,
+                        0,
+                        _initial_projection(),
+                        f"stored projection integrity failure: {error}",
+                    )
+                try:
+                    events = self.events.list_for_task(task_id)
+                except ValueError as error:
+                    return self._record_failure(
+                        connection,
+                        task_id,
+                        stored["projected_sequence"],
+                        projection,
+                        f"event log integrity failure: {error}",
+                    )
+                try:
+                    self._validate_event_lifecycle(events)
+                except ValueError as error:
+                    return self._record_failure(
+                        connection,
+                        task_id,
+                        stored["projected_sequence"],
+                        projection,
+                        f"event log semantic failure: {error}",
+                    )
+                event_head = events[-1].sequence if events else 0
+                if stored["projected_sequence"] > event_head:
+                    return self._record_failure(
+                        connection,
+                        task_id,
+                        stored["projected_sequence"],
+                        projection,
+                        "event head regressed below trusted projection checkpoint",
+                    )
             connection.execute(
                 "DELETE FROM task_projections WHERE task_id=?", (task_id,)
             )
@@ -201,7 +280,7 @@ class ProjectionEngine:
                         last_error=failure.last_error,
                     )
             try:
-                event_head = self.events.head_sequence(task_id)
+                events = self.events.list_for_task(task_id)
             except ValueError as error:
                 failure = self._record_failure(
                     connection,
@@ -213,6 +292,43 @@ class ProjectionEngine:
                 return Freshness(
                     task_id=task_id,
                     event_head=0,
+                    projected_sequence=failure.projected_sequence,
+                    projection_state="failed",
+                    is_fresh=False,
+                    collection_completeness="unobserved",
+                    last_error=failure.last_error,
+                )
+            event_head = events[-1].sequence if events else 0
+            if row is not None and projected_sequence > event_head:
+                failure = self._record_failure(
+                    connection,
+                    task_id,
+                    projected_sequence,
+                    projection,
+                    "event head regressed below trusted projection checkpoint",
+                )
+                return Freshness(
+                    task_id=task_id,
+                    event_head=event_head,
+                    projected_sequence=failure.projected_sequence,
+                    projection_state="failed",
+                    is_fresh=False,
+                    collection_completeness="unobserved",
+                    last_error=failure.last_error,
+                )
+            try:
+                self._validate_event_semantics(events)
+            except ValueError as error:
+                failure = self._record_failure(
+                    connection,
+                    task_id,
+                    projected_sequence,
+                    projection,
+                    f"event log semantic failure: {error}",
+                )
+                return Freshness(
+                    task_id=task_id,
+                    event_head=event_head,
                     projected_sequence=failure.projected_sequence,
                     projection_state="failed",
                     is_fresh=False,
@@ -292,11 +408,101 @@ class ProjectionEngine:
             raise ValueError(
                 f"unsupported event {event.event_type!r} version {event.event_version}"
             )
+        self._validate_event_reference(current, event)
         projection = copy.deepcopy(current)
         handler(projection, event.payload)
         counts = projection["event_counts"]
         counts[event.event_type] = counts.get(event.event_type, 0) + 1
         return projection
+
+    def _validate_event_semantics(
+        self,
+        events: list[EventRecord],
+        *,
+        through_sequence: int | None = None,
+    ) -> None:
+        self._validate_event_lifecycle(events)
+        projection = _initial_projection()
+        for event in events:
+            if through_sequence is not None and event.sequence > through_sequence:
+                break
+            try:
+                projection = self._apply(projection, event)
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError(
+                    f"event {event.event_id} sequence {event.sequence}: {error}"
+                ) from error
+
+    @staticmethod
+    def _validate_event_lifecycle(events: list[EventRecord]) -> None:
+        if not events:
+            return
+        task_created = [
+            event for event in events if event.event_type == "task.created"
+        ]
+        if len(task_created) != 1 or task_created[0].sequence != 1:
+            raise ValueError(
+                "nonempty Event log requires exactly one task.created at sequence 1"
+            )
+
+    def _validate_event_reference(
+        self, projection: dict, event: EventRecord
+    ) -> None:
+        if event.event_type in {"evidence.recorded", "evidence.purged"}:
+            evidence_id = self._required_reference(
+                event.payload.get("evidence_id"), "evidence_id"
+            )
+            row = self.catalog.connection.execute(
+                "SELECT * FROM evidence WHERE evidence_id=?", (evidence_id,)
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"unknown Evidence reference: {evidence_id}")
+            if row["task_id"] != event.task_id:
+                raise ValueError("Evidence reference Task binding mismatch")
+            if event.event_type == "evidence.recorded":
+                if evidence_id in projection["evidence"]["active_ids"] or evidence_id in (
+                    projection["evidence"]["purged_ids"]
+                ):
+                    raise ValueError("Evidence reference was already recorded")
+                for payload_name, column_name in (
+                    ("requirement_id", "requirement_id"),
+                    ("evidence_type", "evidence_type"),
+                    ("content_hash", "content_hash"),
+                ):
+                    if (
+                        payload_name in event.payload
+                        and event.payload[payload_name] != row[column_name]
+                    ):
+                        raise ValueError(
+                            f"Evidence reference {payload_name} mismatch"
+                        )
+            else:
+                if evidence_id not in projection["evidence"]["active_ids"]:
+                    raise ValueError("purge requires an active Evidence reference")
+                if row["purged_at"] is None:
+                    raise ValueError("purge Event references unpurged Evidence")
+            return
+        if event.event_type == "control.validation.recorded":
+            record_id = self._required_reference(
+                event.payload.get("record_id"), "record_id"
+            )
+            row = self.catalog.connection.execute(
+                "SELECT task_id FROM control_validations WHERE record_id=?",
+                (record_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"unknown control validation reference: {record_id}")
+            if row["task_id"] != event.task_id:
+                raise ValueError("control validation reference Task binding mismatch")
+            return
+        if event.event_type == "guarantee.evaluated":
+            self._required_reference(event.payload.get("report_id"), "report_id")
+
+    @staticmethod
+    def _required_reference(value: object, name: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{name} must be a non-empty reference")
+        return value
 
     @staticmethod
     def _task_created(projection: dict, payload: dict) -> None:

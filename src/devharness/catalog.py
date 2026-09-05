@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 import sqlite3
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Any, Iterator, Sequence
 
@@ -141,33 +141,33 @@ class Catalog:
         return catalog
 
     def _initialize(self) -> None:
+        existing_object_count = self.connection.execute(
+            "SELECT COUNT(*) FROM sqlite_schema"
+        ).fetchone()[0]
         has_schema_metadata = self.connection.execute(
             """
             SELECT 1 FROM sqlite_schema
             WHERE type='table' AND name='schema_metadata'
             """
         ).fetchone()
-        if has_schema_metadata is not None:
+        if existing_object_count:
+            if has_schema_metadata is None:
+                raise RuntimeError("missing catalog schema metadata")
             existing_version = self.query_value(
                 "SELECT value FROM schema_metadata WHERE key='schema_version'"
             )
-            has_events = self.connection.execute(
-                "SELECT 1 FROM sqlite_schema WHERE type='table' AND name='events'"
-            ).fetchone()
-            if existing_version == "1" and has_events is not None:
-                with self.transaction() as connection:
-                    locked_version = connection.execute(
-                        """
-                        SELECT value FROM schema_metadata
-                        WHERE key='schema_version'
-                        """
-                    ).fetchone()[0]
-                    if locked_version == "1":
-                        _legacy_events_for_v3_migration(connection)
+            if existing_version is None:
+                raise RuntimeError("missing catalog schema version")
+            if existing_version not in {"1", "2", str(SCHEMA_VERSION)}:
+                raise RuntimeError(
+                    "unsupported catalog schema version: "
+                    f"{existing_version!r}; expected one of '1', '2', "
+                    f"{str(SCHEMA_VERSION)!r}"
+                )
 
-        self.connection.executescript(
-            f"""
-            BEGIN IMMEDIATE;
+        with self.transaction() as connection:
+            connection.executescript(
+                f"""
             CREATE TABLE IF NOT EXISTS schema_metadata (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
@@ -417,29 +417,34 @@ class Catalog:
 
             CREATE INDEX IF NOT EXISTS control_validations_task
             ON control_validations(task_id);
-            COMMIT;
             """
-        )
-        version = self.query_value(
-            "SELECT value FROM schema_metadata WHERE key='schema_version'"
-        )
-        if version == "1":
-            self._migrate_v1_to_v2()
+            )
             version = self.query_value(
                 "SELECT value FROM schema_metadata WHERE key='schema_version'"
             )
-        if version == "2":
-            self._migrate_v2_to_v3()
-            version = self.query_value(
-                "SELECT value FROM schema_metadata WHERE key='schema_version'"
-            )
-        if version != str(SCHEMA_VERSION):
-            raise RuntimeError(
-                f"unsupported catalog schema version: {version!r}; expected {SCHEMA_VERSION}"
-            )
+            if version == "1":
+                self._migrate_v1_to_v2()
+                version = self.query_value(
+                    "SELECT value FROM schema_metadata WHERE key='schema_version'"
+                )
+            if version == "2":
+                self._migrate_v2_to_v3()
+                version = self.query_value(
+                    "SELECT value FROM schema_metadata WHERE key='schema_version'"
+                )
+            if version != str(SCHEMA_VERSION):
+                raise RuntimeError(
+                    f"unsupported catalog schema version: {version!r}; "
+                    f"expected {SCHEMA_VERSION}"
+                )
 
     def _migrate_v1_to_v2(self) -> None:
-        with self.transaction() as connection:
+        transaction = (
+            nullcontext(self.connection)
+            if self.connection.in_transaction
+            else self.transaction()
+        )
+        with transaction as connection:
             version = connection.execute(
                 "SELECT value FROM schema_metadata WHERE key='schema_version'"
             ).fetchone()[0]
@@ -527,7 +532,12 @@ class Catalog:
             )
 
     def _migrate_v2_to_v3(self) -> None:
-        with self.transaction() as connection:
+        transaction = (
+            nullcontext(self.connection)
+            if self.connection.in_transaction
+            else self.transaction()
+        )
+        with transaction as connection:
             version = connection.execute(
                 "SELECT value FROM schema_metadata WHERE key='schema_version'"
             ).fetchone()[0]
