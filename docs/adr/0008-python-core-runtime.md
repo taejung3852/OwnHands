@@ -12,7 +12,7 @@ M1은 SQLite transaction, SHA-256 object, 운영체제 data path, 파일 권한�
 
 M1–M4 Local Core는 Python 3.12 이상과 표준 라이브러리만 사용한다.
 
-SQLite catalog schema는 명시적으로 versioning한다. M1 독립 리뷰에서 Projection integrity hash가 추가되어 schema v2가 되었으며, v1 catalog는 저장된 Projection JSON의 SHA-256을 계산하는 rollback-journal transaction으로 v2에 migration한다. 알 수 없는 schema version은 열지 않는다.
+SQLite catalog schema는 명시적으로 versioning한다. schema v2는 Projection integrity hash와 Evidence lineage를 추가하지만, hash가 없던 v1 Projection은 무결성을 증명할 수 없으므로 migration transaction에서 폐기하고 canonical Event replay를 요구한다. schema v3 Event fingerprint는 sequence를 포함한다. sequence가 없던 v1/v2 Event fingerprint는 Task별 Event가 없거나 정확히 하나이고 그 Event의 legacy fingerprint와 `sequence=1`을 검증할 수 있을 때만 v3로 이행한다. 한 Task에 legacy Event가 둘 이상이면 외부 순서 anchor 없이 원래 순서를 증명할 수 없으므로 자동 migration을 거부한다. v1 catalog는 공통 schema bootstrap, Evidence column 추가, fingerprint 변환이나 Projection 폐기보다 먼저 잠금된 v3 Event preflight를 수행하므로, 거부되는 multi-step migration은 schema version 1과 `sqlite_schema`, 모든 legacy row/column을 원상태로 유지한다. 알 수 없는 schema version은 열지 않는다.
 
 - `sqlite3`: catalog와 명시적 transaction
 - `pathlib`, `os`: 운영체제 data path와 파일 권한

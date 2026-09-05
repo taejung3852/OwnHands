@@ -78,12 +78,14 @@ class EventLog:
         if not isinstance(redacted_payload, dict):
             raise ValueError("redactor must return a dictionary")
         payload_json = _canonical_json(redacted_payload)
-        fingerprint = self._fingerprint(draft, payload_json)
 
         existing = connection.execute(
             "SELECT * FROM events WHERE event_id=?", (draft.event_id,)
         ).fetchone()
         if existing is not None:
+            fingerprint = self._fingerprint(
+                draft, payload_json, existing["sequence"]
+            )
             if existing["fingerprint"] != fingerprint:
                 raise EventConflict(
                     f"event_id {draft.event_id!r} already has different content"
@@ -100,6 +102,7 @@ class EventLog:
             "SELECT COALESCE(MAX(sequence), 0) + 1 FROM events WHERE task_id=?",
             (draft.task_id,),
         ).fetchone()[0]
+        fingerprint = self._fingerprint(draft, payload_json, sequence)
         connection.execute(
             """
             INSERT INTO events(
@@ -163,9 +166,12 @@ class EventLog:
             raise ValueError("occurred_at must include a timezone")
 
     @staticmethod
-    def _fingerprint(draft: EventDraft, payload_json: str) -> str:
+    def _fingerprint(
+        draft: EventDraft, payload_json: str, sequence: int
+    ) -> str:
         envelope = asdict(draft)
         envelope["payload"] = json.loads(payload_json)
+        envelope["sequence"] = sequence
         return hashlib.sha256(_canonical_json(envelope).encode("utf-8")).hexdigest()
 
     @staticmethod
@@ -185,7 +191,9 @@ class EventLog:
             redaction_status=row["redaction_status"],
         )
         EventLog._validate(draft)
-        expected_fingerprint = EventLog._fingerprint(draft, row["payload_json"])
+        expected_fingerprint = EventLog._fingerprint(
+            draft, row["payload_json"], row["sequence"]
+        )
         if row["fingerprint"] != expected_fingerprint:
             raise ValueError("event fingerprint mismatch")
         return EventRecord(

@@ -78,23 +78,12 @@ class ProjectionEngine:
                 try:
                     projection = self._validated_stored_projection(stored)
                 except ValueError as error:
-                    updated_at = _now()
-                    last_error = f"stored projection integrity failure: {error}"
-                    connection.execute(
-                        """
-                        UPDATE task_projections
-                        SET state='failed', last_error=?, updated_at=?
-                        WHERE task_id=?
-                        """,
-                        (last_error, updated_at, task_id),
-                    )
-                    return ProjectionStatus(
-                        task_id=task_id,
-                        state="failed",
-                        projected_sequence=projected_sequence,
-                        projection=_initial_projection(),
-                        last_error=last_error,
-                        updated_at=updated_at,
+                    return self._record_failure(
+                        connection,
+                        task_id,
+                        0,
+                        _initial_projection(),
+                        f"stored projection integrity failure: {error}",
                     )
                 if stored["state"] == "failed" and "integrity failure" in (
                     stored["last_error"] or ""

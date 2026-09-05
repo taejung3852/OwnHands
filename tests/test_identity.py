@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import stat
 import sqlite3
 import tempfile
@@ -12,7 +14,7 @@ from unittest import mock
 
 from devharness.catalog import Catalog
 from devharness.evidence import EvidenceStore
-from devharness.events import EventLog
+from devharness.events import EventDraft, EventLog
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
 from devharness.projections import ProjectionEngine
@@ -29,6 +31,361 @@ class IdentityRegistryTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.catalog.close()
         self.temporary_directory.cleanup()
+
+    def _create_v2_event_catalog(
+        self, name: str, *, tampered_payload: str | None = None
+    ) -> tuple[DataPaths, str, str, str]:
+        paths = DataPaths.resolve(Path(self.temporary_directory.name) / name)
+        with Catalog.open(paths) as catalog:
+            registry = IdentityRegistry(catalog)
+            project = registry.register_project(f"file:///{name}")
+            worktree = registry.register_worktree(
+                project.project_id, f"file:///{name}/main"
+            )
+            task = registry.create_task(
+                worktree.worktree_id,
+                mode="managed",
+                commit="abc123",
+                branch="main",
+                cwd=f"/{name}",
+                environment_ref="legacy-runtime",
+            )
+            EventLog(catalog).append(
+                EventDraft(
+                    event_id="legacy-event",
+                    task_id=task.task_id,
+                    event_type="task.created",
+                    event_version=1,
+                    occurred_at="2026-09-04T00:00:00+00:00",
+                    payload={"mode": "managed"},
+                    collection_method="legacy-fixture",
+                    redaction_status="not_needed",
+                ),
+                lambda payload: payload,
+            )
+            ProjectionEngine(catalog, EventLog(catalog)).project(task.task_id)
+            legacy_document = {
+                "event_id": "legacy-event",
+                "task_id": task.task_id,
+                "event_type": "task.created",
+                "event_version": 1,
+                "occurred_at": "2026-09-04T00:00:00+00:00",
+                "payload": {"mode": "managed"},
+                "collection_method": "legacy-fixture",
+                "redaction_status": "not_needed",
+            }
+
+            def canonical(document: dict) -> str:
+                return json.dumps(
+                    document,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                )
+
+            legacy_fingerprint = hashlib.sha256(
+                canonical(legacy_document).encode("utf-8")
+            ).hexdigest()
+            expected_fingerprint = hashlib.sha256(
+                canonical({**legacy_document, "sequence": 1}).encode("utf-8")
+            ).hexdigest()
+            catalog.connection.execute("DROP TRIGGER events_no_update")
+            catalog.connection.execute(
+                "UPDATE events SET fingerprint=? WHERE event_id='legacy-event'",
+                (legacy_fingerprint,),
+            )
+            if tampered_payload is not None:
+                catalog.connection.execute(
+                    "UPDATE events SET payload_json=? WHERE event_id='legacy-event'",
+                    (tampered_payload,),
+                )
+            catalog.connection.execute(
+                "UPDATE schema_metadata SET value='2' WHERE key='schema_version'"
+            )
+        return paths, task.task_id, legacy_fingerprint, expected_fingerprint
+
+    def _insert_second_legacy_v2_event(
+        self,
+        paths: DataPaths,
+        task_id: str,
+        *,
+        swap_sequences: bool,
+    ) -> None:
+        document = {
+            "event_id": "legacy-event-2",
+            "task_id": task_id,
+            "event_type": "task.created",
+            "event_version": 1,
+            "occurred_at": "2026-09-04T00:00:01+00:00",
+            "payload": {"mode": "imported"},
+            "collection_method": "legacy-fixture",
+            "redaction_status": "not_needed",
+        }
+        canonical = json.dumps(
+            document,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        legacy_fingerprint = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        connection = sqlite3.connect(paths.catalog)
+        connection.execute(
+            "INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "legacy-event-2",
+                task_id,
+                2,
+                "task.created",
+                1,
+                "2026-09-04T00:00:01+00:00",
+                '{"mode":"imported"}',
+                "legacy-fixture",
+                "not_needed",
+                legacy_fingerprint,
+            ),
+        )
+        if swap_sequences:
+            connection.execute(
+                "UPDATE events SET sequence=99 WHERE event_id='legacy-event'"
+            )
+            connection.execute(
+                "UPDATE events SET sequence=1 WHERE event_id='legacy-event-2'"
+            )
+            connection.execute(
+                "UPDATE events SET sequence=2 WHERE event_id='legacy-event'"
+            )
+        connection.commit()
+        connection.close()
+
+    @staticmethod
+    def _legacy_catalog_snapshot(paths: DataPaths) -> tuple[str, list[tuple], list[tuple]]:
+        connection = sqlite3.connect(paths.catalog)
+        version = connection.execute(
+            "SELECT value FROM schema_metadata WHERE key='schema_version'"
+        ).fetchone()[0]
+        events = connection.execute(
+            "SELECT * FROM events ORDER BY event_id"
+        ).fetchall()
+        projections = connection.execute(
+            "SELECT * FROM task_projections ORDER BY task_id"
+        ).fetchall()
+        connection.close()
+        return version, events, projections
+
+    def _create_full_v1_catalog(
+        self, name: str, *, include_second_event: bool = False
+    ) -> tuple[DataPaths, str]:
+        root = Path(self.temporary_directory.name) / name
+        root.mkdir()
+        paths = DataPaths.resolve(root)
+        content_hash = "8f6682fa8a90b77ca07b61bd7ba6637aea607f5d6cf8bfe73c17ebff965d4a1b"
+        evidence_fingerprint = (
+            "b6cc3272f93efec6f200e7a2b26544fb129d4c0e35da90db6e22c9edb368a14c"
+        )
+        expected_v2_fingerprint = (
+            "94c1e8cf4caf62ec642ac9171ddbea2acfec59d363c691994c158c5b12a8fad8"
+        )
+        projection_json = (
+            '{"event_counts":{},"evidence":{"active_ids":["legacy-evidence"],'
+            '"purged_ids":[]},"guarantee":{"report_ids":[]},'
+            '"task":{"mode":"managed"}}'
+        )
+        connection = sqlite3.connect(paths.catalog)
+        connection.executescript(
+            """
+            CREATE TABLE schema_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
+            INSERT INTO schema_metadata VALUES ('schema_version', '1');
+            CREATE TABLE projects (
+                project_id TEXT PRIMARY KEY, locator TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL
+            ) STRICT;
+            CREATE TABLE worktrees (
+                worktree_id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL REFERENCES projects(project_id),
+                locator TEXT NOT NULL, created_at TEXT NOT NULL,
+                UNIQUE(project_id, locator)
+            ) STRICT;
+            CREATE TABLE tasks (
+                task_id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL REFERENCES projects(project_id),
+                worktree_id TEXT NOT NULL REFERENCES worktrees(worktree_id),
+                mode TEXT NOT NULL CHECK(mode IN ('managed', 'imported')),
+                commit_hash TEXT NOT NULL, branch TEXT NOT NULL, cwd TEXT NOT NULL,
+                environment_ref TEXT NOT NULL, created_at TEXT NOT NULL
+            ) STRICT;
+            CREATE TABLE events (
+                event_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(task_id),
+                sequence INTEGER NOT NULL CHECK(sequence > 0),
+                event_type TEXT NOT NULL,
+                event_version INTEGER NOT NULL CHECK(event_version > 0),
+                occurred_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+                collection_method TEXT NOT NULL, redaction_status TEXT NOT NULL,
+                fingerprint TEXT NOT NULL, UNIQUE(task_id, sequence)
+            ) STRICT;
+            CREATE TABLE evidence (
+                evidence_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(task_id),
+                requirement_id TEXT NOT NULL, evidence_type TEXT NOT NULL,
+                subject_ref TEXT NOT NULL, exact_scope TEXT NOT NULL,
+                result TEXT NOT NULL, basis TEXT NOT NULL, fields_json TEXT NOT NULL,
+                content_hash TEXT NOT NULL, object_relpath TEXT NOT NULL,
+                content_size INTEGER NOT NULL, collection_method TEXT NOT NULL,
+                redaction_status TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                created_at TEXT NOT NULL, purged_at TEXT, purge_reason TEXT
+            ) STRICT;
+            CREATE TABLE task_projections (
+                task_id TEXT PRIMARY KEY REFERENCES tasks(task_id),
+                projected_sequence INTEGER NOT NULL, state TEXT NOT NULL,
+                projection_json TEXT NOT NULL, last_error TEXT,
+                updated_at TEXT NOT NULL
+            ) STRICT;
+            CREATE TABLE retention_policy (
+                singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+                mode TEXT NOT NULL, days INTEGER
+            ) STRICT;
+            INSERT INTO retention_policy VALUES (1, 'keep_until_user_deletes', NULL);
+            CREATE TABLE control_validations (
+                record_id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(task_id),
+                record_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            ) STRICT;
+            """
+        )
+        connection.execute(
+            "INSERT INTO projects VALUES (?, ?, ?)",
+            ("legacy-project", "file:///legacy", "2026-09-04T00:00:00+00:00"),
+        )
+        connection.execute(
+            "INSERT INTO worktrees VALUES (?, ?, ?, ?)",
+            (
+                "legacy-worktree",
+                "legacy-project",
+                "file:///legacy/main",
+                "2026-09-04T00:00:00+00:00",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "legacy-task",
+                "legacy-project",
+                "legacy-worktree",
+                "managed",
+                "abc123",
+                "main",
+                "/legacy",
+                "legacy-runtime",
+                "2026-09-04T00:00:00+00:00",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "legacy-event",
+                "legacy-task",
+                1,
+                "task.created",
+                1,
+                "2026-09-04T00:00:00+00:00",
+                '{"mode":"managed"}',
+                "legacy-fixture",
+                "not_needed",
+                "6410e02785760e9ca1e58b76abdc35b80549efdb3b0599c3b0fb9334e092f3f7",
+            ),
+        )
+        if include_second_event:
+            connection.execute(
+                "INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    "legacy-event-2",
+                    "legacy-task",
+                    2,
+                    "task.created",
+                    1,
+                    "2026-09-04T00:00:01+00:00",
+                    '{"mode":"imported"}',
+                    "legacy-fixture",
+                    "not_needed",
+                    "e200d96285e4e0ea7c5b5bd1cad4ee51715b7d93a9e307be7b301893c239c411",
+                ),
+            )
+        connection.execute(
+            """
+            INSERT INTO evidence VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            """,
+            (
+                "legacy-evidence",
+                "legacy-task",
+                "legacy-requirement",
+                "test_execution",
+                "test:legacy",
+                "tests/test_legacy.py",
+                "pass",
+                "observed",
+                '{"result":"pass"}',
+                content_hash,
+                f"{content_hash[:2]}/{content_hash[2:]}",
+                23,
+                "legacy-fixture",
+                "not_needed",
+                evidence_fingerprint,
+                "2026-09-04T00:00:00+00:00",
+                None,
+                None,
+            ),
+        )
+        connection.execute(
+            "INSERT INTO task_projections VALUES (?, 0, 'ready', ?, NULL, ?)",
+            ("legacy-task", projection_json, "2026-09-04T00:00:00+00:00"),
+        )
+        connection.commit()
+        connection.close()
+        object_path = paths.objects / f"{content_hash[:2]}/{content_hash[2:]}"
+        object_path.parent.mkdir(parents=True)
+        object_path.write_bytes(b"legacy evidence content")
+        return paths, expected_v2_fingerprint
+
+    @staticmethod
+    def _v1_migration_snapshot(paths: DataPaths) -> dict[str, object]:
+        connection = sqlite3.connect(paths.catalog)
+        snapshot = {
+            "sqlite_schema": connection.execute(
+                """
+                SELECT type, name, tbl_name, sql
+                FROM sqlite_schema
+                ORDER BY type, name
+                """
+            ).fetchall(),
+            "version": connection.execute(
+                "SELECT value FROM schema_metadata WHERE key='schema_version'"
+            ).fetchone()[0],
+            "event_columns": connection.execute(
+                "PRAGMA table_info(events)"
+            ).fetchall(),
+            "events": connection.execute(
+                "SELECT * FROM events ORDER BY event_id"
+            ).fetchall(),
+            "evidence_columns": connection.execute(
+                "PRAGMA table_info(evidence)"
+            ).fetchall(),
+            "evidence": connection.execute(
+                "SELECT * FROM evidence ORDER BY evidence_id"
+            ).fetchall(),
+            "projection_columns": connection.execute(
+                "PRAGMA table_info(task_projections)"
+            ).fetchall(),
+            "projections": connection.execute(
+                "SELECT * FROM task_projections ORDER BY task_id"
+            ).fetchall(),
+        }
+        connection.close()
+        return snapshot
 
     def test_same_locator_is_idempotent_and_other_locator_is_distinct(self) -> None:
         project = self.registry.register_project("file:///repo")
@@ -260,129 +617,159 @@ class IdentityRegistryTests(unittest.TestCase):
             row = catalog.connection.execute(
                 "SELECT * FROM task_projections WHERE task_id='legacy-task'"
             ).fetchone()
-            self.assertEqual("2", catalog.query_value(
+            self.assertEqual("3", catalog.query_value(
                 "SELECT value FROM schema_metadata WHERE key='schema_version'"
             ))
             self.assertIsNone(row)
 
-    def test_full_v1_catalog_migrates_legacy_evidence_and_discards_projection(self) -> None:
-        root = Path(self.temporary_directory.name) / "full-legacy-v1"
-        root.mkdir()
-        paths = DataPaths.resolve(root)
-        content_hash = "8f6682fa8a90b77ca07b61bd7ba6637aea607f5d6cf8bfe73c17ebff965d4a1b"
-        legacy_fingerprint = "b6cc3272f93efec6f200e7a2b26544fb129d4c0e35da90db6e22c9edb368a14c"
-        expected_v2_fingerprint = "94c1e8cf4caf62ec642ac9171ddbea2acfec59d363c691994c158c5b12a8fad8"
-        projection_json = (
-            '{"event_counts":{},"evidence":{"active_ids":["legacy-evidence"],'
-            '"purged_ids":[]},"guarantee":{"report_ids":[]},'
-            '"task":{"mode":"managed"}}'
+    def test_v2_catalog_migrates_verified_legacy_event_fingerprint(self) -> None:
+        paths, task_id, _legacy_fingerprint, expected_fingerprint = (
+            self._create_v2_event_catalog("legacy-v2-event")
         )
-        connection = sqlite3.connect(paths.catalog)
-        connection.executescript(
-            """
-            CREATE TABLE schema_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
-            INSERT INTO schema_metadata VALUES ('schema_version', '1');
-            CREATE TABLE projects (
-                project_id TEXT PRIMARY KEY, locator TEXT NOT NULL UNIQUE,
-                created_at TEXT NOT NULL
-            ) STRICT;
-            CREATE TABLE worktrees (
-                worktree_id TEXT PRIMARY KEY,
-                project_id TEXT NOT NULL REFERENCES projects(project_id),
-                locator TEXT NOT NULL, created_at TEXT NOT NULL,
-                UNIQUE(project_id, locator)
-            ) STRICT;
-            CREATE TABLE tasks (
-                task_id TEXT PRIMARY KEY,
-                project_id TEXT NOT NULL REFERENCES projects(project_id),
-                worktree_id TEXT NOT NULL REFERENCES worktrees(worktree_id),
-                mode TEXT NOT NULL CHECK(mode IN ('managed', 'imported')),
-                commit_hash TEXT NOT NULL, branch TEXT NOT NULL, cwd TEXT NOT NULL,
-                environment_ref TEXT NOT NULL, created_at TEXT NOT NULL
-            ) STRICT;
-            CREATE TABLE events (
-                event_id TEXT PRIMARY KEY,
-                task_id TEXT NOT NULL REFERENCES tasks(task_id),
-                sequence INTEGER NOT NULL CHECK(sequence > 0),
-                event_type TEXT NOT NULL,
-                event_version INTEGER NOT NULL CHECK(event_version > 0),
-                occurred_at TEXT NOT NULL, payload_json TEXT NOT NULL,
-                collection_method TEXT NOT NULL, redaction_status TEXT NOT NULL,
-                fingerprint TEXT NOT NULL, UNIQUE(task_id, sequence)
-            ) STRICT;
-            CREATE TABLE evidence (
-                evidence_id TEXT PRIMARY KEY,
-                task_id TEXT NOT NULL REFERENCES tasks(task_id),
-                requirement_id TEXT NOT NULL, evidence_type TEXT NOT NULL,
-                subject_ref TEXT NOT NULL, exact_scope TEXT NOT NULL,
-                result TEXT NOT NULL, basis TEXT NOT NULL, fields_json TEXT NOT NULL,
-                content_hash TEXT NOT NULL, object_relpath TEXT NOT NULL,
-                content_size INTEGER NOT NULL, collection_method TEXT NOT NULL,
-                redaction_status TEXT NOT NULL, fingerprint TEXT NOT NULL,
-                created_at TEXT NOT NULL, purged_at TEXT, purge_reason TEXT
-            ) STRICT;
-            CREATE TABLE task_projections (
-                task_id TEXT PRIMARY KEY REFERENCES tasks(task_id),
-                projected_sequence INTEGER NOT NULL, state TEXT NOT NULL,
-                projection_json TEXT NOT NULL, last_error TEXT,
-                updated_at TEXT NOT NULL
-            ) STRICT;
-            CREATE TABLE retention_policy (
-                singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
-                mode TEXT NOT NULL, days INTEGER
-            ) STRICT;
-            INSERT INTO retention_policy VALUES (1, 'keep_until_user_deletes', NULL);
-            CREATE TABLE control_validations (
-                record_id TEXT PRIMARY KEY,
-                task_id TEXT NOT NULL REFERENCES tasks(task_id),
-                record_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            ) STRICT;
-            """
-        )
-        connection.execute(
-            "INSERT INTO projects VALUES (?, ?, ?)",
-            ("legacy-project", "file:///legacy", "2026-09-04T00:00:00+00:00"),
-        )
-        connection.execute(
-            "INSERT INTO worktrees VALUES (?, ?, ?, ?)",
-            (
-                "legacy-worktree", "legacy-project", "file:///legacy/main",
-                "2026-09-04T00:00:00+00:00",
-            ),
-        )
-        connection.execute(
-            "INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                "legacy-task", "legacy-project", "legacy-worktree", "managed",
-                "abc123", "main", "/legacy", "legacy-runtime",
-                "2026-09-04T00:00:00+00:00",
-            ),
-        )
-        connection.execute(
-            """
-            INSERT INTO evidence VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+
+        with Catalog.open(paths) as catalog:
+            row = catalog.connection.execute(
+                "SELECT fingerprint FROM events WHERE event_id='legacy-event'"
+            ).fetchone()
+
+            self.assertEqual(
+                "3",
+                catalog.query_value(
+                    "SELECT value FROM schema_metadata WHERE key='schema_version'"
+                ),
             )
-            """,
-            (
-                "legacy-evidence", "legacy-task", "legacy-requirement",
-                "test_execution", "test:legacy", "tests/test_legacy.py", "pass",
-                "observed", '{"result":"pass"}', content_hash,
-                f"{content_hash[:2]}/{content_hash[2:]}", 23, "legacy-fixture",
-                "not_needed", legacy_fingerprint, "2026-09-04T00:00:00+00:00",
-                None, None,
-            ),
+            self.assertEqual(expected_fingerprint, row["fingerprint"])
+            self.assertEqual(
+                0,
+                catalog.query_value("SELECT COUNT(*) FROM task_projections"),
+            )
+            records = EventLog(catalog).list_for_task(task_id)
+            self.assertEqual([1], [record.sequence for record in records])
+
+    def test_v2_catalog_without_events_migrates_to_sequence_bound_schema(self) -> None:
+        paths = DataPaths.resolve(
+            Path(self.temporary_directory.name) / "empty-legacy-v2-event"
         )
-        connection.execute(
-            "INSERT INTO task_projections VALUES (?, 0, 'ready', ?, NULL, ?)",
-            ("legacy-task", projection_json, "2026-09-04T00:00:00+00:00"),
+        with Catalog.open(paths) as catalog:
+            registry = IdentityRegistry(catalog)
+            project = registry.register_project("file:///empty-legacy-v2-event")
+            worktree = registry.register_worktree(
+                project.project_id, "file:///empty-legacy-v2-event/main"
+            )
+            task = registry.create_task(
+                worktree.worktree_id,
+                mode="managed",
+                commit="abc123",
+                branch="main",
+                cwd="/empty-legacy-v2-event",
+                environment_ref="legacy-runtime",
+            )
+            ProjectionEngine(catalog, EventLog(catalog)).project(task.task_id)
+            catalog.connection.execute(
+                "UPDATE schema_metadata SET value='2' WHERE key='schema_version'"
+            )
+
+        with Catalog.open(paths) as catalog:
+            self.assertEqual(
+                "3",
+                catalog.query_value(
+                    "SELECT value FROM schema_metadata WHERE key='schema_version'"
+                ),
+            )
+            self.assertEqual(0, catalog.query_value("SELECT COUNT(*) FROM events"))
+            self.assertEqual(
+                0, catalog.query_value("SELECT COUNT(*) FROM task_projections")
+            )
+
+    def test_v2_catalog_refuses_to_resign_swapped_multiple_legacy_events(self) -> None:
+        paths, task_id, _legacy_fingerprint, _expected_fingerprint = (
+            self._create_v2_event_catalog("swapped-multiple-legacy-v2-events")
         )
-        connection.commit()
+        self._insert_second_legacy_v2_event(
+            paths, task_id, swap_sequences=True
+        )
+        before = self._legacy_catalog_snapshot(paths)
+
+        with self.assertRaisesRegex(
+            RuntimeError, "legacy Event order is unverifiable"
+        ):
+            Catalog.open(paths)
+
+        after = self._legacy_catalog_snapshot(paths)
+        self.assertEqual("2", before[0])
+        self.assertEqual(before, after)
+
+    def test_v2_catalog_refuses_to_resign_ordered_multiple_legacy_events(self) -> None:
+        paths, task_id, _legacy_fingerprint, _expected_fingerprint = (
+            self._create_v2_event_catalog("ordered-multiple-legacy-v2-events")
+        )
+        self._insert_second_legacy_v2_event(
+            paths, task_id, swap_sequences=False
+        )
+        before = self._legacy_catalog_snapshot(paths)
+
+        with self.assertRaisesRegex(
+            RuntimeError, "legacy Event order is unverifiable"
+        ):
+            Catalog.open(paths)
+
+        after = self._legacy_catalog_snapshot(paths)
+        self.assertEqual("2", before[0])
+        self.assertEqual(before, after)
+
+    def test_v2_catalog_refuses_to_resign_unverified_legacy_event(self) -> None:
+        paths, _task_id, legacy_fingerprint, _expected_fingerprint = (
+            self._create_v2_event_catalog(
+                "tampered-v2-event", tampered_payload='{"mode":"imported"}'
+            )
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "legacy Event fingerprint"):
+            Catalog.open(paths)
+
+        connection = sqlite3.connect(paths.catalog)
+        version = connection.execute(
+            "SELECT value FROM schema_metadata WHERE key='schema_version'"
+        ).fetchone()[0]
+        fingerprint = connection.execute(
+            "SELECT fingerprint FROM events WHERE event_id='legacy-event'"
+        ).fetchone()[0]
+        projection_count = connection.execute(
+            "SELECT COUNT(*) FROM task_projections"
+        ).fetchone()[0]
         connection.close()
-        object_path = paths.objects / f"{content_hash[:2]}/{content_hash[2:]}"
-        object_path.parent.mkdir(parents=True)
-        object_path.write_bytes(b"legacy evidence content")
+        self.assertEqual("2", version)
+        self.assertEqual(legacy_fingerprint, fingerprint)
+        self.assertEqual(1, projection_count)
+
+    def test_v1_multiple_event_refusal_rolls_back_the_entire_migration(self) -> None:
+        paths, _expected_v2_fingerprint = self._create_full_v1_catalog(
+            "atomic-multiple-event-v1", include_second_event=True
+        )
+        before = self._v1_migration_snapshot(paths)
+
+        with self.assertRaisesRegex(
+            RuntimeError, "legacy Event order is unverifiable"
+        ):
+            Catalog.open(paths)
+
+        after = self._v1_migration_snapshot(paths)
+        self.assertEqual("1", before["version"])
+        self.assertEqual(2, len(before["events"]))
+        self.assertEqual(1, len(before["evidence"]))
+        self.assertEqual(1, len(before["projections"]))
+        self.assertNotIn(
+            "inference_from_json", [column[1] for column in before["evidence_columns"]]
+        )
+        self.assertNotIn(
+            "projection_hash", [column[1] for column in before["projection_columns"]]
+        )
+        self.assertEqual(before, after)
+
+    def test_full_v1_catalog_migrates_legacy_evidence_and_discards_projection(self) -> None:
+        paths, expected_v2_fingerprint = self._create_full_v1_catalog(
+            "full-legacy-v1"
+        )
 
         with Catalog.open(paths) as catalog:
             columns = {
@@ -395,6 +782,7 @@ class IdentityRegistryTests(unittest.TestCase):
             record = EvidenceStore(catalog, EventLog(catalog)).resolve(
                 "legacy-evidence"
             )
+            event = EventLog(catalog).list_for_task("legacy-task")[0]
             freshness = ProjectionEngine(catalog, EventLog(catalog)).freshness(
                 "legacy-task"
             )
@@ -405,6 +793,17 @@ class IdentityRegistryTests(unittest.TestCase):
                 (row["inference_from_json"], row["conflict_refs_json"]),
             )
             self.assertEqual(expected_v2_fingerprint, record.fingerprint)
+            self.assertEqual(
+                "50f77ce390bf6914c2129f13faf9a310a10674bfff9f9db2fd01b813903e5706",
+                event.fingerprint,
+            )
+            self.assertEqual(1, event.sequence)
+            self.assertEqual(
+                "3",
+                catalog.query_value(
+                    "SELECT value FROM schema_metadata WHERE key='schema_version'"
+                ),
+            )
             self.assertEqual("missing", freshness.projection_state)
             self.assertFalse(freshness.is_fresh)
 

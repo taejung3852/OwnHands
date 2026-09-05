@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -148,6 +150,65 @@ class ProjectionEngineTests(unittest.TestCase):
         self.assertEqual("failed", status.state)
         self.assertFalse(self.engine.freshness(self.task.task_id).is_fresh)
 
+    def test_corrupt_projection_is_persisted_once_as_stable_safe_failure(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        ready = self.engine.project(self.task.task_id)
+        self.assertEqual(1, ready.projected_sequence)
+        self.catalog.connection.execute(
+            "UPDATE task_projections SET projection_json=? WHERE task_id=?",
+            ('{"corrupt":true}', self.task.task_id),
+        )
+
+        failed = self.engine.project(self.task.task_id)
+        first_row = self.catalog.connection.execute(
+            "SELECT * FROM task_projections WHERE task_id=?", (self.task.task_id,)
+        ).fetchone()
+        safe_projection = {
+            "task": {},
+            "evidence": {"active_ids": [], "purged_ids": []},
+            "guarantee": {"report_ids": []},
+            "event_counts": {},
+        }
+        expected_projection_json = json.dumps(
+            safe_projection,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        expected_envelope = json.dumps(
+            [self.task.task_id, 0, "failed", expected_projection_json],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        expected_hash = hashlib.sha256(expected_envelope.encode("utf-8")).hexdigest()
+
+        self.assertEqual("failed", failed.state)
+        self.assertEqual(0, failed.projected_sequence)
+        self.assertEqual(safe_projection, failed.projection)
+        self.assertEqual("failed", first_row["state"])
+        self.assertEqual(0, first_row["projected_sequence"])
+        self.assertEqual(expected_projection_json, first_row["projection_json"])
+        self.assertEqual(expected_hash, first_row["projection_hash"])
+        self.assertEqual(failed.last_error, first_row["last_error"])
+        first_snapshot = tuple(first_row)
+
+        freshness = self.engine.freshness(self.task.task_id)
+        repeated = self.engine.project(self.task.task_id)
+        second_row = self.catalog.connection.execute(
+            "SELECT * FROM task_projections WHERE task_id=?", (self.task.task_id,)
+        ).fetchone()
+
+        self.assertFalse(freshness.is_fresh)
+        self.assertEqual("failed", freshness.projection_state)
+        self.assertEqual(0, freshness.projected_sequence)
+        self.assertEqual(failed.last_error, freshness.last_error)
+        self.assertEqual("failed", repeated.state)
+        self.assertEqual(0, repeated.projected_sequence)
+        self.assertEqual(safe_projection, repeated.projection)
+        self.assertEqual(failed.last_error, repeated.last_error)
+        self.assertEqual(first_snapshot, tuple(second_row))
+
     def test_sequence_tampering_cannot_fake_projection_freshness(self) -> None:
         self.append_event("task.created", {"mode": "managed"})
         self.engine.project(self.task.task_id)
@@ -213,6 +274,31 @@ class ProjectionEngineTests(unittest.TestCase):
                 (self.task.task_id,),
             ),
         )
+
+    def test_raw_sequence_swap_cannot_reverse_replay_and_stay_fresh(self) -> None:
+        self.append_event("task.created", {"mode": "managed"})
+        self.append_event("task.created", {"mode": "imported"})
+        before = self.engine.project(self.task.task_id)
+        self.assertEqual({"mode": "imported"}, before.projection["task"])
+        self.catalog.connection.execute("DROP TRIGGER events_no_update")
+        self.catalog.connection.execute(
+            "UPDATE events SET sequence=99 WHERE event_id='projection-event-1'"
+        )
+        self.catalog.connection.execute(
+            "UPDATE events SET sequence=1 WHERE event_id='projection-event-2'"
+        )
+        self.catalog.connection.execute(
+            "UPDATE events SET sequence=2 WHERE event_id='projection-event-1'"
+        )
+
+        rebuilt = self.engine.rebuild(self.task.task_id)
+        freshness = self.engine.freshness(self.task.task_id)
+
+        self.assertEqual("failed", rebuilt.state)
+        self.assertNotEqual({"mode": "managed"}, rebuilt.projection["task"])
+        self.assertIn("fingerprint", rebuilt.last_error)
+        self.assertFalse(freshness.is_fresh)
+        self.assertEqual("failed", freshness.projection_state)
 
 
 if __name__ == "__main__":

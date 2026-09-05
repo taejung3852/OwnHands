@@ -131,6 +131,20 @@ class EventLogTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "fingerprint"):
             self.log.head_sequence(self.task.task_id)
 
+    def test_event_read_fails_closed_after_raw_sequence_gap(self) -> None:
+        self.log.append(self.draft, redact_payload)
+        self.log.append(
+            replace(self.draft, event_id="event-2", event_type="tool.completed"),
+            redact_payload,
+        )
+        self.catalog.connection.execute("DROP TRIGGER events_no_update")
+        self.catalog.connection.execute(
+            "UPDATE events SET sequence=3 WHERE event_id='event-2'"
+        )
+
+        with self.assertRaisesRegex(ValueError, "fingerprint|sequence integrity"):
+            self.log.list_for_task(self.task.task_id)
+
     def test_unknown_task_and_invalid_envelope_are_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "unknown task"):
             self.log.append(replace(self.draft, task_id="missing"), redact_payload)

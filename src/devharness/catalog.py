@@ -11,7 +11,7 @@ from typing import Any, Iterator, Sequence
 from .paths import DataPaths
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def projection_fingerprint(
@@ -59,6 +59,56 @@ def _evidence_fingerprint(row: sqlite3.Row, *, include_lineage: bool) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _event_fingerprint(row: sqlite3.Row, *, include_sequence: bool) -> str:
+    try:
+        payload = json.loads(row["payload_json"])
+        if not isinstance(payload, dict):
+            raise TypeError("Event payload is not an object")
+        document = {
+            "event_id": row["event_id"],
+            "task_id": row["task_id"],
+            "event_type": row["event_type"],
+            "event_version": row["event_version"],
+            "occurred_at": row["occurred_at"],
+            "payload": payload,
+            "collection_method": row["collection_method"],
+            "redaction_status": row["redaction_status"],
+        }
+        if include_sequence:
+            document["sequence"] = row["sequence"]
+        canonical = json.dumps(
+            document,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (json.JSONDecodeError, TypeError, ValueError) as error:
+        raise RuntimeError("legacy Event metadata is invalid") from error
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _legacy_events_for_v3_migration(
+    connection: sqlite3.Connection,
+) -> list[sqlite3.Row]:
+    rows = connection.execute(
+        "SELECT * FROM events ORDER BY task_id, sequence"
+    ).fetchall()
+    sequences_by_task: dict[str, list[int]] = {}
+    for row in rows:
+        sequences_by_task.setdefault(row["task_id"], []).append(row["sequence"])
+        if row["fingerprint"] != _event_fingerprint(row, include_sequence=False):
+            raise RuntimeError("legacy Event fingerprint mismatch")
+    if any(len(sequences) > 1 for sequences in sequences_by_task.values()):
+        raise RuntimeError("legacy Event order is unverifiable")
+    if any(
+        sequences != list(range(1, len(sequences) + 1))
+        for sequences in sequences_by_task.values()
+    ):
+        raise RuntimeError("legacy Event sequence integrity failure")
+    return rows
+
+
 class Catalog:
     def __init__(self, paths: DataPaths, connection: sqlite3.Connection) -> None:
         self.paths = paths
@@ -91,6 +141,30 @@ class Catalog:
         return catalog
 
     def _initialize(self) -> None:
+        has_schema_metadata = self.connection.execute(
+            """
+            SELECT 1 FROM sqlite_schema
+            WHERE type='table' AND name='schema_metadata'
+            """
+        ).fetchone()
+        if has_schema_metadata is not None:
+            existing_version = self.query_value(
+                "SELECT value FROM schema_metadata WHERE key='schema_version'"
+            )
+            has_events = self.connection.execute(
+                "SELECT 1 FROM sqlite_schema WHERE type='table' AND name='events'"
+            ).fetchone()
+            if existing_version == "1" and has_events is not None:
+                with self.transaction() as connection:
+                    locked_version = connection.execute(
+                        """
+                        SELECT value FROM schema_metadata
+                        WHERE key='schema_version'
+                        """
+                    ).fetchone()[0]
+                    if locked_version == "1":
+                        _legacy_events_for_v3_migration(connection)
+
         self.connection.executescript(
             f"""
             BEGIN IMMEDIATE;
@@ -354,6 +428,11 @@ class Catalog:
             version = self.query_value(
                 "SELECT value FROM schema_metadata WHERE key='schema_version'"
             )
+        if version == "2":
+            self._migrate_v2_to_v3()
+            version = self.query_value(
+                "SELECT value FROM schema_metadata WHERE key='schema_version'"
+            )
         if version != str(SCHEMA_VERSION):
             raise RuntimeError(
                 f"unsupported catalog schema version: {version!r}; expected {SCHEMA_VERSION}"
@@ -370,6 +449,7 @@ class Catalog:
                 raise RuntimeError(
                     f"unsupported catalog schema version during migration: {version!r}"
                 )
+            _legacy_events_for_v3_migration(connection)
             projection_columns = {
                 row["name"]
                 for row in connection.execute(
@@ -444,6 +524,42 @@ class Catalog:
             )
             connection.execute(
                 "UPDATE schema_metadata SET value='2' WHERE key='schema_version'"
+            )
+
+    def _migrate_v2_to_v3(self) -> None:
+        with self.transaction() as connection:
+            version = connection.execute(
+                "SELECT value FROM schema_metadata WHERE key='schema_version'"
+            ).fetchone()[0]
+            if version == "3":
+                return
+            if version != "2":
+                raise RuntimeError(
+                    f"unsupported catalog schema version during migration: {version!r}"
+                )
+            rows = _legacy_events_for_v3_migration(connection)
+
+            connection.execute("DROP TRIGGER IF EXISTS events_no_update")
+            for row in rows:
+                connection.execute(
+                    "UPDATE events SET fingerprint=? WHERE event_id=?",
+                    (
+                        _event_fingerprint(row, include_sequence=True),
+                        row["event_id"],
+                    ),
+                )
+            connection.execute("DELETE FROM task_projections")
+            connection.execute(
+                """
+                CREATE TRIGGER events_no_update
+                BEFORE UPDATE ON events
+                BEGIN
+                    SELECT RAISE(ABORT, 'events are append-only');
+                END
+                """
+            )
+            connection.execute(
+                "UPDATE schema_metadata SET value='3' WHERE key='schema_version'"
             )
 
     @contextmanager
