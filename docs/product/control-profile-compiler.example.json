@@ -1,0 +1,20 @@
+{
+  "compiler_version": "1.0",
+  "contract_ref": "contract:task-example",
+  "contract_fingerprint": "sha256:5dedef46a14df7a5bbd3bf024d9ceda2bb2f536a9ce4fcdbfd7672c3068da5bc",
+  "codex_version": "0.153.3",
+  "dry_run": true,
+  "artifacts": [
+    {"path": ".codex/config.toml", "artifact_type": "config", "source_class": "control", "content": "sandbox_mode = \"workspace-write\"\n", "before_hash": null, "after_hash": "sha256:cc4f8f11ad3b2689b7b36b2ea9161ffb3a65327d60d8c73e508d9f3d378377a8", "status": "changed"},
+    {"path": "AGENTS.md", "artifact_type": "agents", "source_class": "context", "content": "# task overlay\n", "before_hash": null, "after_hash": "sha256:ffdab48b43b98ae576302cff9eea86cacddcee0458cac241b3dae7ab3095edcd", "status": "changed"},
+    {"path": ".codex/rules/ownhands.rules", "artifact_type": "rules", "source_class": "control", "content": "rule\n", "before_hash": null, "after_hash": "sha256:6b79867175a1f0160044a8adb8b1b4f7a7e6f3ef76efeeaa633191f1f6c83d7d", "status": "changed"},
+    {"path": ".codex/hooks.json", "artifact_type": "hooks", "source_class": "control", "content": "{}\n", "before_hash": null, "after_hash": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356", "status": "changed"},
+    {"path": ".ownhands/sandbox.json", "artifact_type": "sandbox", "source_class": "control", "content": "{}\n", "before_hash": null, "after_hash": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356", "status": "changed"},
+    {"path": ".ownhands/approval.json", "artifact_type": "approval", "source_class": "control", "content": "{}\n", "before_hash": null, "after_hash": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356", "status": "changed"}
+  ],
+  "findings": [],
+  "apply_ready": true,
+  "restore": {"status": "unavailable", "journal_path": null},
+  "realization": {"configured": {"result": "not_run", "basis": "unobserved"}, "loaded": {"result": "not_run", "basis": "unobserved"}, "enforced": {"result": "not_run", "basis": "unobserved"}},
+  "diff_hash": "sha256:20c81ab3541762d37755c5684037b9314cd584c34193bea28bfd2782899ef09b"
+}

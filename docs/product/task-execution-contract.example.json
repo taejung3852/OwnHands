@@ -1,0 +1,22 @@
+{
+  "contract_version": "1.0",
+  "contract_id": "contract:task-example",
+  "task": {"project_id": "project-example", "worktree_id": "worktree-example", "environment_ref": "macos-arm64-python-3.12", "task_id": "task-example", "mode": "managed", "goal": "Review a synthetic profile"},
+  "baseline_ref": "baseline:project-example:v1",
+  "baseline_fingerprint": "sha256:4dbabddfc86bd39ccbe80642e76597ffa2555dc52bcc6b94c18adaff3f6e746c",
+  "overlay_ref": "overlay-example",
+  "instruction_overlay": {"source_refs": []},
+  "control_overlay": {"source_refs": []},
+  "writable_paths": ["src/**"],
+  "protected_targets": [".env", ".git/**"],
+  "permissions": [],
+  "approval_triggers": ["external_effect"],
+  "validation_criteria": ["python -m unittest -v"],
+  "gate_criteria": ["tests_pass"],
+  "gate_status": "ready_for_preview",
+  "unobserved": [],
+  "event_refs": ["event-profile"],
+  "evidence_refs": ["evidence-profile"],
+  "realization": {"configured": {"result": "not_run", "basis": "unobserved"}, "loaded": {"result": "not_run", "basis": "unobserved"}, "enforced": {"result": "not_run", "basis": "unobserved"}},
+  "fingerprint": "sha256:5dedef46a14df7a5bbd3bf024d9ceda2bb2f536a9ce4fcdbfd7672c3068da5bc"
+}

@@ -1,0 +1,1 @@
+{"hooks":[{"event":"after_task","command":"python verify_output.py"}]}

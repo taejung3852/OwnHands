@@ -1,0 +1,1 @@
+{"contract_version":"1.0","tools":[{"name":"inspect_hwpx","input":"local .hwpx path","output":"package inventory"},{"name":"write_hwpx","input":"validated document model","output":"local .hwpx path"}]}

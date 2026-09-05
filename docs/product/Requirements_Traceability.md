@@ -7,10 +7,10 @@
 | 사람의 이해·검토·판단 병목 감소 | Design Rationale, Dashboard | M0-01 기준선 | M5, M6 | Blocked by Evidence |
 | Dashboard와 Control 동등성 | 전체 | M0-01, ADR-0006 | M1~M5 | M0 Verified · M1 #10~#15 merged/Verified |
 | Managed / Imported Task | Control, Dashboard | M0-04 machine-readable Claim applicability, ADR-0001/0003 | M1~M3 | ADR Accepted · M3 runtime Probe |
-| Project Baseline / Task Overlay / Contract | Control | M0-03 validation semantics | M2 | Blocked by Evidence |
+| Project Baseline / Task Overlay / Contract | Control | M0-03 validation semantics | M2 | M2 #25~#28 구현 후보 · 검토 전 |
 | Context Placement / Task Harness Manifest | 전체 | ADR-0002/0005, M1.5 #16/#17 | M1.5, M2 | ADR-0009 Accepted · 사용자 사전 위임에 따른 에이전트 결정 |
-| Context Lint / Applicability Gate | Control | M1.5 #18/#19 deterministic Probe | M1.5, M2 | M1.5 검증됨 · Production Compiler는 M2 범위 |
-| Config·AGENTS·Rules·Hooks·Sandbox·Approval | Control | M0-02, M0-03, ADR-0001/0002 | M2, M3 | ADR Accepted · M3 runtime Probe |
+| Context Lint / Applicability Gate | Control | M1.5 #18/#19 deterministic Probe | M1.5, M2 | M1.5 검증됨 · M2 dry-run Compiler/Lint 후보 · 검토 전 |
+| Config·AGENTS·Rules·Hooks·Sandbox·Approval | Control | M0-02, M0-03, ADR-0001/0002 | M2, M3 | M2 candidate/diff 구현 · Loaded/Enforced는 M3 Unobserved |
 | Configured / Loaded / Enforced 및 Evidence 근거 | 전체 | M0-03, M0-04, ADR-0002/0003 | M1, M3, M5 | ADR Accepted · PR Gate |
 | Canonical Event Log / Projection | Control, Dashboard | M0-02, M0-06, ADR-0004 | M1 | M0 Verified · M1 #11/#13 merged/Verified |
 | Raw Evidence / Redaction / Local-only | 전체 | M0-06, ADR-0004 | M1, M5 | M0 Verified · M1 #12 merged/Verified |
@@ -18,7 +18,7 @@
 | Context Guarantee / Active Context·Controls | Control, Dashboard | M1.5 #20/#21 Matrix·Status 계약 | M1.5, M5 | 9-run 기계 지표 Observed · C 추천 · 사람 지표 Unobserved |
 | Impact / Test Design / Regression Gate | 전체 | ADR-0006, M0-04 | M2, M4 | ADR Accepted · PR Gate |
 | Workspace Restore Point / Worktree 분리 | Control | M0-06 storage boundary | M1, M4 | Blocked by Evidence |
-| Task Review / Feature Validation / Harness Status | Dashboard | ADR-0006 review artifact contract | M1~M5 | M1 최소 review artifact 구현 · M5 UI/UX Gate 유지 |
+| Task Review / Feature Validation / Harness Status | Dashboard | ADR-0006 review artifact contract | M1~M5 | M2 local Preview 후보 · M5 UI/UX Gate 유지 |
 | Brand 색상 방향 | Dashboard, Design Rationale | M0-07 3안·Probe, ADR-0007 Accepted(색상 범위) | M5 | B 색상 방향 승인 |
 | 정보 위계·글쓰기·상호작용·접근성 기반 | Dashboard, Design Rationale | M0-07 참고 시안·Probe | M5 | M5 UI/UX Gate Review |
 | Audit & History | Dashboard | Event/Evidence contracts | M5 | Blocked by Evidence |

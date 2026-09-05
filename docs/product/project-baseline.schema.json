@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ownhands.local/schemas/project-baseline.schema.json",
+  "title": "ownhands Project Baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["baseline_version", "baseline_id", "version", "predecessor_ref", "project_id", "worktree_id", "environment_ref", "profile_ref", "interview_ref", "source_fingerprints", "sources", "commands", "sensitive_paths", "external_services", "hwpx_tool_contract", "unobserved", "event_refs", "evidence_refs", "fingerprint"],
+  "properties": {
+    "baseline_version": {"const": "1.0"},
+    "baseline_id": {"type": "string", "minLength": 1},
+    "version": {"type": "integer", "minimum": 1},
+    "predecessor_ref": {"type": ["string", "null"]},
+    "project_id": {"type": "string", "minLength": 1},
+    "worktree_id": {"type": "string", "minLength": 1},
+    "environment_ref": {"type": "string", "minLength": 1},
+    "profile_ref": {"$ref": "#/$defs/hash"},
+    "interview_ref": {"$ref": "#/$defs/hash"},
+    "source_fingerprints": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}},
+    "sources": {"type": "array", "items": {"$ref": "#/$defs/source"}},
+    "commands": {"type": "array", "items": {"$ref": "#/$defs/command"}},
+    "sensitive_paths": {"type": "array", "items": {"$ref": "#/$defs/sensitivePath"}},
+    "external_services": {"type": "array", "items": {"$ref": "#/$defs/service"}},
+    "hwpx_tool_contract": {"$ref": "#/$defs/hwpx"},
+    "unobserved": {"type": "array", "items": {"$ref": "#/$defs/unobserved"}},
+    "event_refs": {"$ref": "#/$defs/refs"},
+    "evidence_refs": {"$ref": "#/$defs/refs"},
+    "fingerprint": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "check": {"type": "object", "additionalProperties": false, "required": ["result", "basis", "evidence_refs"], "properties": {"result": {"enum": ["pass", "not_run"]}, "basis": {"enum": ["observed", "unobserved"]}, "evidence_refs": {"$ref": "#/$defs/refs"}}},
+    "source": {"type": "object", "additionalProperties": false, "required": ["source_id", "source_type", "path", "content_hash", "scope", "freshness", "realization"], "properties": {"source_id": {"type": "string", "minLength": 1}, "source_type": {"enum": ["agents_instruction", "project_contract", "project_manifest", "codex_config", "rule", "hook", "hwpx_tool_contract", "external_service_declaration"]}, "path": {"type": "string", "minLength": 1}, "content_hash": {"$ref": "#/$defs/hash"}, "scope": {"type": "string", "minLength": 1}, "freshness": {"type": "object", "additionalProperties": false, "required": ["status", "basis", "checked_at"], "properties": {"status": {"const": "current"}, "basis": {"const": "observed"}, "checked_at": {"type": "string", "format": "date-time"}}}, "realization": {"type": "object", "additionalProperties": false, "required": ["configured", "loaded", "enforced"], "properties": {"configured": {"$ref": "#/$defs/check"}, "loaded": {"$ref": "#/$defs/check"}, "enforced": {"$ref": "#/$defs/check"}}}}},
+    "command": {"type": "object", "additionalProperties": false, "required": ["kind", "command", "source_ref"], "properties": {"kind": {"type": "string", "minLength": 1}, "command": {"type": "string", "minLength": 1}, "source_ref": {"type": "string", "minLength": 1}}},
+    "sensitivePath": {"type": "object", "additionalProperties": false, "required": ["path", "basis", "value_exposed"], "properties": {"path": {"type": "string", "minLength": 1}, "basis": {"const": "observed"}, "value_exposed": {"const": false}}},
+    "service": {"type": "object", "additionalProperties": false, "required": ["name", "purpose", "endpoint_host"], "properties": {"name": {"type": "string"}, "purpose": {"type": "string"}, "endpoint_host": {"type": "string"}}},
+    "tool": {"type": "object", "additionalProperties": false, "required": ["name", "input", "output"], "properties": {"name": {"type": "string"}, "input": {"type": "string"}, "output": {"type": "string"}}},
+    "hwpx": {"oneOf": [{"type": "object", "additionalProperties": false, "required": ["basis", "tools", "source_ref"], "properties": {"basis": {"const": "observed"}, "tools": {"type": "array", "items": {"$ref": "#/$defs/tool"}}, "source_ref": {"type": "string"}}}, {"type": "object", "additionalProperties": false, "required": ["basis", "tools", "reason"], "properties": {"basis": {"const": "unobserved"}, "tools": {"type": "array", "maxItems": 0}, "reason": {"type": "string"}}}]},
+    "unobserved": {"type": "object", "additionalProperties": false, "required": ["path", "basis", "reason"], "properties": {"path": {"type": "string"}, "basis": {"const": "unobserved"}, "reason": {"type": "string"}}}
+  }
+}
