@@ -290,8 +290,7 @@ def run_app_server(
                 "capabilities": {"experimentalApi": False},
             },
         )
-        if initialize.get("userAgent") != f"codex-cli/{config.codex_version}":
-            raise AppServerError("Codex version mismatch in initialize response")
+        _required_text(initialize.get("userAgent"), "initialize userAgent")
         response_record("initialize", initialize)
         transport.send({"jsonrpc": "2.0", "method": "initialized", "params": {}})
 

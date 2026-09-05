@@ -211,17 +211,36 @@ class AppServerAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(AppServerError, "response error"):
             run_app_server(CONFIG, transport_factory(transport), lambda _record: None, decline)
 
-    def test_initialize_response_must_match_the_configured_codex_version(self) -> None:
+    def test_initialize_accepts_a_nonempty_opaque_upstream_user_agent(self) -> None:
         messages = success_messages()
-        messages[0]["result"]["userAgent"] = "codex-cli/9.9.9"
+        messages[0]["result"]["userAgent"] = "codex-app-server/opaque-upstream-build"
 
-        with self.assertRaisesRegex(AppServerError, "Codex version mismatch"):
-            run_app_server(
-                CONFIG,
-                transport_factory(FakeTransport(messages)),
-                lambda _record: None,
-                decline,
-            )
+        run = run_app_server(
+            CONFIG,
+            transport_factory(FakeTransport(messages)),
+            lambda _record: None,
+            decline,
+        )
+
+        self.assertEqual("completed", run.terminal_status)
+
+    def test_initialize_rejects_missing_empty_or_non_string_user_agent(self) -> None:
+        for user_agent in (None, "", 1533):
+            messages = success_messages()
+            if user_agent is None:
+                messages[0]["result"].pop("userAgent")
+            else:
+                messages[0]["result"]["userAgent"] = user_agent
+
+            with self.subTest(user_agent=user_agent), self.assertRaisesRegex(
+                AppServerError, "userAgent"
+            ):
+                run_app_server(
+                    CONFIG,
+                    transport_factory(FakeTransport(messages)),
+                    lambda _record: None,
+                    decline,
+                )
 
     def test_process_exit_before_terminal_turn_is_rejected(self) -> None:
         transport = FakeTransport([], exit_code=17)
