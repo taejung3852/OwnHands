@@ -1,7 +1,7 @@
 {
   "base_commit": "f2a1dd332258c01007c3c4d61d53a84f26fedd74",
   "branch": "m4/assurance-pipeline",
-  "contract_fingerprint": "sha256:dc8b51e0f03dea9c8aeb433710cf4da7c59dd06b0c82bc7c41f5575e2aaceffe",
+  "contract_fingerprint": "sha256:e07c0f7af5b4b052a25fe2193b54d56bd8250a790cd819457152429c96875f0e",
   "contract_id": "contract:ownhands-m4-actual",
   "gaps": {
     "count": 0,
@@ -18,7 +18,7 @@
     ]
   },
   "impact": {
-    "changed_path_count": 18,
+    "changed_path_count": 19,
     "claims_complete_dependency_analysis": false,
     "exclusions": [
       "external_services",
@@ -28,16 +28,16 @@
       "untracked_content"
     ],
     "protected_target_changes": [],
-    "relation_count": 4,
+    "relation_count": 5,
     "unobserved": [
       "dynamic_runtime_relationships"
     ]
   },
-  "observed_at": "2026-09-06T16:00:00+09:00",
+  "observed_at": "2026-09-06T18:30:00+09:00",
   "packet": {
-    "fingerprint": "sha256:a0086076246eee35c2b991a20a1fbd00687a36b4d8e4f880a63c0a863b91425a",
-    "input_fingerprint": "sha256:e678bcb593a2746b1779ca409f406b28abaac18001dfb63f33d9f3e90be8421b",
-    "local_path": "/tmp/ownhands-m4-actual-packet-5ce66a9.json",
+    "fingerprint": "sha256:75c801fdadf4a430a531e0e84d18f29b50006ec81568e7e93fe1ae0cdcebdff0",
+    "input_fingerprint": "sha256:97f51738bb9df218b9616e0db8bc64d1da653e0dbd44643db0ce95645613ed22",
+    "local_path": "/tmp/ownhands-m4-actual-packet-455337a.json",
     "raw_evidence_committed": false
   },
   "restore": {
@@ -52,10 +52,10 @@
     "source_worktree_unchanged": true,
     "start_commit": "f2a1dd332258c01007c3c4d61d53a84f26fedd74",
     "start_patch_hash": "sha256:e2ed69d76c3ecae3feefd433bdc896976111f4947e1e52e1d5918c6accf6c7f5",
-    "target_patch_hash": "sha256:4619904541f6f67c10db3d3848d874847379e21021a049dcf06cec5218fc6b9e"
+    "target_patch_hash": "sha256:07729180a34496476e86e4024162a1bf02a1552460bb60997970e6e841cf14a3"
   },
   "summary_version": "1.0",
-  "target_commit": "5ce66a9487fcd1e14d7d7202f2bce22082caf876",
+  "target_commit": "455337a9023524f090e0b4abd208d2c06276cc8c",
   "tests": {
     "after": {
       "test:compile": "pass",
@@ -75,9 +75,9 @@
       "test:compile": "comparable_pass",
       "test:diff-check": "comparable_pass",
       "test:full-regression": "comparable_pass",
-      "test:m4-focused": "comparable_pass",
-      "test:schema": "comparable_pass"
+      "test:m4-focused": "fixed_failure",
+      "test:schema": "fixed_failure"
     },
-    "environment_fingerprint": "sha256:421efc144425626d1f82c9184df60bce3fb37d02e57d0d09627bac94d27583e0"
+    "environment_fingerprint": "sha256:933ceb6a1dfa3d02f323ec7c0fdb5aa615788937ac2eb8e625c218088813a11f"
   }
 }
