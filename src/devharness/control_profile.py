@@ -439,20 +439,59 @@ def _atomic_write(path: Path, content: str) -> None:
             temporary.unlink()
 
 
-def apply_candidate(compiled: dict, root: Path | str, approval: dict) -> dict:
-    root = Path(root).resolve()
-    if not (root / ".ownhands-disposable").is_file():
+JOURNAL_NAME = ".ownhands-rollback-journal.json"
+
+
+def _disposable_root(root: Path | str) -> Path:
+    resolved = Path(root).resolve()
+    marker = resolved / ".ownhands-disposable"
+    if not marker.is_file() or marker.is_symlink():
         raise ControlProfileError("apply is restricted to a marked disposable tree")
+    return resolved
+
+
+def _contained_target(root: Path, relative_path: object) -> Path:
+    if not isinstance(relative_path, str) or not relative_path or relative_path == "." or "\\" in relative_path:
+        raise ControlProfileError("artifact path must be contained under the disposable root")
+    raw_parts = relative_path.split("/")
+    candidate = Path(relative_path)
+    if candidate.is_absolute() or any(part in {"", ".", ".."} for part in raw_parts):
+        raise ControlProfileError("artifact path must be contained under the disposable root")
+    target = root.joinpath(*candidate.parts)
+    current = root
+    for index, part in enumerate(candidate.parts):
+        current = current / part
+        if current.is_symlink():
+            raise ControlProfileError("artifact path contains a symlink")
+        if index < len(candidate.parts) - 1 and current.exists() and not current.is_dir():
+            raise ControlProfileError("artifact parent must be a directory")
+    if not target.resolve(strict=False).is_relative_to(root):
+        raise ControlProfileError("artifact path must be contained under the disposable root")
+    return target
+
+
+def apply_candidate(compiled: dict, root: Path | str, approval: dict) -> dict:
+    root = _disposable_root(root)
     if approval.get("decision") != "approved" or approval.get("decision_source") != "explicit_product_approval" or approval.get("contract_ref") != compiled.get("contract_ref"):
         raise ControlProfileError("apply requires explicit product approval for this contract")
     if not compiled.get("apply_ready"):
         raise ControlProfileError("compiler findings block apply")
-    journal_path = root / ".ownhands-rollback-journal.json"
-    if journal_path.exists():
+    journal_path = _contained_target(root, JOURNAL_NAME)
+    if journal_path.exists() or journal_path.is_symlink():
         raise ControlProfileError("an apply journal already exists")
     entries = []
+    targets: set[Path] = set()
     for artifact in compiled["artifacts"]:
-        path = root / artifact["path"]
+        path = _contained_target(root, artifact.get("path"))
+        if path == journal_path:
+            raise ControlProfileError("artifact target conflicts with the apply journal")
+        if path in targets:
+            raise ControlProfileError("artifact targets must be unique")
+        targets.add(path)
+        if path.exists() and not path.is_file():
+            raise ControlProfileError("artifact target must be a regular file")
+        if not isinstance(artifact.get("content"), str) or _hash(artifact["content"].encode("utf-8")) != artifact.get("after_hash"):
+            raise ControlProfileError("artifact content hash is invalid")
         before = path.read_bytes() if path.exists() else None
         actual_hash = _hash(before) if before is not None else None
         if actual_hash != artifact["before_hash"]:
@@ -466,7 +505,8 @@ def apply_candidate(compiled: dict, root: Path | str, approval: dict) -> dict:
     journal = {"journal_version": "1.0", "contract_ref": compiled["contract_ref"], "diff_hash": compiled["diff_hash"], "status": "prepared", "entries": entries}
     _atomic_write(journal_path, json.dumps(journal, ensure_ascii=False, indent=2) + "\n")
     for artifact in compiled["artifacts"]:
-        _atomic_write(root / artifact["path"], artifact["content"])
+        path = _contained_target(root, artifact["path"])
+        _atomic_write(path, artifact["content"])
     verified = all(_hash((root / item["path"]).read_bytes()) == item["after_hash"] for item in entries)
     if not verified:
         raise ControlProfileError("applied artifact hash verification failed")
@@ -476,23 +516,47 @@ def apply_candidate(compiled: dict, root: Path | str, approval: dict) -> dict:
 
 
 def rollback_candidate(root: Path | str, journal_path: Path | str) -> dict:
-    root = Path(root).resolve()
-    journal_path = Path(journal_path).resolve()
-    if journal_path.parent != root:
-        raise ControlProfileError("rollback journal is outside the disposable tree")
+    root = _disposable_root(root)
+    expected_journal = root / JOURNAL_NAME
+    supplied_journal = Path(journal_path)
+    if not supplied_journal.is_absolute() or supplied_journal != expected_journal:
+        raise ControlProfileError("rollback requires the expected journal")
+    journal_path = _contained_target(root, JOURNAL_NAME)
+    if journal_path.is_symlink() or not journal_path.is_file():
+        raise ControlProfileError("rollback requires the expected journal")
     journal = json.loads(journal_path.read_text(encoding="utf-8"))
     if journal.get("status") != "applied":
         raise ControlProfileError("journal is not in applied state")
+    restorations = []
+    targets: set[Path] = set()
     for entry in journal["entries"]:
-        path = root / entry["path"]
-        if not path.exists() or _hash(path.read_bytes()) != entry["after_hash"]:
+        path = _contained_target(root, entry.get("path"))
+        if path in targets:
+            raise ControlProfileError("rollback targets must be unique")
+        targets.add(path)
+        if not path.is_file() or _hash(path.read_bytes()) != entry.get("after_hash"):
             raise ControlProfileError(f"rollback target changed after apply: {entry['path']}")
-    for entry in journal["entries"]:
-        path = root / entry["path"]
-        if entry["before_content"] is None:
+        before_content = entry.get("before_content")
+        if before_content is None:
+            restored = None
+        else:
+            try:
+                restored = base64.b64decode(before_content, validate=True)
+            except (TypeError, ValueError) as error:
+                raise ControlProfileError("rollback journal content is invalid") from error
+            if _hash(restored) != entry.get("before_hash"):
+                raise ControlProfileError("rollback journal before hash is invalid")
+            try:
+                restored = restored.decode("utf-8")
+            except UnicodeDecodeError as error:
+                raise ControlProfileError("rollback journal content is not UTF-8") from error
+        restorations.append((entry, path, restored))
+    for entry, path, restored in restorations:
+        path = _contained_target(root, entry["path"])
+        if restored is None:
             path.unlink()
         else:
-            _atomic_write(path, base64.b64decode(entry["before_content"]).decode("utf-8"))
+            _atomic_write(path, restored)
     verified = all(
         (not (root / item["path"]).exists() if item["before_hash"] is None else _hash((root / item["path"]).read_bytes()) == item["before_hash"])
         for item in journal["entries"]

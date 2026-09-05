@@ -261,6 +261,78 @@ class ControlProfileLifecycleTests(unittest.TestCase):
             with self.assertRaisesRegex(ControlProfileError, "stale diff"):
                 apply_candidate(compiled, project, approval)
 
+    def test_apply_rejects_escape_and_symlink_parent_before_any_write(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = self.copy_fixture(root)
+            (project / ".ownhands-disposable").write_text("fixture")
+            contract = self.contract(project)
+            existing = {str(path.relative_to(project)): path.read_text() for path in project.rglob("*") if path.is_file()}
+            compiled = compile_control_profile(contract, existing)
+            approval = {"decision_source": "explicit_product_approval", "decision": "approved", "contract_ref": contract["contract_id"]}
+            original_agents = (project / "AGENTS.md").read_text()
+            malicious = copy.deepcopy(compiled["artifacts"][-1])
+            malicious["path"] = "../outside.txt"
+            malicious["before_hash"] = None
+            compiled["artifacts"].append(malicious)
+            with self.assertRaisesRegex(ControlProfileError, "contained"):
+                apply_candidate(compiled, project, approval)
+            self.assertFalse((root / "outside.txt").exists())
+            self.assertEqual(original_agents, (project / "AGENTS.md").read_text())
+            self.assertFalse((project / ".ownhands-rollback-journal.json").exists())
+
+            for invalid_path in ("", ".", "/tmp/ownhands-absolute-escape", "nested/../escape.txt"):
+                invalid = compile_control_profile(contract, existing)
+                malicious = copy.deepcopy(invalid["artifacts"][-1])
+                malicious["path"] = invalid_path
+                malicious["before_hash"] = None
+                invalid["artifacts"].append(malicious)
+                with self.subTest(path=invalid_path), self.assertRaisesRegex(ControlProfileError, "contained"):
+                    apply_candidate(invalid, project, approval)
+
+            compiled = compile_control_profile(contract, existing)
+            outside_directory = root / "outside"
+            outside_directory.mkdir()
+            try:
+                (project / ".escape").symlink_to(outside_directory, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"symlinks unavailable: {error}")
+            malicious = copy.deepcopy(compiled["artifacts"][-1])
+            malicious["path"] = ".escape/pwned.txt"
+            malicious["before_hash"] = None
+            compiled["artifacts"].append(malicious)
+            with self.assertRaisesRegex(ControlProfileError, "symlink"):
+                apply_candidate(compiled, project, approval)
+            self.assertFalse((outside_directory / "pwned.txt").exists())
+
+    def test_rollback_rejects_alternate_journal_and_tampered_escape_before_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = self.copy_fixture(root)
+            (project / ".ownhands-disposable").write_text("fixture")
+            contract = self.contract(project)
+            existing = {str(path.relative_to(project)): path.read_text() for path in project.rglob("*") if path.is_file()}
+            compiled = compile_control_profile(contract, existing)
+            approval = {"decision_source": "explicit_product_approval", "decision": "approved", "contract_ref": contract["contract_id"]}
+            application = apply_candidate(compiled, project, approval)
+            journal_path = Path(application["journal_path"])
+            alternate = project / "alternate-journal.json"
+            alternate.write_bytes(journal_path.read_bytes())
+            with self.assertRaisesRegex(ControlProfileError, "expected journal"):
+                rollback_candidate(project, alternate)
+
+            journal = json.loads(journal_path.read_text())
+            escaped = journal["entries"][-1]
+            escaped["path"] = "../outside.txt"
+            outside = root / "outside.txt"
+            outside.write_text(compiled["artifacts"][-1]["content"])
+            journal_path.write_text(json.dumps(journal))
+            applied_agents = (project / "AGENTS.md").read_text()
+            with self.assertRaisesRegex(ControlProfileError, "contained"):
+                rollback_candidate(project, journal_path)
+            self.assertEqual(compiled["artifacts"][-1]["content"], outside.read_text())
+            self.assertEqual(applied_agents, (project / "AGENTS.md").read_text())
+
     def test_preview_escapes_data_has_semantic_structure_and_rejects_broken_evidence_or_stale_diff(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             project = self.copy_fixture(Path(temporary))

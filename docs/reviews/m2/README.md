@@ -37,6 +37,16 @@ Changing REQUIREMENTS.md returned fresh instead of stale.
 Ran 1 test; FAILED (failures=1).
 ```
 
+Bounded #29 path-containment RED:
+
+```text
+Ran 2 tests in 0.012s
+FAILED (failures=2)
+apply accepted ../outside.txt and rollback accepted an alternate/tampered journal path
+```
+
+The fix validates every artifact and journal entry before the first write, rejects absolute/empty/dot/parent paths and symlink components, and accepts only the exact in-root rollback journal.
+
 ## Contracts and adversarial coverage
 
 - Profiler output is deterministic and read-only; it records source hashes, scope and freshness while sensitive files expose names only. Symlinks and unsupported formats are Unobserved.
