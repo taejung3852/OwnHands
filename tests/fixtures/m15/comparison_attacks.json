@@ -1,0 +1,12 @@
+[
+  {"name": "eight runs", "expected": "rejected"},
+  {"name": "fourth repetition", "expected": "rejected"},
+  {"name": "changed model", "expected": "rejected"},
+  {"name": "changed effort", "expected": "rejected"},
+  {"name": "changed prompt", "expected": "rejected"},
+  {"name": "changed commit", "expected": "rejected"},
+  {"name": "changed environment", "expected": "rejected"},
+  {"name": "changed deterministic control", "expected": "rejected"},
+  {"name": "invented token count with unobserved basis", "expected": "rejected"},
+  {"name": "human time without reviewer record", "expected": "rejected"}
+]

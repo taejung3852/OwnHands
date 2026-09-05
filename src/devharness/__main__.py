@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
+from .context_architecture import (
+    ContextArchitectureError,
+    build_comparison_plan,
+    lint_context,
+)
 from .review import run_m1_demo
 
 
@@ -26,6 +32,16 @@ def main() -> int:
         type=Path,
         default=Path("docs/product/guarantee-matrix.v1.json"),
     )
+    comparison = subparsers.add_parser(
+        "m15-comparison-plan", help="render the fixed M1.5 nine-run plan"
+    )
+    comparison.add_argument("--package", type=Path, required=True)
+    comparison.add_argument("--target-commit", required=True)
+    lint = subparsers.add_parser(
+        "m15-context-lint", help="lint declared context sources without modifying them"
+    )
+    lint.add_argument("--root", type=Path, required=True)
+    lint.add_argument("--sources", type=Path, required=True)
     arguments = parser.parse_args()
 
     if arguments.command == "m1-demo":
@@ -41,6 +57,19 @@ def main() -> int:
         print(f"review={result.output_path}")
         print(f"fresh={str(result.freshness.is_fresh).lower()}")
         return 0
+    try:
+        if arguments.command == "m15-comparison-plan":
+            package = json.loads(arguments.package.read_text(encoding="utf-8"))
+            plan = build_comparison_plan(package, arguments.target_commit)
+            print(json.dumps(plan, ensure_ascii=False, indent=2))
+            return 0
+        if arguments.command == "m15-context-lint":
+            sources = json.loads(arguments.sources.read_text(encoding="utf-8"))
+            report = lint_context(arguments.root, sources)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+    except (ContextArchitectureError, json.JSONDecodeError, OSError) as error:
+        parser.error(str(error))
     return 2
 
 

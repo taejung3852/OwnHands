@@ -1,0 +1,15 @@
+[
+  {"name": "duplicate", "rule_id": "duplicate_instruction", "mutation": "copy one normalized instruction into a second declared source"},
+  {"name": "conflict", "rule_id": "conflicting_instruction", "mutation": "change one declared key assignment to another value"},
+  {"name": "stale reference", "rule_id": "stale_reference", "mutation": "reference a missing repository path"},
+  {"name": "router collision", "rule_id": "router_collision", "mutation": "give ownhands and Superpowers routers the same skill name and trigger"},
+  {"name": "task always loaded", "rule_id": "task_instruction_always_loaded", "mutation": "place task scope in always_loaded"},
+  {"name": "control repetition", "rule_id": "deterministic_control_restatement", "mutation": "declare a natural-language duplicate of a Rule"},
+  {"name": "broad wording", "rule_id": "broad_universal_wording", "mutation": "insert Always or all tasks"},
+  {"name": "large inventory", "rule_id": "oversized_repository_inventory", "mutation": "declare more than ten static files"},
+  {"name": "missing command", "rule_id": "missing_command_reference", "mutation": "declare an executable absent from the lint environment"},
+  {"name": "missing Skill", "rule_id": "missing_skill_reference", "mutation": "route to an undeclared Skill source"},
+  {"name": "stale code description", "rule_id": "stale_code_description", "mutation": "declare a symbol absent from the referenced source file"},
+  {"name": "unused Skill", "rule_id": "uninvoked_skill", "mutation": "declare that a Task-applicable Skill was not invoked"},
+  {"name": "opaque dynamic input", "expected_basis": "unobserved", "mutation": "declare an unsupported file format"}
+]

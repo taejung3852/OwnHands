@@ -1,0 +1,47 @@
+{
+  "package_version": "1.0",
+  "package_id": "m15-context-comparison-001",
+  "fixture": {
+    "fixture_id": "context-placement-review-001",
+    "path": "tests/fixtures/m15/comparison_project",
+    "task": "Inspect the fixture, make the smallest change that satisfies REQUIREMENTS.md, run its specified tests, and return the required JSON result."
+  },
+  "fixed_conditions": {
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "prompt": "Inspect the fixture, make the smallest change that satisfies REQUIREMENTS.md, run its specified tests, and return the required JSON result.",
+    "environment": {
+      "client": "codex-cli 0.153.3",
+      "os": "macos-arm64",
+      "python": "3.12",
+      "locale": "ko-KR"
+    },
+    "controls": {
+      "sandbox": "workspace-write",
+      "approval_policy": "never",
+      "rules": "ignored with --ignore-rules",
+      "hooks": "disabled with --ignore-user-config and no fixture .codex layer",
+      "network": "disabled",
+      "other_deterministic_controls": "unchanged"
+    }
+  },
+  "conditions": {
+    "A": {"label": "no additional context", "context_sources": []},
+    "B": {"label": "minimal AGENTS.md", "context_sources": ["fixtures/condition-b/AGENTS.md"]},
+    "C": {"label": "manual ownhands context profile", "context_sources": ["fixtures/condition-c/AGENTS.md", "fixtures/condition-c/task-reference.md"]}
+  },
+  "repetitions": 3,
+  "crossover_order": ["A", "B", "C", "C", "A", "B", "B", "C", "A"],
+  "metrics": [
+    "requirements_met",
+    "tests_passed",
+    "instruction_violations",
+    "out_of_scope_changes",
+    "tool_calls",
+    "elapsed_seconds",
+    "input_tokens",
+    "output_tokens",
+    "human_understanding",
+    "human_review_seconds"
+  ]
+}

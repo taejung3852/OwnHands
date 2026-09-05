@@ -1,0 +1,52 @@
+{
+  "manifest_version": "1.0",
+  "manifest_id": "manifest-managed-m15-example",
+  "task": {
+    "project_id": "project-ownhands",
+    "worktree_id": "worktree-m15",
+    "task_id": "task-m15-context",
+    "mode": "managed",
+    "target_commit": "93ffcbef6c0b76ba8a7d4c12f70cfc11a9528f0c",
+    "cwd": "/fixture/own-hands",
+    "environment_ref": "macos-arm64-codex-cli-0.153.3"
+  },
+  "context_sources": [
+    {
+      "source_id": "context-root-agents",
+      "source_type": "agents_instruction",
+      "locator": {"kind": "repository_path", "value": "AGENTS.md"},
+      "content_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "git:93ffcbef",
+      "scope": {"kind": "project", "value": "repository root"},
+      "freshness": {"status": "current", "basis": "observed", "checked_at": "2026-09-05T00:00:00+00:00", "evidence_refs": ["evidence-context-hash"]},
+      "applicability": {"decision": "add_for_task", "basis": "observed", "reason": "project guidance applies to the managed task", "evidence_refs": ["evidence-applicability-gate"]},
+      "realization": {
+        "configured": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence-context-hash"], "inference_from": [], "checked_at": "2026-09-05T00:00:00+00:00", "exact_scope": "AGENTS.md", "residual_risks": ["file presence does not prove loading"]},
+        "loaded": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence-context-loaded"], "inference_from": [], "checked_at": "2026-09-05T00:01:00+00:00", "exact_scope": "task-m15-context run", "residual_risks": ["loading does not prove instruction compliance or improvement"]},
+        "enforced": {"result": "not_applicable", "basis": "observed", "evidence_refs": ["evidence-context-kind"], "inference_from": [], "checked_at": "2026-09-05T00:00:00+00:00", "exact_scope": "instruction context", "residual_risks": ["instructions are not deterministic execution controls"]}
+      }
+    }
+  ],
+  "control_sources": [
+    {
+      "source_id": "control-sandbox",
+      "source_type": "sandbox",
+      "locator": {"kind": "runtime_id", "value": "sandbox:workspace-write"},
+      "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "version": "codex-cli-0.153.3",
+      "scope": {"kind": "boundary", "value": "fixture workspace"},
+      "freshness": {"status": "current", "basis": "observed", "checked_at": "2026-09-05T00:00:00+00:00", "evidence_refs": ["evidence-control-config"]},
+      "applicability": {"decision": "maintain", "basis": "observed", "reason": "deterministic safety control remains active", "evidence_refs": ["evidence-applicability-gate"]},
+      "realization": {
+        "configured": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence-control-config"], "inference_from": [], "checked_at": "2026-09-05T00:00:00+00:00", "exact_scope": "fixture workspace", "residual_risks": ["configuration alone does not prove enforcement"]},
+        "loaded": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence-control-loaded"], "inference_from": [], "checked_at": "2026-09-05T00:01:00+00:00", "exact_scope": "task-m15-context run", "residual_risks": ["loaded policy still requires a boundary probe"]},
+        "enforced": {"result": "pass", "basis": "observed", "evidence_refs": ["evidence-sandbox-probe"], "inference_from": [], "checked_at": "2026-09-05T00:02:00+00:00", "exact_scope": "write outside fixture workspace", "residual_risks": ["unprobed boundaries remain unobserved"]}
+      }
+    }
+  ],
+  "instruction_overlay": {"source_refs": ["context-root-agents"], "skill_invocations": [], "excluded_source_refs": []},
+  "control_overlay": {"source_refs": ["control-sandbox"], "immutable_source_refs": ["control-sandbox"]},
+  "event_refs": ["event-applicability-gate"],
+  "evidence_refs": ["evidence-context-hash", "evidence-applicability-gate", "evidence-context-loaded", "evidence-context-kind", "evidence-control-config", "evidence-control-loaded", "evidence-sandbox-probe"],
+  "generated_at": "2026-09-05T00:03:00+00:00"
+}

@@ -1,0 +1,11 @@
+[
+  {"trigger": "task_start", "expected": "evaluate"},
+  {"trigger": "scope_expansion", "expected": "invalidate and evaluate"},
+  {"trigger": "phase_transition", "expected": "invalidate and evaluate"},
+  {"trigger": "external_effect_or_permission_added", "expected": "invalidate and evaluate"},
+  {"trigger": "before_completion_claim", "expected": "evaluate"},
+  {"trigger": "every_step", "expected": "rejected"},
+  {"change": "none", "expected": "cache hit"},
+  {"change": "source content_hash", "expected": "cache invalidation"},
+  {"change": "deterministic control exclusion", "expected": "rejected"}
+]
