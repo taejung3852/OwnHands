@@ -104,47 +104,87 @@ def record_task_decision(
 ) -> EventRecord:
     selected_decision = _member(decision, DECISIONS, "decision")
     selected_gate = _member(gate_decision, GATE_DECISIONS, "gate_decision")
-    if selected_gate == "hard_block" and selected_decision in {
-        "accept",
-        "risk_acceptance",
-    }:
-        raise ValueError("Hard Block cannot be accepted or risk accepted")
     source = _text(decision_source, "decision_source")
     risks = _references(residual_risks, "residual_risks")
-    if selected_decision == "risk_acceptance" and (
-        selected_gate != "soft_block"
-        or source != "product_authority"
-        or not risks
-    ):
-        raise ValueError(
-            "risk acceptance requires a Soft Block, product authority, and residual risk"
-        )
-    return events.append(
-        EventDraft(
-            event_id=_text(event_id, "event_id"),
-            task_id=_text(task_id, "task_id"),
-            event_type="task.decision.recorded",
-            event_version=1,
-            occurred_at=_text(occurred_at, "occurred_at"),
-            payload={
-                "assurance_packet_fingerprint": _fingerprint(
-                    assurance_packet_fingerprint,
-                    "assurance_packet_fingerprint",
-                ),
-                "gate_fingerprint": _fingerprint(
-                    gate_fingerprint, "gate_fingerprint"
-                ),
-                "gate_decision": selected_gate,
-                "decision": selected_decision,
-                "decision_source": source,
-                "actor_ref": _text(actor_ref, "actor_ref"),
-                "reason": _text(reason, "reason"),
-                "residual_risks": risks,
-                "follow_up": _text(follow_up, "follow_up"),
-                "evidence_refs": _references(evidence_refs, "evidence_refs"),
-            },
-            collection_method="dashboard-decision-form",
-            redaction_status="redacted",
-        ),
-        lambda payload: payload,
+    task_id = _text(task_id, "task_id")
+    packet_fingerprint = _fingerprint(
+        assurance_packet_fingerprint,
+        "assurance_packet_fingerprint",
     )
+    gate_fingerprint = _fingerprint(gate_fingerprint, "gate_fingerprint")
+    draft = EventDraft(
+        event_id=_text(event_id, "event_id"),
+        task_id=task_id,
+        event_type="task.decision.recorded",
+        event_version=1,
+        occurred_at=_text(occurred_at, "occurred_at"),
+        payload={
+            "assurance_packet_fingerprint": packet_fingerprint,
+            "gate_fingerprint": gate_fingerprint,
+            "gate_decision": selected_gate,
+            "decision": selected_decision,
+            "decision_source": source,
+            "actor_ref": _text(actor_ref, "actor_ref"),
+            "reason": _text(reason, "reason"),
+            "residual_risks": risks,
+            "follow_up": _text(follow_up, "follow_up"),
+            "evidence_refs": _references(evidence_refs, "evidence_refs"),
+        },
+        collection_method="dashboard-decision-form",
+        redaction_status="redacted",
+    )
+    with events.catalog.transaction() as connection:
+        task_events = events.list_for_task(task_id)
+        existing = next(
+            (event for event in task_events if event.event_id == draft.event_id), None
+        )
+        existing_record = None
+        if existing is not None:
+            existing_record = events.append_in_transaction(
+                draft, lambda payload: payload, connection
+            )
+        assurance_events = [
+            event
+            for event in task_events
+            if event.event_type == "assurance.evaluated"
+            and (existing is None or event.sequence < existing.sequence)
+        ]
+        if not assurance_events:
+            raise ValueError("Decision requires the latest Assurance reference")
+        latest = assurance_events[-1]
+        expected_fields = {
+            "packet_fingerprint",
+            "gate_fingerprint",
+            "gate_decision",
+            "evidence_refs",
+        }
+        if latest.event_version != 1 or set(latest.payload) != expected_fields:
+            raise ValueError("latest Assurance reference is invalid")
+        authoritative = (
+            _fingerprint(latest.payload["packet_fingerprint"], "packet_fingerprint"),
+            _fingerprint(latest.payload["gate_fingerprint"], "gate_fingerprint"),
+            _member(
+                latest.payload["gate_decision"], GATE_DECISIONS, "gate_decision"
+            ),
+        )
+        requested = (packet_fingerprint, gate_fingerprint, selected_gate)
+        if requested != authoritative:
+            raise ValueError(
+                "Decision must reference the latest Assurance packet and Gate"
+            )
+        if authoritative[2] == "hard_block" and selected_decision in {
+            "accept",
+            "risk_acceptance",
+        }:
+            raise ValueError("Hard Block cannot be accepted or risk accepted")
+        if selected_decision == "risk_acceptance" and (
+            authoritative[2] != "soft_block"
+            or source != "product_authority"
+            or not risks
+        ):
+            raise ValueError(
+                "risk acceptance requires a Soft Block, product authority, and residual risk"
+            )
+        if existing_record is not None:
+            return existing_record
+        return events.append_in_transaction(draft, lambda payload: payload, connection)

@@ -30,6 +30,7 @@ _SECRET_KEY_FRAGMENTS = (
     "secret",
     "token",
 )
+_OPAQUE_IDENTIFIER_NAMESPACES = {"evidence", "subject", "task"}
 
 
 def private_atomic_write(path: Path, content: bytes | str) -> None:
@@ -61,7 +62,9 @@ def mask_dashboard_text(value: str, *, private_roots: Sequence[Path]) -> str:
         reverse=True,
     )
     for root in roots:
-        masked = masked.replace(root, "[private-root]")
+        masked = re.sub(
+            rf"{re.escape(root)}(?=$|[/\\])", "[private-root]", masked
+        )
     return masked
 
 
@@ -102,6 +105,7 @@ def require_opaque_identifier(value: str, name: str) -> str:
     if not isinstance(value, str) or not value:
         raise ValueError(f"{name} must be a non-empty opaque identifier")
     decoded = unquote(value)
+    scheme = re.match(r"^([A-Za-z][A-Za-z0-9+.-]*):", decoded)
     if (
         decoded != value
         or any(character.isspace() for character in decoded)
@@ -110,8 +114,9 @@ def require_opaque_identifier(value: str, name: str) -> str:
         or "\\" in decoded
         or ".." in decoded
         or "://" in decoded
-        or re.match(
-            r"(?i)^(?:data|file|ftp|http|https|javascript):", decoded
+        or (
+            scheme is not None
+            and scheme.group(1) not in _OPAQUE_IDENTIFIER_NAMESPACES
         )
     ):
         raise ValueError(f"{name} must be an opaque identifier")

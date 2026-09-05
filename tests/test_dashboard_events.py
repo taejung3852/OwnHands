@@ -144,7 +144,29 @@ class DashboardEventTests(unittest.TestCase):
                 **self.assurance_values(gate_decision="pass"),
             )
 
+    def test_existing_decision_remains_idempotent_against_its_preceding_assurance(self) -> None:
+        record_assurance_reference(self.events, **self.assurance_values())
+        first = record_task_decision(self.events, **self.decision_values())
+        record_assurance_reference(
+            self.events,
+            **self.assurance_values(
+                event_id="event:assurance:2",
+                packet_fingerprint=PACKET_B,
+                gate_fingerprint=GATE_B,
+                gate_decision="pass",
+            ),
+        )
+
+        repeated = record_task_decision(self.events, **self.decision_values())
+
+        self.assertEqual(first, repeated)
+        self.assertEqual(4, self.events.head_sequence(self.task.task_id))
+
     def test_hard_block_cannot_be_accepted_or_risk_accepted(self) -> None:
+        record_assurance_reference(
+            self.events,
+            **self.assurance_values(gate_decision="hard_block"),
+        )
         for decision in ("accept", "risk_acceptance"):
             with self.subTest(decision=decision), self.assertRaisesRegex(
                 ValueError, "Hard Block"
@@ -180,7 +202,7 @@ class DashboardEventTests(unittest.TestCase):
         self.assertEqual(2, status.projected_sequence)
         self.assertIn("unsupported event", status.last_error)
 
-    def test_decision_must_reference_the_latest_assurance_packet_and_gate(self) -> None:
+    def test_decision_command_rejects_each_stale_assurance_identity_before_append(self) -> None:
         record_assurance_reference(self.events, **self.assurance_values())
         record_assurance_reference(
             self.events,
@@ -191,13 +213,55 @@ class DashboardEventTests(unittest.TestCase):
                 gate_decision="pass",
             ),
         )
-        record_task_decision(self.events, **self.decision_values())
+        attacks = (
+            {"assurance_packet_fingerprint": PACKET_A},
+            {
+                "assurance_packet_fingerprint": PACKET_B,
+                "gate_fingerprint": GATE_A,
+                "gate_decision": "pass",
+            },
+            {
+                "assurance_packet_fingerprint": PACKET_B,
+                "gate_fingerprint": GATE_B,
+                "gate_decision": "soft_block",
+            },
+        )
+        for attack in attacks:
+            values = {
+                "assurance_packet_fingerprint": PACKET_B,
+                "gate_fingerprint": GATE_B,
+                "gate_decision": "pass",
+            }
+            values.update(attack)
+            with self.subTest(attack=attack), self.assertRaisesRegex(
+                ValueError, "latest Assurance"
+            ):
+                record_task_decision(
+                    self.events,
+                    **self.decision_values(**values),
+                )
+            self.assertEqual(3, self.events.head_sequence(self.task.task_id))
 
-        status = self.projections.project(self.task.task_id)
+    def test_forged_pass_cannot_append_acceptance_after_latest_hard_block(self) -> None:
+        record_assurance_reference(
+            self.events,
+            **self.assurance_values(gate_decision="hard_block"),
+        )
 
-        self.assertEqual("failed", status.state)
-        self.assertEqual(3, status.projected_sequence)
-        self.assertIn("latest Assurance", status.last_error)
+        with self.assertRaisesRegex(ValueError, "latest Assurance|Hard Block"):
+            record_task_decision(
+                self.events,
+                **self.decision_values(
+                    gate_decision="pass",
+                    decision="accept",
+                ),
+            )
+
+        self.assertEqual(2, self.events.head_sequence(self.task.task_id))
+        self.assertEqual(
+            ["task.created", "assurance.evaluated"],
+            [event.event_type for event in self.events.list_for_task(self.task.task_id)],
+        )
 
 
 if __name__ == "__main__":

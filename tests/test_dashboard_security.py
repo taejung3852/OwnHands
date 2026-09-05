@@ -61,6 +61,13 @@ class DashboardSecurityTests(unittest.TestCase):
                 private_roots=(private_root,),
             ),
         )
+        self.assertEqual(
+            "open /Users/example/worktree-copy/review.html",
+            mask_dashboard_text(
+                "open /Users/example/worktree-copy/review.html",
+                private_roots=(private_root,),
+            ),
+        )
 
     def test_opaque_identifiers_reject_path_url_and_whitespace_syntax(self) -> None:
         invalid = (
@@ -72,6 +79,10 @@ class DashboardSecurityTests(unittest.TestCase):
             "task\x00child",
             "file:///tmp/task",
             "https:remote-task",
+            "mailto:target",
+            "blob:payload",
+            "about:blank",
+            "custom+scheme:payload",
             "task child",
             " task",
         )
