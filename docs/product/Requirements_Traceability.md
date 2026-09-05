@@ -6,12 +6,12 @@
 |---|---|---|---|---|
 | 사람의 이해·검토·판단 병목 감소 | Design Rationale, Dashboard | M0-01 기준선 | M5, M6 | Blocked by Evidence |
 | Dashboard와 Control 동등성 | 전체 | M0-01, ADR-0006 | M1~M5 | M0 Verified · M1 #10~#15 merged/Verified |
-| Managed / Imported Task | Control, Dashboard | M0-04 machine-readable Claim applicability, ADR-0001/0003 | M1~M3 | ADR Accepted · M3 runtime Probe |
+| Managed / Imported Task | Control, Dashboard | M0-04 machine-readable Claim applicability, ADR-0001/0003 | M1~M3 | M3 계약 구현 · seven authorized one-shot claims without terminal runtime Evidence · Blocked |
 | Project Baseline / Task Overlay / Contract | Control | M0-03 validation semantics | M2 | M2 #25~#28 구현 후보 · 검토 전 |
 | Context Placement / Task Harness Manifest | 전체 | ADR-0002/0005, M1.5 #16/#17 | M1.5, M2 | ADR-0009 Accepted · 사용자 사전 위임에 따른 에이전트 결정 |
 | Context Lint / Applicability Gate | Control | M1.5 #18/#19 deterministic Probe | M1.5, M2 | M1.5 검증됨 · M2 dry-run Compiler/Lint 후보 · 검토 전 |
-| Config·AGENTS·Rules·Hooks·Sandbox·Approval | Control | M0-02, M0-03, ADR-0001/0002 | M2, M3 | M2 candidate/diff 구현 · Loaded/Enforced는 M3 Unobserved |
-| Configured / Loaded / Enforced 및 Evidence 근거 | 전체 | M0-03, M0-04, ADR-0002/0003 | M1, M3, M5 | ADR Accepted · PR Gate |
+| Config·AGENTS·Rules·Hooks·Sandbox·Approval | Control | M0-02, M0-03, ADR-0001/0002 | M2, M3 | fake orchestration 검증 · 7번째 live claim에서 approval request/decline/resolution/terminal item 관찰 · `turn/completed`와 별도 sandbox-denial Evidence 부족으로 전체 Loaded/Enforced Unobserved |
+| Configured / Loaded / Enforced 및 Evidence 근거 | 전체 | M0-03, M0-04, ADR-0002/0003 | M1, M3, M5 | 독립 상태/basis packet 구현 · live Evidence 부족으로 M3 Blocked |
 | Canonical Event Log / Projection | Control, Dashboard | M0-02, M0-06, ADR-0004 | M1 | M0 Verified · M1 #11/#13 merged/Verified |
 | Raw Evidence / Redaction / Local-only | 전체 | M0-06, ADR-0004 | M1, M5 | M0 Verified · M1 #12 merged/Verified |
 | Guarantee Matrix / Task Guarantee Report | 전체 | M0-04, ADR-0003 | M1, M5 | M0 Verified · M1 #14 merged/Verified |
@@ -29,3 +29,5 @@
 | Codex 외 Adapter | 전체 | Core/Adapter 경계 | M8 | Deferred |
 
 GitHub 상위 추적 Issue: <https://github.com/taejung3852/own-hands/issues/7>
+
+M3의 committed example은 sanitization과 schema fixture이며 runtime 성공 Evidence가 아니다. 단 한 번의 disposable live probe가 실패·중단되면 그대로 최종 결과로 보존하고 M3 Gate를 차단한다. 사람의 Desktop workflow 마찰은 `not_run / unobserved`이며 [issue #38](https://github.com/taejung3852/own-hands/issues/38)에서 추적한다.

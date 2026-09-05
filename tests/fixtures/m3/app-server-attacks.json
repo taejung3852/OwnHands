@@ -1,0 +1,34 @@
+{
+  "malformed_json": {
+    "lines": ["{not-json"],
+    "exit_code": 0
+  },
+  "duplicate_response_id": {
+    "lines": [
+      {"jsonrpc":"2.0","id":1,"result":{"codexHome":"/fixture/codex-home","platformFamily":"unix","platformOs":"macos","userAgent":"codex-cli/0.153.3"}},
+      {"jsonrpc":"2.0","id":1,"result":{} }
+    ],
+    "exit_code": 0
+  },
+  "response_error": {
+    "lines": [
+      {"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"fixture failure"}}
+    ],
+    "exit_code": 1
+  },
+  "cross_thread": {
+    "approval_overrides": {"threadId":"thread-foreign"}
+  },
+  "cross_turn": {
+    "approval_overrides": {"turnId":"turn-foreign"}
+  },
+  "cross_item": {
+    "approval_overrides": {"itemId":"item-foreign"}
+  },
+  "unknown_terminal_state": {
+    "terminal_overrides": {"status":"inProgress"}
+  },
+  "terminal_item_mismatch": {
+    "terminal_item_overrides": {"status":"completed"}
+  }
+}

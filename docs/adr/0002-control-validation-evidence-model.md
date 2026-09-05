@@ -64,3 +64,9 @@ Append-only source는 개별 observation/evaluation record이며, 위 구조는 
 ## Approval record
 
 2026-09-04 사용자가 제안안을 승인했다. 함께 승인된 OD-09에 따라 repository-specific runtime 집행 Probe는 M3 Hard Evidence Gate로 이관한다. 이 승인은 PR 검증·병합 전 M0 완료 주장이나 M1 구현 시작을 허가하지 않는다.
+
+## M3 implementation note
+
+M3 review schema는 각 Control의 `configured`, `loaded`, `enforced` check와 각 check의 `observed`, `inferred`, `unobserved` basis를 계속 별도 필드로 유지한다. Event/Evidence closure, protocol/version, Task/thread identity, instruction load, sandbox denial, approval request/decline/resolution/terminal chain, restore receipt가 독립적으로 재검산되며 누락은 Gate 차단이다.
+
+Fake transport의 pass는 live Gate를 충족하지 않는다. Imported Task의 과거 Control check는 모두 `not_run / unobserved`이고, 사람의 workflow 마찰도 [issue #38](https://github.com/taejung3852/own-hands/issues/38)의 직접 관찰 전까지 같은 상태다.

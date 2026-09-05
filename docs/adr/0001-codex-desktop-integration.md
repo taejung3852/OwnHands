@@ -52,3 +52,9 @@ Hooks, project config, AGENTS.md는 Managed Task의 보완 Evidence source다. C
 ## Approval record
 
 2026-09-04 사용자가 제안안을 승인했다. 함께 승인된 OD-09에 따라 task runtime·집행 Probe는 M3 Hard Evidence Gate로 이관한다. 이 승인은 PR 검증·병합 전 M0 완료 주장이나 M1 구현 시작을 허가하지 않는다.
+
+## M3 implementation note
+
+M3 adapter는 새 disposable Managed Task만 시작하고 normalized Event hash를 수집하도록 구현했다. Imported 경로는 제공된 현재 snapshot/diff/직접 실행 test receipt만 받으며 Desktop Task를 열거나 resume하지 않는다. Review packet은 raw thread/turn ID, prompt, command output, 외부 private path와 임의 config 값을 제외한다.
+
+구현 중 실제 App Server는 시작하지 않았다. committed fixture는 orchestration/sanitization Evidence일 뿐 live runtime Evidence가 아니며 Gate는 `blocked / unobserved`다. 최종 운영자가 explicit `--live`로 실행하는 단 한 번의 fresh disposable probe만 Hard Evidence 후보가 되고, 실패·timeout·중단도 재시도 없이 그 결과를 보존한다.
