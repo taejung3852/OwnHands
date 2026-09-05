@@ -22,6 +22,7 @@ _APPROVAL_DECISIONS = {
     "cancel",
 }
 _TERMINAL_TURN_STATUSES = {"completed", "interrupted", "failed"}
+_MAX_PENDING_MESSAGES = 128
 
 
 class AppServerError(RuntimeError):
@@ -210,6 +211,9 @@ def run_app_server(
     instruction_sources: list[str] = []
     active_items: set[str] = set()
     approvals: dict[int | str, dict[str, object]] = {}
+    pending_messages: list[dict] = []
+    thread_started_seen = False
+    turn_started_seen = False
     failed = True
 
     def emit(record: AppServerRecord) -> None:
@@ -246,20 +250,26 @@ def run_app_server(
                 "params": params,
             }
         )
-        message = receive_message()
-        response_id = message.get("id")
-        if response_id in seen_response_ids:
-            raise AppServerError(f"duplicate response id: {response_id!r}")
-        if response_id != request_id or "method" in message:
-            raise AppServerError(
-                f"response id mismatch for {method}: expected {request_id!r}"
-            )
-        seen_response_ids.add(response_id)
-        if "error" in message:
-            raise AppServerError(f"App Server response error for {method}")
-        return _required_dict(message.get("result"), f"{method} result") | {
-            "_message": message
-        }
+        while True:
+            message = receive_message()
+            if "method" in message:
+                if len(pending_messages) >= _MAX_PENDING_MESSAGES:
+                    raise AppServerError("App Server pending message overflow")
+                pending_messages.append(message)
+                continue
+            response_id = message.get("id")
+            if response_id in seen_response_ids:
+                raise AppServerError(f"duplicate response id: {response_id!r}")
+            if response_id != request_id:
+                raise AppServerError(
+                    f"response id mismatch for {method}: expected {request_id!r}"
+                )
+            seen_response_ids.add(response_id)
+            if "error" in message:
+                raise AppServerError(f"App Server response error for {method}")
+            return _required_dict(message.get("result"), f"{method} result") | {
+                "_message": message
+            }
 
     def response_record(
         method: str,
@@ -282,6 +292,249 @@ def run_app_server(
             )
         )
 
+    def dispatch(message: dict) -> str | None:
+        nonlocal thread_started_seen, turn_started_seen
+        if "id" in message and "method" not in message:
+            response_id = message.get("id")
+            if response_id in seen_response_ids:
+                raise AppServerError(f"duplicate response id: {response_id!r}")
+            raise AppServerError(f"unexpected response id: {response_id!r}")
+
+        method = _required_text(message.get("method"), "message method")
+        params = _required_dict(message.get("params"), f"{method} params")
+
+        if method in _APPROVAL_METHODS:
+            request_id = message.get("id")
+            if not isinstance(request_id, (int, str)) or isinstance(
+                request_id, bool
+            ):
+                raise AppServerError("approval request id is invalid")
+            if request_id in approvals:
+                raise AppServerError("duplicate approval request id")
+            approval_thread = params.get("threadId")
+            approval_turn = params.get("turnId")
+            approval_item = params.get("itemId")
+            if (
+                approval_thread != thread_id
+                or approval_turn != turn_id
+                or approval_item not in active_items
+            ):
+                raise AppServerError("approval scope does not match active item")
+            item_id = _required_text(approval_item, "approval item id")
+            request_record = AppServerRecord(
+                kind="approval_request",
+                method=method,
+                request_id=request_id,
+                thread_id=thread_id,
+                turn_id=turn_id,
+                item_id=item_id,
+                payload_hash=_payload_hash(message),
+            )
+            emit(request_record)
+            decision = approval_handler(request_record)
+            if decision not in _APPROVAL_DECISIONS:
+                raise AppServerError("approval decision is invalid")
+            decision_message = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {"decision": decision},
+            }
+            transport.send(decision_message)
+            approvals[request_id] = {
+                "method": method,
+                "item_id": item_id,
+                "decision": decision,
+                "resolved": False,
+                "terminal_status": None,
+            }
+            emit(
+                AppServerRecord(
+                    kind="approval_decision",
+                    method=method,
+                    request_id=request_id,
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    item_id=item_id,
+                    decision=decision,
+                    payload_hash=_payload_hash(decision_message),
+                )
+            )
+            return None
+
+        if "id" in message:
+            raise AppServerError(f"unsupported server request: {method}")
+
+        if method == "thread/started":
+            started_thread = _required_dict(
+                params.get("thread"), "thread/started thread"
+            )
+            if started_thread.get("id") != thread_id:
+                raise AppServerError("thread/started thread scope mismatch")
+            if thread_started_seen:
+                raise AppServerError("duplicate thread/started")
+            thread_started_seen = True
+            emit(
+                AppServerRecord(
+                    kind="notification",
+                    method=method,
+                    thread_id=thread_id,
+                    payload_hash=_payload_hash(message),
+                )
+            )
+            return None
+
+        message_thread = params.get("threadId")
+        if message_thread is not None and message_thread != thread_id:
+            raise AppServerError(f"{method} thread scope mismatch")
+        message_turn = params.get("turnId")
+        if message_turn is not None and message_turn != turn_id:
+            raise AppServerError(f"{method} turn scope mismatch")
+
+        if method == "turn/started":
+            started_turn = _required_dict(params.get("turn"), "turn/started turn")
+            if started_turn.get("id") != turn_id:
+                raise AppServerError("turn/started turn scope mismatch")
+            if turn_started_seen:
+                raise AppServerError("duplicate turn/started")
+            turn_started_seen = True
+            status = _required_text(started_turn.get("status"), "turn status")
+            emit(
+                AppServerRecord(
+                    kind="notification",
+                    method=method,
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    status=status,
+                    payload_hash=_payload_hash(message),
+                )
+            )
+            return None
+
+        if method in {"item/started", "item/completed"}:
+            item = _required_dict(params.get("item"), f"{method} item")
+            item_id = _required_text(item.get("id"), f"{method} item id")
+            item_type = _required_text(item.get("type"), f"{method} item type")
+            status_value = item.get("status")
+            status = status_value if isinstance(status_value, str) else None
+            if method == "item/started":
+                active_items.add(item_id)
+            else:
+                for approval in approvals.values():
+                    if approval["item_id"] == item_id:
+                        approval["terminal_status"] = status
+            emit(
+                AppServerRecord(
+                    kind="notification",
+                    method=method,
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    item_id=item_id,
+                    item_type=item_type,
+                    status=status,
+                    payload_hash=_payload_hash(message),
+                )
+            )
+            return None
+
+        if method == "serverRequest/resolved":
+            resolved_id = params.get("requestId")
+            approval = approvals.get(resolved_id)
+            if approval is None or params.get("threadId") != thread_id:
+                raise AppServerError("serverRequest/resolved scope mismatch")
+            if approval["resolved"]:
+                raise AppServerError("duplicate serverRequest/resolved")
+            approval["resolved"] = True
+            emit(
+                AppServerRecord(
+                    kind="notification",
+                    method=method,
+                    request_id=resolved_id,
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    item_id=str(approval["item_id"]),
+                    status="resolved",
+                    decision=str(approval["decision"]),
+                    payload_hash=_payload_hash(message),
+                )
+            )
+            return None
+
+        if method == "turn/completed":
+            completed_turn = _required_dict(
+                params.get("turn"), "turn/completed turn"
+            )
+            if completed_turn.get("id") != turn_id:
+                raise AppServerError("turn/completed turn scope mismatch")
+            terminal_status = completed_turn.get("status")
+            if terminal_status not in _TERMINAL_TURN_STATUSES:
+                raise AppServerError(
+                    f"unknown terminal state: {terminal_status!r}"
+                )
+            terminal_items = completed_turn.get("items")
+            if not isinstance(terminal_items, list):
+                raise AppServerError("turn/completed items must be an array")
+            terminal_by_id = {
+                item.get("id"): item
+                for item in terminal_items
+                if isinstance(item, dict) and isinstance(item.get("id"), str)
+            }
+            for approval in approvals.values():
+                if not approval["resolved"]:
+                    raise AppServerError("approval missing serverRequest/resolved")
+                item = terminal_by_id.get(approval["item_id"])
+                if (
+                    item is None
+                    or approval["terminal_status"] is None
+                    or item.get("status") != approval["terminal_status"]
+                ):
+                    raise AppServerError("terminal item mismatch for approval")
+            emit(
+                AppServerRecord(
+                    kind="notification",
+                    method=method,
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    status=terminal_status,
+                    payload_hash=_payload_hash(message),
+                )
+            )
+            return str(terminal_status)
+
+        emit(
+            AppServerRecord(
+                kind="notification",
+                method=method,
+                thread_id=thread_id,
+                turn_id=turn_id,
+                payload_hash=_payload_hash(message),
+            )
+        )
+        return None
+
+    def drain_pending() -> str | None:
+        while pending_messages:
+            terminal_status = dispatch(pending_messages.pop(0))
+            if terminal_status is not None:
+                if pending_messages:
+                    raise AppServerError("message received after terminal turn")
+                return terminal_status
+        return None
+
+    def completed_run(terminal_status: str) -> AppServerRun:
+        nonlocal failed
+        if thread_id is None or turn_id is None:
+            raise AppServerError("terminal turn completed before identity closure")
+        failed = False
+        return AppServerRun(
+            records=records,
+            thread_id=thread_id,
+            turn_id=turn_id,
+            terminal_status=terminal_status,
+            instruction_sources=instruction_sources,
+            codex_version=config.codex_version,
+            protocol_fingerprint=config.protocol_fingerprint,
+        )
+
     try:
         initialize = request(
             "initialize",
@@ -291,7 +544,10 @@ def run_app_server(
             },
         )
         _required_text(initialize.get("userAgent"), "initialize userAgent")
+        terminal_status = drain_pending()
         response_record("initialize", initialize)
+        if terminal_status is not None:
+            return completed_run(terminal_status)
         transport.send({"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
         thread_start = request(
@@ -312,7 +568,10 @@ def run_app_server(
         ):
             raise AppServerError("instructionSources must be a string array")
         instruction_sources = list(raw_sources)
+        terminal_status = drain_pending()
         response_record("thread/start", thread_start, scoped_thread_id=thread_id)
+        if terminal_status is not None:
+            return completed_run(terminal_status)
 
         turn_start = request(
             "turn/start",
@@ -325,6 +584,7 @@ def run_app_server(
         turn = _required_dict(turn_start.get("turn"), "turn/start turn")
         turn_id = _required_text(turn.get("id"), "turn/start turn id")
         turn_status = _required_text(turn.get("status"), "turn/start turn status")
+        terminal_status = drain_pending()
         response_record(
             "turn/start",
             turn_start,
@@ -332,213 +592,14 @@ def run_app_server(
             scoped_turn_id=turn_id,
             status=turn_status,
         )
+        if terminal_status is not None:
+            return completed_run(terminal_status)
 
         while True:
             message = receive_message()
-            if "id" in message and "method" not in message:
-                response_id = message.get("id")
-                if response_id in seen_response_ids:
-                    raise AppServerError(f"duplicate response id: {response_id!r}")
-                raise AppServerError(f"unexpected response id: {response_id!r}")
-
-            method = _required_text(message.get("method"), "message method")
-            params = _required_dict(message.get("params"), f"{method} params")
-
-            if method in _APPROVAL_METHODS:
-                request_id = message.get("id")
-                if not isinstance(request_id, (int, str)) or isinstance(
-                    request_id, bool
-                ):
-                    raise AppServerError("approval request id is invalid")
-                if request_id in approvals:
-                    raise AppServerError("duplicate approval request id")
-                approval_thread = params.get("threadId")
-                approval_turn = params.get("turnId")
-                approval_item = params.get("itemId")
-                if (
-                    approval_thread != thread_id
-                    or approval_turn != turn_id
-                    or approval_item not in active_items
-                ):
-                    raise AppServerError("approval scope does not match active item")
-                item_id = _required_text(approval_item, "approval item id")
-                request_record = AppServerRecord(
-                    kind="approval_request",
-                    method=method,
-                    request_id=request_id,
-                    thread_id=thread_id,
-                    turn_id=turn_id,
-                    item_id=item_id,
-                    payload_hash=_payload_hash(message),
-                )
-                emit(request_record)
-                decision = approval_handler(request_record)
-                if decision not in _APPROVAL_DECISIONS:
-                    raise AppServerError("approval decision is invalid")
-                decision_message = {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "result": {"decision": decision},
-                }
-                transport.send(decision_message)
-                approvals[request_id] = {
-                    "method": method,
-                    "item_id": item_id,
-                    "decision": decision,
-                    "resolved": False,
-                    "terminal_status": None,
-                }
-                emit(
-                    AppServerRecord(
-                        kind="approval_decision",
-                        method=method,
-                        request_id=request_id,
-                        thread_id=thread_id,
-                        turn_id=turn_id,
-                        item_id=item_id,
-                        decision=decision,
-                        payload_hash=_payload_hash(decision_message),
-                    )
-                )
-                continue
-
-            if "id" in message:
-                raise AppServerError(f"unsupported server request: {method}")
-
-            message_thread = params.get("threadId")
-            if message_thread is not None and message_thread != thread_id:
-                raise AppServerError(f"{method} thread scope mismatch")
-            message_turn = params.get("turnId")
-            if message_turn is not None and message_turn != turn_id:
-                raise AppServerError(f"{method} turn scope mismatch")
-
-            if method == "turn/started":
-                started_turn = _required_dict(params.get("turn"), "turn/started turn")
-                if started_turn.get("id") != turn_id:
-                    raise AppServerError("turn/started turn scope mismatch")
-                status = _required_text(started_turn.get("status"), "turn status")
-                emit(
-                    AppServerRecord(
-                        kind="notification",
-                        method=method,
-                        thread_id=thread_id,
-                        turn_id=turn_id,
-                        status=status,
-                        payload_hash=_payload_hash(message),
-                    )
-                )
-                continue
-
-            if method in {"item/started", "item/completed"}:
-                item = _required_dict(params.get("item"), f"{method} item")
-                item_id = _required_text(item.get("id"), f"{method} item id")
-                item_type = _required_text(item.get("type"), f"{method} item type")
-                status_value = item.get("status")
-                status = status_value if isinstance(status_value, str) else None
-                if method == "item/started":
-                    active_items.add(item_id)
-                else:
-                    for approval in approvals.values():
-                        if approval["item_id"] == item_id:
-                            approval["terminal_status"] = status
-                emit(
-                    AppServerRecord(
-                        kind="notification",
-                        method=method,
-                        thread_id=thread_id,
-                        turn_id=turn_id,
-                        item_id=item_id,
-                        item_type=item_type,
-                        status=status,
-                        payload_hash=_payload_hash(message),
-                    )
-                )
-                continue
-
-            if method == "serverRequest/resolved":
-                resolved_id = params.get("requestId")
-                approval = approvals.get(resolved_id)
-                if approval is None or params.get("threadId") != thread_id:
-                    raise AppServerError("serverRequest/resolved scope mismatch")
-                if approval["resolved"]:
-                    raise AppServerError("duplicate serverRequest/resolved")
-                approval["resolved"] = True
-                emit(
-                    AppServerRecord(
-                        kind="notification",
-                        method=method,
-                        request_id=resolved_id,
-                        thread_id=thread_id,
-                        turn_id=turn_id,
-                        item_id=str(approval["item_id"]),
-                        status="resolved",
-                        decision=str(approval["decision"]),
-                        payload_hash=_payload_hash(message),
-                    )
-                )
-                continue
-
-            if method == "turn/completed":
-                completed_turn = _required_dict(
-                    params.get("turn"), "turn/completed turn"
-                )
-                if completed_turn.get("id") != turn_id:
-                    raise AppServerError("turn/completed turn scope mismatch")
-                terminal_status = completed_turn.get("status")
-                if terminal_status not in _TERMINAL_TURN_STATUSES:
-                    raise AppServerError(
-                        f"unknown terminal state: {terminal_status!r}"
-                    )
-                terminal_items = completed_turn.get("items")
-                if not isinstance(terminal_items, list):
-                    raise AppServerError("turn/completed items must be an array")
-                terminal_by_id = {
-                    item.get("id"): item
-                    for item in terminal_items
-                    if isinstance(item, dict) and isinstance(item.get("id"), str)
-                }
-                for approval in approvals.values():
-                    if not approval["resolved"]:
-                        raise AppServerError(
-                            "approval missing serverRequest/resolved"
-                        )
-                    item = terminal_by_id.get(approval["item_id"])
-                    if (
-                        item is None
-                        or approval["terminal_status"] is None
-                        or item.get("status") != approval["terminal_status"]
-                    ):
-                        raise AppServerError("terminal item mismatch for approval")
-                emit(
-                    AppServerRecord(
-                        kind="notification",
-                        method=method,
-                        thread_id=thread_id,
-                        turn_id=turn_id,
-                        status=terminal_status,
-                        payload_hash=_payload_hash(message),
-                    )
-                )
-                failed = False
-                return AppServerRun(
-                    records=records,
-                    thread_id=thread_id,
-                    turn_id=turn_id,
-                    terminal_status=terminal_status,
-                    instruction_sources=instruction_sources,
-                    codex_version=config.codex_version,
-                    protocol_fingerprint=config.protocol_fingerprint,
-                )
-
-            emit(
-                AppServerRecord(
-                    kind="notification",
-                    method=method,
-                    thread_id=thread_id,
-                    turn_id=turn_id,
-                    payload_hash=_payload_hash(message),
-                )
-            )
+            terminal_status = dispatch(message)
+            if terminal_status is not None:
+                return completed_run(terminal_status)
     finally:
         if failed:
             try:

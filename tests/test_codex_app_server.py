@@ -78,6 +78,140 @@ def decline(_record) -> str:
 
 
 class AppServerAdapterTests(unittest.TestCase):
+    def test_thread_started_notification_may_precede_thread_start_response(self) -> None:
+        messages = success_messages()
+        thread_started = {
+            "method": "thread/started",
+            "params": {"thread": copy.deepcopy(messages[1]["result"]["thread"])},
+        }
+        messages.insert(1, thread_started)
+        records = []
+
+        run = run_app_server(
+            CONFIG, transport_factory(FakeTransport(messages)), records.append, decline
+        )
+
+        self.assertEqual("completed", run.terminal_status)
+        self.assertEqual(
+            ["thread/started", "thread/start", "turn/start"],
+            [record.method for record in records[1:4]],
+        )
+
+    def test_turn_started_notification_may_precede_turn_start_response(self) -> None:
+        messages = success_messages()
+        turn_started = messages.pop(3)
+        messages.insert(2, turn_started)
+        records = []
+
+        run = run_app_server(
+            CONFIG, transport_factory(FakeTransport(messages)), records.append, decline
+        )
+
+        self.assertEqual("completed", run.terminal_status)
+        self.assertEqual(
+            ["turn/started", "turn/start", "item/started"],
+            [record.method for record in records[2:5]],
+        )
+
+    def test_item_and_approval_messages_may_precede_turn_start_response_in_order(self) -> None:
+        messages = success_messages()
+        queued = messages[3:6]
+        del messages[3:6]
+        messages[2:2] = queued
+        records = []
+        transport = FakeTransport(messages)
+
+        run = run_app_server(
+            CONFIG, transport_factory(transport), records.append, decline
+        )
+
+        self.assertEqual("completed", run.terminal_status)
+        self.assertEqual(
+            ["turn/started", "item/started", "item/commandExecution/requestApproval", "item/commandExecution/requestApproval", "turn/start"],
+            [record.method for record in records[2:7]],
+        )
+        self.assertEqual("decline", transport.sent[-1]["result"]["decision"])
+
+    def test_queued_thread_started_requires_exact_scope_and_is_not_duplicated(self) -> None:
+        base = success_messages()
+        valid = {"method": "thread/started", "params": {"thread": copy.deepcopy(base[1]["result"]["thread"])}}
+        foreign = copy.deepcopy(valid)
+        foreign["params"]["thread"]["id"] = "thread-foreign"
+        attacks = (([foreign], "scope mismatch"), ([valid, copy.deepcopy(valid)], "duplicate"))
+
+        for queued, expected in attacks:
+            with self.subTest(expected=expected), self.assertRaisesRegex(AppServerError, expected):
+                messages = success_messages()
+                messages[1:1] = queued
+                run_app_server(CONFIG, transport_factory(FakeTransport(messages)), lambda _record: None, decline)
+
+    def test_queued_notification_does_not_hide_wrong_response_id(self) -> None:
+        messages = success_messages()
+        queued = {"method": "thread/started", "params": {"thread": copy.deepcopy(messages[1]["result"]["thread"])}}
+        messages.insert(1, queued)
+        messages[2]["id"] = 99
+        records = []
+
+        with self.assertRaisesRegex(AppServerError, "response id mismatch"):
+            run_app_server(CONFIG, transport_factory(FakeTransport(messages)), records.append, decline)
+
+        self.assertNotIn("thread/started", [record.method for record in records])
+
+    def test_pending_message_timeout_and_overflow_fail_closed(self) -> None:
+        thread = copy.deepcopy(success_messages()[1]["result"]["thread"])
+        queued = {"method": "thread/started", "params": {"thread": thread}}
+
+        class TimeoutAfterQueue(FakeTransport):
+            def receive(self, timeout_seconds: float) -> str | None:
+                if self.lines:
+                    return super().receive(timeout_seconds)
+                raise TimeoutError("fixture timeout")
+
+        with self.assertRaisesRegex(AppServerError, "timeout"):
+            run_app_server(
+                CONFIG,
+                transport_factory(TimeoutAfterQueue([success_messages()[0], queued])),
+                lambda _record: None,
+                decline,
+            )
+
+        overflow = [success_messages()[0]] + [
+            {"method": "thread/status/changed", "params": {}} for _ in range(129)
+        ]
+        with self.assertRaisesRegex(AppServerError, "overflow"):
+            run_app_server(CONFIG, transport_factory(FakeTransport(overflow)), lambda _record: None, decline)
+
+    def test_queued_terminal_still_requires_complete_approval_chain(self) -> None:
+        messages = success_messages()
+        del messages[6]
+        turn_response = messages[2]
+        messages = messages[:2] + messages[3:] + [turn_response]
+
+        with self.assertRaisesRegex(AppServerError, "serverRequest/resolved"):
+            run_app_server(
+                CONFIG,
+                transport_factory(FakeTransport(messages)),
+                lambda _record: None,
+                decline,
+            )
+
+    def test_queued_terminal_preserves_the_already_read_turn_response(self) -> None:
+        messages = success_messages()
+        turn_response = messages[2]
+        messages = messages[:2] + messages[3:] + [turn_response]
+
+        run = run_app_server(
+            CONFIG,
+            transport_factory(FakeTransport(messages)),
+            lambda _record: None,
+            decline,
+        )
+
+        methods = [record.method for record in run.records]
+        self.assertEqual("turn/completed", methods[-2])
+        self.assertEqual("turn/start", methods[-1])
+        self.assertEqual(1, methods.count("turn/start"))
+
     def test_schema_shaped_messages_without_legacy_jsonrpc_are_accepted(self) -> None:
         messages = success_messages()
         for message in messages:
