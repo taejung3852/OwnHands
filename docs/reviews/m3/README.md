@@ -2,9 +2,9 @@
 
 ## Current status
 
-The fake-transport path verifies orchestration, sanitization, state labels, and reference closure only. It cannot satisfy the M3 runtime Gate. No live App Server was started while this package was implemented; the committed example therefore remains `blocked / unobserved`.
+The M3 runtime Gate is **blocked**. The single live App Server attempt on 2026-09-05 failed during the initial handshake with `AppServerError: App Server returned malformed JSON-RPC`. The raw attempt ledger remains local under `/tmp/ownhands-m3-live-evidence-20260905` with status `failed`; no runtime transcript packet was produced or committed.
 
-The single live probe is reserved for the final operator review. Its result is authoritative whether it passes, fails, times out, or is interrupted. A claimed attempt is never retried for a more favorable outcome.
+The generated Codex CLI 0.153.3 schema showed that current wire messages omit the legacy `jsonrpc` member. Commit `19f8224` corrected the adapter and added schema-shaped regressions, but the one-shot rule forbids rerunning the live probe for a favorable result. Therefore issues #32–#36 still lack their required real runtime Evidence, while #37's fixture-only Imported boundary remains independently testable. The committed example remains `blocked / unobserved` and M4 must not start.
 
 ## Safety boundary
 
@@ -15,9 +15,9 @@ The single live probe is reserved for the final operator review. Its result is a
 - The approval decision is the predetermined `decline`. Missing identity, terminal, sandbox-denial, approval-resolution, Evidence, Event, protocol, or restore linkage blocks the Gate.
 - The committed JSON contains hashes and allowlisted states, never prompts, command output, secret-like configuration, external private paths, raw thread/turn IDs, or transcripts.
 
-## One-shot operator command
+## Historical one-shot operator command
 
-Use Codex CLI 0.153.3, model `gpt-5.6-luna`, and a fresh disposable repository already containing the synthetic M3 config, AGENTS, Rule, and Hook fixture files. Choose a new `/tmp` data root exactly once:
+The following shape documents the consumed attempt; it is not authorization to rerun it. Codex CLI 0.153.3 and model `gpt-5.6-luna` were used with a fresh disposable repository and a new `/tmp` data root:
 
 ```bash
 PYTHONPATH=src uv run --no-project --no-cache --python 3.12 python docs/reviews/m3/run_live_probe.py \
@@ -30,7 +30,7 @@ PYTHONPATH=src uv run --no-project --no-cache --python 3.12 python docs/reviews/
   --live
 ```
 
-Do not remove the attempt ledger and rerun. A non-zero exit or `blocked` packet is the final live result and keeps M3 blocked.
+Do not remove the attempt ledger, create a replacement repository, or rerun. A new live attempt requires an explicit policy/authorization change; until then the recorded non-zero result keeps M3 blocked.
 
 ## Verification
 
