@@ -34,7 +34,7 @@ PYTHONPATH=src uv run --no-project --no-cache --python 3.12 python docs/reviews/
   --live
 ```
 
-Do not remove an attempt ledger, create a replacement repository, or rerun. The seventh one-shot claim is consumed. A new live attempt requires an explicit policy/authorization change; until then the recorded non-zero result keeps M3 blocked.
+Do not remove an attempt ledger, create a replacement repository, or rerun any consumed attempt. The earlier failed attempts remain part of the audit trail, while the separately authorized path-closure run recorded above is the current authoritative M3 Gate result.
 
 ## Verification
 
