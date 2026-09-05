@@ -1,0 +1,26 @@
+{
+  "user_delegation_override": {
+    "decision_source": "user_development_delegation",
+    "decision_scope": {
+      "contract_id": "contract:task-m4",
+      "contract_fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "decision": "soft_block_override"
+    },
+    "approved_by": "project-owner",
+    "approval_ref": "approval:delegation",
+    "reason": "implement the milestone",
+    "residual_risk": "dynamic relations remain unobserved"
+  },
+  "wrong_scope_override": {
+    "decision_source": "explicit_product_approval",
+    "decision_scope": {
+      "contract_id": "contract:other-task",
+      "contract_fingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "decision": "soft_block_override"
+    },
+    "approved_by": "product-owner",
+    "approval_ref": "approval:wrong-scope",
+    "reason": "accept bounded residual risk",
+    "residual_risk": "dynamic relations remain unobserved"
+  }
+}
