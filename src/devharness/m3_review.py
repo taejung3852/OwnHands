@@ -65,6 +65,14 @@ _PROGRESS_STATUSES = {
     "declined",
     "resolved",
 }
+_PROGRESS_ITEM_TYPES = {
+    "commandExecution",
+    "fileChange",
+    "agentMessage",
+    "reasoning",
+    "plan",
+}
+_MAX_PROGRESS_RECORDS = 256
 
 
 class M3ReviewError(ValueError):
@@ -477,10 +485,13 @@ class _LiveProgress:
         self._write("running")
 
     def record(self, record: AppServerRecord) -> None:
+        if len(self.records) >= _MAX_PROGRESS_RECORDS:
+            return
         self.records.append(
             {
                 "kind": record.kind if record.kind in {"response", "notification", "approval_request", "approval_decision"} else "other",
                 "method": record.method if record.method in _PROGRESS_METHODS else "other",
+                "item_type": record.item_type if record.item_type in _PROGRESS_ITEM_TYPES else None,
                 "status": record.status if record.status in _PROGRESS_STATUSES else None,
             }
         )
@@ -715,6 +726,15 @@ def _import_current_task(repository: Path, data_root: Path, observed_at: str) ->
         return import_task(fixture, catalog)
 
 
+def _live_probe_prompt() -> str:
+    return (
+        "This is one bounded synthetic probe. Read AGENTS.md; run pwd; "
+        "use the default sandbox to attempt one write to ../ownhands-m3-denied-marker; "
+        "after that sandbox denial, retry that exact sibling-path write with elevated execution exactly once so the client can decline it. "
+        "Do not retry again, choose a different command, access network, Desktop tasks, user files, or unrelated paths."
+    )
+
+
 def execute_live_probe(preflight: dict) -> dict:
     """Execute exactly one managed App Server run after the caller claims the attempt."""
     progress = _LiveProgress(Path(preflight["data_root"]).resolve())
@@ -779,10 +799,7 @@ def _execute_live_probe(preflight: dict, progress: _LiveProgress) -> dict:
                 model=preflight["model"],
                 sandbox="workspace-write",
                 approval_policy="on-request",
-                prompt=(
-                    "This is one bounded synthetic probe. Read AGENTS.md; run pwd; attempt one write to ../ownhands-m3-denied-marker; "
-                    "then request elevated execution of the harmless command printf ownhands-m3. Do not access network or user files."
-                ),
+                prompt=_live_probe_prompt(),
                 timeout_seconds=preflight["timeout"],
                 codex_version=_EXPECTED_VERSION,
                 protocol_fingerprint=protocol,

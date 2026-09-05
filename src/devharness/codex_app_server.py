@@ -597,6 +597,7 @@ def run_app_server(
                 "threadId": thread_id,
                 "input": [{"type": "text", "text": config.prompt}],
                 "effort": config.reasoning_effort,
+                "approvalPolicy": config.approval_policy,
             },
         )
         turn = _required_dict(turn_start.get("turn"), "turn/start turn")

@@ -325,7 +325,7 @@ class AppServerAdapterTests(unittest.TestCase):
                 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"ownhands","version":"0.153.3"},"capabilities":{"experimentalApi":False}}},
                 {"jsonrpc":"2.0","method":"initialized","params":{}},
                 {"jsonrpc":"2.0","id":2,"method":"thread/start","params":{"cwd":"/fixture","model":"gpt-fixture","sandbox":"workspace-write","approvalPolicy":"on-request","ephemeral":True}},
-                {"jsonrpc":"2.0","id":3,"method":"turn/start","params":{"threadId":"thread-fixture","input":[{"type":"text","text":"fixture prompt"}],"effort":"low"}},
+                {"jsonrpc":"2.0","id":3,"method":"turn/start","params":{"threadId":"thread-fixture","input":[{"type":"text","text":"fixture prompt"}],"effort":"low","approvalPolicy":"on-request"}},
                 {"jsonrpc":"2.0","id":"approval-fixture","result":{"decision":"decline"}},
             ],
             transport.sent,

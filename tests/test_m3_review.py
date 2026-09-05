@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import devharness.m3_review as m3_review
 from devharness.codex_app_server import AppServerRecord
 from devharness.m3_review import (
     M3ReviewError,
@@ -286,10 +287,20 @@ class M3ReviewTests(unittest.TestCase):
                         thread_id="private-thread",
                         turn_id="private-turn",
                         item_id="private-item",
-                        item_type="private-output",
+                        item_type="commandExecution",
                         status="inProgress",
                     )
                 )
+                for _index in range(300):
+                    progress.record(
+                        AppServerRecord(
+                            kind="notification",
+                            method="private-method",
+                            payload_hash="sha256:private-payload",
+                            item_type="private-output",
+                            status="private-status",
+                        )
+                    )
                 raise TimeoutError("private prompt and output")
 
             with patch("devharness.m3_review._execute_live_probe", side_effect=fail_with_partial_progress):
@@ -301,13 +312,23 @@ class M3ReviewTests(unittest.TestCase):
             self.assertEqual("failed", progress["status"])
             self.assertEqual("app_server", progress["stage"])
             self.assertEqual(
-                [{"kind": "notification", "method": "item/started", "status": "inProgress"}],
-                progress["records"],
+                {"kind": "notification", "method": "item/started", "item_type": "commandExecution", "status": "inProgress"},
+                progress["records"][0],
             )
+            self.assertEqual(256, len(progress["records"]))
             self.assertEqual({"schema_version", "status", "stage", "records"}, set(progress))
             rendered = progress_path.read_text()
             for forbidden in ("private prompt", "private-request", "private-thread", "private-turn", "private-item", "private-output", "private-payload"):
                 self.assertNotIn(forbidden, rendered)
+
+    def test_live_probe_uses_the_sandbox_boundary_for_one_approval_request(self) -> None:
+        prompt = m3_review._live_probe_prompt()
+
+        self.assertIn("../ownhands-m3-denied-marker", prompt)
+        self.assertIn("retry that exact sibling-path write with elevated execution", prompt)
+        self.assertIn("client can decline", prompt)
+        self.assertNotIn("printf", prompt)
+        self.assertNotIn("project rule", prompt)
 
 
 if __name__ == "__main__":
