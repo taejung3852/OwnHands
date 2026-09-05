@@ -511,7 +511,46 @@ class ProjectionEngineTests(unittest.TestCase):
 
     def test_nonempty_event_log_requires_task_created_at_sequence_one(self) -> None:
         self.insert_control_reference("control-1")
-        self.append_event("control.validation.recorded", {"record_id": "control-1"})
+        payload_json = '{"record_id":"control-1"}'
+        document = {
+            "event_id": "projection-event-1",
+            "task_id": self.task.task_id,
+            "event_type": "control.validation.recorded",
+            "event_version": 1,
+            "occurred_at": "2026-09-04T12:00:01+00:00",
+            "payload": {"record_id": "control-1"},
+            "collection_method": "projection-test",
+            "redaction_status": "not_needed",
+            "sequence": 1,
+        }
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                document,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        self.catalog.connection.execute(
+            """
+            INSERT INTO events(
+                event_id, task_id, sequence, event_type, event_version,
+                occurred_at, payload_json, collection_method,
+                redaction_status, fingerprint
+            ) VALUES (?, ?, 1, ?, 1, ?, ?, ?, ?, ?)
+            """,
+            (
+                "projection-event-1",
+                self.task.task_id,
+                "control.validation.recorded",
+                "2026-09-04T12:00:01+00:00",
+                payload_json,
+                "projection-test",
+                "not_needed",
+                fingerprint,
+            ),
+        )
 
         status = self.engine.project(self.task.task_id)
         freshness = self.engine.freshness(self.task.task_id)

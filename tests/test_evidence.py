@@ -17,7 +17,7 @@ from devharness.evidence import (
     EvidenceStore,
     RetentionPolicy,
 )
-from devharness.events import EventLog
+from devharness.events import EventDraft, EventLog
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
 
@@ -43,6 +43,19 @@ class EvidenceStoreTests(unittest.TestCase):
             environment_ref="local-test",
         )
         self.events = EventLog(self.catalog)
+        self.events.append(
+            EventDraft(
+                event_id="task-created:evidence-tests",
+                task_id=self.task.task_id,
+                event_type="task.created",
+                event_version=1,
+                occurred_at="2026-09-04T11:59:59+00:00",
+                payload={"mode": "managed"},
+                collection_method="evidence-test",
+                redaction_status="not_needed",
+            ),
+            lambda payload: payload,
+        )
         self.store = EvidenceStore(self.catalog, self.events)
         self.draft = EvidenceDraft(
             evidence_id="evidence-1",
@@ -80,7 +93,7 @@ class EvidenceStoreTests(unittest.TestCase):
         self.assertNotIn(b"m1-secret-marker", record.object_path.read_bytes())
         self.assertEqual(
             "evidence.recorded",
-            self.events.list_for_task(self.task.task_id)[0].event_type,
+            self.events.list_for_task(self.task.task_id)[1].event_type,
         )
 
     def test_content_hash_deduplicates_objects_but_keeps_distinct_metadata(self) -> None:
@@ -200,7 +213,13 @@ class EvidenceStoreTests(unittest.TestCase):
         self.store.purge(second.evidence_id, "user request")
         self.assertFalse(second.object_path.exists())
         self.assertEqual(
-            ["evidence.recorded", "evidence.recorded", "evidence.purged", "evidence.purged"],
+            [
+                "task.created",
+                "evidence.recorded",
+                "evidence.recorded",
+                "evidence.purged",
+                "evidence.purged",
+            ],
             [event.event_type for event in self.events.list_for_task(self.task.task_id)],
         )
 

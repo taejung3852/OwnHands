@@ -646,6 +646,199 @@ class IdentityRegistryTests(unittest.TestCase):
             records = EventLog(catalog).list_for_task(task_id)
             self.assertEqual([1], [record.sequence for record in records])
 
+    def test_legacy_single_event_lifecycle_mismatch_is_refused_atomically(self) -> None:
+        cases = (
+            ("non-created", "tool.completed", {}),
+            ("mode-mismatch", "task.created", {"mode": "imported"}),
+        )
+        for schema_version in (1, 2):
+            for case, event_type, payload in cases:
+                with self.subTest(schema_version=schema_version, case=case):
+                    name = f"legacy-v{schema_version}-{case}"
+                    if schema_version == 1:
+                        paths, _expected = self._create_full_v1_catalog(name)
+                        task_id = "legacy-task"
+                    else:
+                        paths, task_id, _legacy, _expected = (
+                            self._create_v2_event_catalog(name)
+                        )
+                    document = {
+                        "event_id": "legacy-event",
+                        "task_id": task_id,
+                        "event_type": event_type,
+                        "event_version": 1,
+                        "occurred_at": "2026-09-04T00:00:00+00:00",
+                        "payload": payload,
+                        "collection_method": "legacy-fixture",
+                        "redaction_status": "not_needed",
+                    }
+                    fingerprint = hashlib.sha256(
+                        json.dumps(
+                            document,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            allow_nan=False,
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    connection = sqlite3.connect(paths.catalog)
+                    connection.execute("DROP TRIGGER IF EXISTS events_no_update")
+                    connection.execute(
+                        """
+                        UPDATE events
+                        SET event_type=?, payload_json=?, fingerprint=?
+                        WHERE event_id='legacy-event'
+                        """,
+                        (
+                            event_type,
+                            json.dumps(
+                                payload,
+                                ensure_ascii=False,
+                                sort_keys=True,
+                                separators=(",", ":"),
+                            ),
+                            fingerprint,
+                        ),
+                    )
+                    connection.commit()
+                    connection.close()
+                    before_connection = sqlite3.connect(paths.catalog)
+                    before = tuple(before_connection.iterdump())
+                    before_connection.close()
+
+                    with self.assertRaisesRegex(
+                        RuntimeError, "legacy Event lifecycle"
+                    ):
+                        Catalog.open(paths)
+
+                    after_connection = sqlite3.connect(paths.catalog)
+                    after = tuple(after_connection.iterdump())
+                    after_connection.close()
+                    self.assertEqual(before, after)
+
+    def test_schema_v3_missing_events_is_rejected_without_repair(self) -> None:
+        paths = DataPaths.resolve(
+            Path(self.temporary_directory.name) / "schema-v3-missing-events"
+        )
+        with Catalog.open(paths) as catalog:
+            registry = IdentityRegistry(catalog)
+            project = registry.register_project("file:///schema-v3-missing-events")
+            worktree = registry.register_worktree(
+                project.project_id, "file:///schema-v3-missing-events/main"
+            )
+            task = registry.create_task(
+                worktree.worktree_id,
+                mode="managed",
+                commit="abc123",
+                branch="main",
+                cwd="/schema-v3-missing-events",
+                environment_ref="local-test",
+            )
+            EventLog(catalog).append(
+                EventDraft(
+                    event_id="schema-contract-event",
+                    task_id=task.task_id,
+                    event_type="task.created",
+                    event_version=1,
+                    occurred_at="2026-09-04T00:00:00+00:00",
+                    payload={"mode": "managed"},
+                    collection_method="schema-contract-test",
+                    redaction_status="not_needed",
+                ),
+                lambda payload: payload,
+            )
+
+        connection = sqlite3.connect(paths.catalog)
+        connection.execute("DROP TABLE events")
+        connection.commit()
+        before = tuple(connection.iterdump())
+        connection.close()
+
+        try:
+            reopened = Catalog.open(paths)
+        except RuntimeError as error:
+            self.assertRegex(str(error), "schema v3 contract")
+        else:
+            with reopened:
+                laundered = ProjectionEngine(
+                    reopened, EventLog(reopened)
+                ).project(task.task_id)
+                freshness = ProjectionEngine(
+                    reopened, EventLog(reopened)
+                ).freshness(task.task_id)
+            self.fail(
+                "damaged schema v3 reopened and laundered deleted Events as "
+                f"{laundered.state} sequence {laundered.projected_sequence}, "
+                f"fresh={freshness.is_fresh}"
+            )
+
+        after_connection = sqlite3.connect(paths.catalog)
+        after = tuple(after_connection.iterdump())
+        after_connection.close()
+        self.assertEqual(before, after)
+
+    def test_schema_v3_changed_core_contract_is_rejected_before_ddl(self) -> None:
+        mutations = {
+            "missing-trigger": "DROP TRIGGER events_no_update",
+            "missing-index": "DROP INDEX evidence_task_requirement",
+            "extra-column": "ALTER TABLE events ADD COLUMN injected TEXT",
+            "changed-column-type": None,
+            "changed-trigger-definition": None,
+        }
+        for case, mutation in mutations.items():
+            with self.subTest(case=case):
+                paths = DataPaths.resolve(
+                    Path(self.temporary_directory.name) / f"schema-v3-{case}"
+                )
+                with Catalog.open(paths):
+                    pass
+                connection = sqlite3.connect(paths.catalog)
+                if case == "changed-column-type":
+                    connection.execute("PRAGMA writable_schema=ON")
+                    connection.execute(
+                        """
+                        UPDATE sqlite_schema
+                        SET sql=replace(sql, 'sequence INTEGER', 'sequence TEXT')
+                        WHERE type='table' AND name='events'
+                        """
+                    )
+                    schema_version = connection.execute(
+                        "PRAGMA schema_version"
+                    ).fetchone()[0]
+                    connection.execute(f"PRAGMA schema_version={schema_version + 1}")
+                    connection.execute("PRAGMA writable_schema=OFF")
+                elif case == "changed-trigger-definition":
+                    connection.execute("PRAGMA writable_schema=ON")
+                    connection.execute(
+                        """
+                        UPDATE sqlite_schema
+                        SET sql=replace(
+                            sql,
+                            'SELECT RAISE(ABORT, ''events are append-only'');',
+                            'SELECT 1;'
+                        )
+                        WHERE type='trigger' AND name='events_no_update'
+                        """
+                    )
+                    schema_version = connection.execute(
+                        "PRAGMA schema_version"
+                    ).fetchone()[0]
+                    connection.execute(f"PRAGMA schema_version={schema_version + 1}")
+                    connection.execute("PRAGMA writable_schema=OFF")
+                else:
+                    connection.execute(mutation)
+                connection.commit()
+                before = tuple(connection.iterdump())
+                connection.close()
+
+                with self.assertRaisesRegex(RuntimeError, "schema v3 contract"):
+                    Catalog.open(paths)
+
+                after_connection = sqlite3.connect(paths.catalog)
+                after = tuple(after_connection.iterdump())
+                after_connection.close()
+                self.assertEqual(before, after)
+
     def test_v2_catalog_without_events_migrates_to_sequence_bound_schema(self) -> None:
         paths = DataPaths.resolve(
             Path(self.temporary_directory.name) / "empty-legacy-v2-event"

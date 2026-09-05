@@ -13,6 +13,139 @@ from .paths import DataPaths
 
 SCHEMA_VERSION = 3
 
+_V3_TABLE_COLUMNS = {
+    "schema_metadata": {"key", "value"},
+    "projects": {"project_id", "locator", "created_at"},
+    "worktrees": {"worktree_id", "project_id", "locator", "created_at"},
+    "tasks": {
+        "task_id",
+        "project_id",
+        "worktree_id",
+        "mode",
+        "commit_hash",
+        "branch",
+        "cwd",
+        "environment_ref",
+        "created_at",
+    },
+    "events": {
+        "event_id",
+        "task_id",
+        "sequence",
+        "event_type",
+        "event_version",
+        "occurred_at",
+        "payload_json",
+        "collection_method",
+        "redaction_status",
+        "fingerprint",
+    },
+    "evidence": {
+        "evidence_id",
+        "task_id",
+        "requirement_id",
+        "evidence_type",
+        "subject_ref",
+        "exact_scope",
+        "result",
+        "basis",
+        "fields_json",
+        "content_hash",
+        "object_relpath",
+        "content_size",
+        "collection_method",
+        "redaction_status",
+        "inference_from_json",
+        "conflict_refs_json",
+        "fingerprint",
+        "created_at",
+        "purged_at",
+        "purge_reason",
+    },
+    "retention_policy": {"singleton", "mode", "days"},
+    "task_projections": {
+        "task_id",
+        "projected_sequence",
+        "state",
+        "projection_json",
+        "projection_hash",
+        "last_error",
+        "updated_at",
+    },
+    "control_validations": {
+        "record_id",
+        "task_id",
+        "record_json",
+        "fingerprint",
+        "created_at",
+    },
+}
+
+_V3_INDEX_COLUMNS = {
+    "evidence_task_requirement": (
+        "evidence",
+        ("task_id", "requirement_id", "evidence_type"),
+    ),
+    "control_validations_task": ("control_validations", ("task_id",)),
+}
+
+_V3_TRIGGER_TABLES = {
+    "projects_no_update": "projects",
+    "projects_no_delete": "projects",
+    "worktrees_no_update": "worktrees",
+    "worktrees_no_delete": "worktrees",
+    "tasks_no_update": "tasks",
+    "tasks_project_worktree_scope": "tasks",
+    "tasks_no_delete": "tasks",
+    "events_no_update": "events",
+    "events_no_delete": "events",
+    "evidence_canonical_fields_immutable": "evidence",
+    "evidence_purge_is_monotonic": "evidence",
+    "evidence_purge_requires_audit_event": "evidence",
+    "evidence_no_delete": "evidence",
+    "control_validations_no_update": "control_validations",
+    "control_validations_no_delete": "control_validations",
+}
+
+_V3_INTEGER_COLUMNS = {
+    ("events", "sequence"),
+    ("events", "event_version"),
+    ("evidence", "content_size"),
+    ("retention_policy", "singleton"),
+    ("retention_policy", "days"),
+    ("task_projections", "projected_sequence"),
+}
+
+_V3_NULLABLE_COLUMNS = {
+    ("evidence", "purged_at"),
+    ("evidence", "purge_reason"),
+    ("retention_policy", "singleton"),
+    ("retention_policy", "days"),
+    ("task_projections", "last_error"),
+}
+
+_V3_PRIMARY_KEYS = {
+    ("schema_metadata", "key"),
+    ("projects", "project_id"),
+    ("worktrees", "worktree_id"),
+    ("tasks", "task_id"),
+    ("events", "event_id"),
+    ("evidence", "evidence_id"),
+    ("retention_policy", "singleton"),
+    ("task_projections", "task_id"),
+    ("control_validations", "record_id"),
+}
+
+_V3_COLUMN_DEFAULTS = {
+    ("evidence", "inference_from_json"): "'[]'",
+    ("evidence", "conflict_refs_json"): "'[]'",
+    ("task_projections", "projection_hash"): "''",
+}
+
+_V3_INDEX_TRIGGER_DEFINITION_DIGEST = (
+    "8a6b3d5671a31b43ec56132a4b6f42dfebfe7657667bac28aa4a31c8f86988d0"
+)
+
 
 def projection_fingerprint(
     task_id: str,
@@ -106,6 +239,22 @@ def _legacy_events_for_v3_migration(
         for sequences in sequences_by_task.values()
     ):
         raise RuntimeError("legacy Event sequence integrity failure")
+    for row in rows:
+        try:
+            payload = json.loads(row["payload_json"])
+        except (json.JSONDecodeError, TypeError) as error:
+            raise RuntimeError("legacy Event metadata is invalid") from error
+        task = connection.execute(
+            "SELECT mode FROM tasks WHERE task_id=?", (row["task_id"],)
+        ).fetchone()
+        if (
+            row["event_type"] != "task.created"
+            or row["event_version"] != 1
+            or row["sequence"] != 1
+            or task is None
+            or payload.get("mode") != task["mode"]
+        ):
+            raise RuntimeError("legacy Event lifecycle mismatch")
     return rows
 
 
@@ -164,6 +313,9 @@ class Catalog:
                     f"{existing_version!r}; expected one of '1', '2', "
                     f"{str(SCHEMA_VERSION)!r}"
                 )
+            if existing_version == str(SCHEMA_VERSION):
+                self._validate_v3_schema_contract(self.connection)
+                return
 
         with self.transaction() as connection:
             connection.executescript(
@@ -437,6 +589,95 @@ class Catalog:
                     f"unsupported catalog schema version: {version!r}; "
                     f"expected {SCHEMA_VERSION}"
                 )
+            self._validate_v3_schema_contract(connection)
+
+    @staticmethod
+    def _validate_v3_schema_contract(connection: sqlite3.Connection) -> None:
+        tables = {
+            row["name"]
+            for row in connection.execute(
+                """
+                SELECT name FROM sqlite_schema
+                WHERE type='table' AND name NOT LIKE 'sqlite_%'
+                """
+            ).fetchall()
+        }
+        if tables != set(_V3_TABLE_COLUMNS):
+            raise RuntimeError("schema v3 contract mismatch: tables")
+        for table, expected_columns in _V3_TABLE_COLUMNS.items():
+            actual_columns = {
+                row["name"]: (
+                    row["type"].upper(),
+                    bool(row["notnull"]),
+                    row["dflt_value"],
+                    bool(row["pk"]),
+                )
+                for row in connection.execute(
+                    f"PRAGMA table_info({table})"
+                ).fetchall()
+            }
+            expected_signatures = {
+                column: (
+                    "INTEGER" if (table, column) in _V3_INTEGER_COLUMNS else "TEXT",
+                    (table, column) not in _V3_NULLABLE_COLUMNS,
+                    _V3_COLUMN_DEFAULTS.get((table, column)),
+                    (table, column) in _V3_PRIMARY_KEYS,
+                )
+                for column in expected_columns
+            }
+            if actual_columns != expected_signatures:
+                raise RuntimeError(
+                    f"schema v3 contract mismatch: columns for {table}"
+                )
+
+        indexes = {
+            row["name"]: row["tbl_name"]
+            for row in connection.execute(
+                """
+                SELECT name, tbl_name FROM sqlite_schema
+                WHERE type='index' AND name NOT LIKE 'sqlite_autoindex_%'
+                """
+            ).fetchall()
+        }
+        if indexes != {
+            name: contract[0] for name, contract in _V3_INDEX_COLUMNS.items()
+        }:
+            raise RuntimeError("schema v3 contract mismatch: indexes")
+        for name, (_table, expected_columns) in _V3_INDEX_COLUMNS.items():
+            actual_columns = tuple(
+                row["name"]
+                for row in connection.execute(f"PRAGMA index_info({name})").fetchall()
+            )
+            if actual_columns != expected_columns:
+                raise RuntimeError(
+                    f"schema v3 contract mismatch: index columns for {name}"
+                )
+
+        triggers = {
+            row["name"]: row["tbl_name"]
+            for row in connection.execute(
+                "SELECT name, tbl_name FROM sqlite_schema WHERE type='trigger'"
+            ).fetchall()
+        }
+        if triggers != _V3_TRIGGER_TABLES:
+            raise RuntimeError("schema v3 contract mismatch: triggers")
+        definitions = connection.execute(
+            """
+            SELECT name, sql FROM sqlite_schema
+            WHERE type IN ('index', 'trigger') AND sql IS NOT NULL
+            ORDER BY name
+            """
+        ).fetchall()
+        definition_document = "\n".join(
+            f"{row['name']}:{' '.join(row['sql'].split())}" for row in definitions
+        )
+        actual_digest = hashlib.sha256(
+            definition_document.encode("utf-8")
+        ).hexdigest()
+        if actual_digest != _V3_INDEX_TRIGGER_DEFINITION_DIGEST:
+            raise RuntimeError(
+                "schema v3 contract mismatch: index or trigger definition"
+            )
 
     def _migrate_v1_to_v2(self) -> None:
         transaction = (

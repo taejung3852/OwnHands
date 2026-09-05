@@ -104,9 +104,11 @@ class EventLogTests(unittest.TestCase):
         self.assertEqual(1, self.log.head_sequence(self.task.task_id))
 
     def test_secret_is_redacted_before_storage(self) -> None:
+        self.log.append(self.draft, redact_payload)
         event = self.log.append(
             replace(
                 self.draft,
+                event_id="event-2",
                 event_type="tool.completed",
                 payload={"token": "m1-secret-marker", "safe": True},
                 redaction_status="redacted",
@@ -192,6 +194,19 @@ class EventLogTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "task.created.*mode"):
             self.log.append(
                 replace(self.draft, payload={"mode": "imported"}),
+                redact_payload,
+            )
+
+        self.assertEqual(0, self.log.head_sequence(self.task.task_id))
+
+    def test_first_event_must_be_task_created(self) -> None:
+        with self.assertRaisesRegex(ValueError, "first Event.*task.created"):
+            self.log.append(
+                replace(
+                    self.draft,
+                    event_type="tool.completed",
+                    payload={"result": "pass"},
+                ),
                 redact_payload,
             )
 

@@ -215,6 +215,8 @@ class EventLog:
         *,
         task_mode: str | None = None,
     ) -> None:
+        if sequence == 1 and event_type != "task.created":
+            raise ValueError("first Event must be task.created")
         if event_type != "task.created":
             return
         if sequence != 1:

@@ -55,6 +55,23 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
             environment_ref="local-test",
         )
         self.events = EventLog(self.catalog)
+        for event_id, task, mode in (
+            ("task-created:managed-guarantee-tests", self.managed, "managed"),
+            ("task-created:imported-guarantee-tests", self.imported, "imported"),
+        ):
+            self.events.append(
+                EventDraft(
+                    event_id=event_id,
+                    task_id=task.task_id,
+                    event_type="task.created",
+                    event_version=1,
+                    occurred_at="2026-09-04T11:59:59+00:00",
+                    payload={"mode": mode},
+                    collection_method="guarantee-test",
+                    redaction_status="not_needed",
+                ),
+                lambda payload: payload,
+            )
         self.store = EvidenceStore(self.catalog, self.events)
         self.evaluator = GuaranteeEvaluator(self.catalog, self.store, MATRIX_PATH)
 
@@ -759,19 +776,6 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
         self.evaluator.validate_report(report)
 
     def test_dashboard_freshness_claim_requires_actual_projection_state(self) -> None:
-        self.events.append(
-            EventDraft(
-                event_id="task-created-for-freshness",
-                task_id=self.managed.task_id,
-                event_type="task.created",
-                event_version=1,
-                occurred_at="2026-09-04T12:00:00+00:00",
-                payload={"mode": "managed"},
-                collection_method="synthetic-fixture",
-                redaction_status="not_needed",
-            ),
-            lambda payload: payload,
-        )
         fake = self.store.put(
             EvidenceDraft(
                 evidence_id="fake-projection-freshness",
