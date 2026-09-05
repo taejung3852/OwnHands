@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+from collections.abc import Sequence
+
+from .events import EventDraft, EventLog, EventRecord
+
+
+DECISIONS = {
+    "accept",
+    "revise",
+    "reject",
+    "additional_validation",
+    "risk_acceptance",
+}
+GATE_DECISIONS = {"pass", "soft_block", "hard_block"}
+
+
+def _text(value: object, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string")
+    return value
+
+
+def _member(value: object, members: set[str], name: str) -> str:
+    text = _text(value, name)
+    if text not in members:
+        raise ValueError(f"{name} is invalid")
+    return text
+
+
+def _fingerprint(value: object, name: str) -> str:
+    text = _text(value, name)
+    if (
+        not text.startswith("sha256:")
+        or len(text) != 71
+        or any(character not in "0123456789abcdef" for character in text[7:])
+    ):
+        raise ValueError(f"{name} must be a sha256 fingerprint")
+    return text
+
+
+def _references(value: object, name: str) -> list[str]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ValueError(f"{name} must be a sequence of references")
+    references = [_text(reference, name) for reference in value]
+    if len(references) != len(set(references)):
+        raise ValueError(f"{name} must not contain duplicates")
+    return references
+
+
+def record_assurance_reference(
+    events: EventLog,
+    *,
+    event_id: str,
+    task_id: str,
+    packet_fingerprint: str,
+    gate_fingerprint: str,
+    gate_decision: str,
+    evidence_refs: Sequence[str],
+    occurred_at: str,
+) -> EventRecord:
+    return events.append(
+        EventDraft(
+            event_id=_text(event_id, "event_id"),
+            task_id=_text(task_id, "task_id"),
+            event_type="assurance.evaluated",
+            event_version=1,
+            occurred_at=_text(occurred_at, "occurred_at"),
+            payload={
+                "packet_fingerprint": _fingerprint(
+                    packet_fingerprint, "packet_fingerprint"
+                ),
+                "gate_fingerprint": _fingerprint(
+                    gate_fingerprint, "gate_fingerprint"
+                ),
+                "gate_decision": _member(
+                    gate_decision, GATE_DECISIONS, "gate_decision"
+                ),
+                "evidence_refs": _references(evidence_refs, "evidence_refs"),
+            },
+            collection_method="dashboard-assurance-reference",
+            redaction_status="reference_only",
+        ),
+        lambda payload: payload,
+    )
+
+
+def record_task_decision(
+    events: EventLog,
+    *,
+    event_id: str,
+    task_id: str,
+    assurance_packet_fingerprint: str,
+    gate_fingerprint: str,
+    gate_decision: str,
+    decision: str,
+    decision_source: str,
+    actor_ref: str,
+    reason: str,
+    residual_risks: Sequence[str],
+    follow_up: str,
+    evidence_refs: Sequence[str],
+    occurred_at: str,
+) -> EventRecord:
+    selected_decision = _member(decision, DECISIONS, "decision")
+    selected_gate = _member(gate_decision, GATE_DECISIONS, "gate_decision")
+    if selected_gate == "hard_block" and selected_decision in {
+        "accept",
+        "risk_acceptance",
+    }:
+        raise ValueError("Hard Block cannot be accepted or risk accepted")
+    source = _text(decision_source, "decision_source")
+    risks = _references(residual_risks, "residual_risks")
+    if selected_decision == "risk_acceptance" and (
+        selected_gate != "soft_block"
+        or source != "product_authority"
+        or not risks
+    ):
+        raise ValueError(
+            "risk acceptance requires a Soft Block, product authority, and residual risk"
+        )
+    return events.append(
+        EventDraft(
+            event_id=_text(event_id, "event_id"),
+            task_id=_text(task_id, "task_id"),
+            event_type="task.decision.recorded",
+            event_version=1,
+            occurred_at=_text(occurred_at, "occurred_at"),
+            payload={
+                "assurance_packet_fingerprint": _fingerprint(
+                    assurance_packet_fingerprint,
+                    "assurance_packet_fingerprint",
+                ),
+                "gate_fingerprint": _fingerprint(
+                    gate_fingerprint, "gate_fingerprint"
+                ),
+                "gate_decision": selected_gate,
+                "decision": selected_decision,
+                "decision_source": source,
+                "actor_ref": _text(actor_ref, "actor_ref"),
+                "reason": _text(reason, "reason"),
+                "residual_risks": risks,
+                "follow_up": _text(follow_up, "follow_up"),
+                "evidence_refs": _references(evidence_refs, "evidence_refs"),
+            },
+            collection_method="dashboard-decision-form",
+            redaction_status="redacted",
+        ),
+        lambda payload: payload,
+    )

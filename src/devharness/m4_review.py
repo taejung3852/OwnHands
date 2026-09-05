@@ -22,6 +22,7 @@ from .assurance import (
     validate_assurance_packet,
     verify_restore_point,
 )
+from .dashboard_security import private_atomic_write
 
 
 class M4ReviewError(ValueError):
@@ -84,8 +85,7 @@ def validate_packet_document(packet: object) -> dict:
 
 
 def _write(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    private_atomic_write(path, content)
 
 
 def _run_git(repository: Path, *arguments: str) -> None:

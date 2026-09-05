@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -66,6 +67,25 @@ class M4ReviewTests(unittest.TestCase):
             changed["unexpected"] = True
             with self.assertRaisesRegex(M4ReviewError, "unexpected"):
                 validate_packet_document(changed)
+
+    def test_fixture_packet_review_and_raw_outputs_are_private(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            root = Path(temporary) / "m4-output"
+            raw = root / "raw"
+            packet = root / "packet.json"
+            review = root / "review.html"
+
+            run_m4_fixture(raw, packet, review, observed_at=NOW)
+
+            for path in (
+                packet,
+                review,
+                raw / "before-test-output.txt",
+                raw / "after-test-output.txt",
+            ):
+                with self.subTest(path=path):
+                    self.assertEqual(0o600, stat.S_IMODE(path.stat().st_mode))
+                    self.assertEqual(0o700, stat.S_IMODE(path.parent.stat().st_mode))
 
     def test_example_is_a_valid_synthetic_packet(self) -> None:
         example = json.loads(EXAMPLE.read_text(encoding="utf-8"))

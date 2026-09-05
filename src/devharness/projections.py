@@ -44,6 +44,17 @@ def _initial_projection() -> dict:
         "task": {},
         "evidence": {"active_ids": [], "purged_ids": []},
         "guarantee": {"report_ids": []},
+        "assurance": {"references": []},
+        "decision": None,
+        "event_counts": {},
+    }
+
+
+def _safe_failure_projection() -> dict:
+    return {
+        "task": {},
+        "evidence": {"active_ids": [], "purged_ids": []},
+        "guarantee": {"report_ids": []},
         "event_counts": {},
     }
 
@@ -52,12 +63,16 @@ class ProjectionEngine:
     def __init__(self, catalog: Catalog, events: EventLog) -> None:
         self.catalog = catalog
         self.events = events
-        self._handlers: dict[tuple[str, int], Callable[[dict, dict], None]] = {
+        self._handlers: dict[
+            tuple[str, int], Callable[[dict, EventRecord], None]
+        ] = {
             ("task.created", 1): self._task_created,
             ("evidence.recorded", 1): self._evidence_recorded,
             ("evidence.purged", 1): self._evidence_purged,
             ("guarantee.evaluated", 1): self._guarantee_evaluated,
             ("control.validation.recorded", 1): self._control_validation_recorded,
+            ("assurance.evaluated", 1): self._assurance_evaluated,
+            ("task.decision.recorded", 1): self._task_decision_recorded,
         }
 
     def project(self, task_id: str) -> ProjectionStatus:
@@ -82,7 +97,7 @@ class ProjectionEngine:
                         connection,
                         task_id,
                         0,
-                        _initial_projection(),
+                        _safe_failure_projection(),
                         f"stored projection integrity failure: {error}",
                     )
                 if stored["state"] == "failed" and "integrity failure" in (
@@ -210,7 +225,7 @@ class ProjectionEngine:
                         connection,
                         task_id,
                         0,
-                        _initial_projection(),
+                        _safe_failure_projection(),
                         f"stored projection integrity failure: {error}",
                     )
                 try:
@@ -267,7 +282,7 @@ class ProjectionEngine:
                         connection,
                         task_id,
                         0,
-                        _initial_projection(),
+                        _safe_failure_projection(),
                         f"stored projection integrity failure: {error}",
                     )
                     return Freshness(
@@ -410,7 +425,7 @@ class ProjectionEngine:
             )
         self._validate_event_reference(current, event)
         projection = copy.deepcopy(current)
-        handler(projection, event.payload)
+        handler(projection, event)
         counts = projection["event_counts"]
         counts[event.event_type] = counts.get(event.event_type, 0) + 1
         return projection
@@ -497,6 +512,24 @@ class ProjectionEngine:
             return
         if event.event_type == "guarantee.evaluated":
             self._required_reference(event.payload.get("report_id"), "report_id")
+            return
+        if event.event_type == "task.decision.recorded":
+            references = projection["assurance"]["references"]
+            if not references:
+                raise ValueError("Decision requires a projected Assurance reference")
+            latest = references[-1]
+            expected = (
+                latest["packet_fingerprint"],
+                latest["gate_fingerprint"],
+                latest["gate_decision"],
+            )
+            actual = (
+                event.payload.get("assurance_packet_fingerprint"),
+                event.payload.get("gate_fingerprint"),
+                event.payload.get("gate_decision"),
+            )
+            if actual != expected:
+                raise ValueError("Decision must reference the latest Assurance packet and Gate")
 
     @staticmethod
     def _required_reference(value: object, name: str) -> str:
@@ -505,21 +538,24 @@ class ProjectionEngine:
         return value
 
     @staticmethod
-    def _task_created(projection: dict, payload: dict) -> None:
+    def _task_created(projection: dict, event: EventRecord) -> None:
+        payload = event.payload
         mode = payload["mode"]
         if mode not in {"managed", "imported"}:
             raise ValueError("task.created mode is invalid")
         projection["task"] = {"mode": mode}
 
     @staticmethod
-    def _evidence_recorded(projection: dict, payload: dict) -> None:
+    def _evidence_recorded(projection: dict, event: EventRecord) -> None:
+        payload = event.payload
         evidence_id = payload["evidence_id"]
         active = projection["evidence"]["active_ids"]
         if evidence_id not in active:
             active.append(evidence_id)
 
     @staticmethod
-    def _evidence_purged(projection: dict, payload: dict) -> None:
+    def _evidence_purged(projection: dict, event: EventRecord) -> None:
+        payload = event.payload
         evidence_id = payload["evidence_id"]
         active = projection["evidence"]["active_ids"]
         purged = projection["evidence"]["purged_ids"]
@@ -529,16 +565,140 @@ class ProjectionEngine:
             purged.append(evidence_id)
 
     @staticmethod
-    def _guarantee_evaluated(projection: dict, payload: dict) -> None:
+    def _guarantee_evaluated(projection: dict, event: EventRecord) -> None:
+        payload = event.payload
         report_id = payload["report_id"]
         report_ids = projection["guarantee"]["report_ids"]
         if report_id not in report_ids:
             report_ids.append(report_id)
 
     @staticmethod
-    def _control_validation_recorded(_projection: dict, payload: dict) -> None:
+    def _control_validation_recorded(_projection: dict, event: EventRecord) -> None:
+        payload = event.payload
         if not payload["record_id"]:
             raise ValueError("control validation record_id is required")
+
+    @staticmethod
+    def _assurance_evaluated(projection: dict, event: EventRecord) -> None:
+        payload = event.payload
+        ProjectionEngine._validate_assurance_payload(payload)
+        projection["assurance"]["references"].append(
+            {
+                "event_id": event.event_id,
+                "sequence": event.sequence,
+                "packet_fingerprint": payload["packet_fingerprint"],
+                "gate_fingerprint": payload["gate_fingerprint"],
+                "gate_decision": payload["gate_decision"],
+                "evidence_refs": list(payload["evidence_refs"]),
+                "occurred_at": event.occurred_at,
+            }
+        )
+
+    @staticmethod
+    def _task_decision_recorded(projection: dict, event: EventRecord) -> None:
+        payload = event.payload
+        ProjectionEngine._validate_decision_payload(payload)
+        projection["decision"] = {
+            "event_id": event.event_id,
+            "sequence": event.sequence,
+            "assurance_packet_fingerprint": payload[
+                "assurance_packet_fingerprint"
+            ],
+            "gate_fingerprint": payload["gate_fingerprint"],
+            "gate_decision": payload["gate_decision"],
+            "decision": payload["decision"],
+            "decision_source": payload["decision_source"],
+            "actor_ref": payload["actor_ref"],
+            "reason": payload["reason"],
+            "residual_risks": list(payload["residual_risks"]),
+            "follow_up": payload["follow_up"],
+            "evidence_refs": list(payload["evidence_refs"]),
+            "occurred_at": event.occurred_at,
+        }
+
+    @staticmethod
+    def _validate_assurance_payload(payload: object) -> None:
+        expected = {
+            "packet_fingerprint",
+            "gate_fingerprint",
+            "gate_decision",
+            "evidence_refs",
+        }
+        if not isinstance(payload, dict) or set(payload) != expected:
+            raise ValueError("Assurance payload fields are invalid")
+        for name in ("packet_fingerprint", "gate_fingerprint"):
+            if not ProjectionEngine._valid_fingerprint(payload[name]):
+                raise ValueError(f"Assurance {name} is invalid")
+        if payload["gate_decision"] not in {"pass", "soft_block", "hard_block"}:
+            raise ValueError("Assurance gate_decision is invalid")
+        if not ProjectionEngine._valid_references(payload["evidence_refs"]):
+            raise ValueError("Assurance Evidence references are invalid")
+
+    @staticmethod
+    def _validate_decision_payload(payload: object) -> None:
+        expected = {
+            "assurance_packet_fingerprint",
+            "gate_fingerprint",
+            "gate_decision",
+            "decision",
+            "decision_source",
+            "actor_ref",
+            "reason",
+            "residual_risks",
+            "follow_up",
+            "evidence_refs",
+        }
+        if not isinstance(payload, dict) or set(payload) != expected:
+            raise ValueError("Decision payload fields are invalid")
+        for name in ("assurance_packet_fingerprint", "gate_fingerprint"):
+            if not ProjectionEngine._valid_fingerprint(payload[name]):
+                raise ValueError(f"Decision {name} is invalid")
+        gate = payload["gate_decision"]
+        decision = payload["decision"]
+        if gate not in {"pass", "soft_block", "hard_block"}:
+            raise ValueError("Decision gate_decision is invalid")
+        if decision not in {
+            "accept",
+            "revise",
+            "reject",
+            "additional_validation",
+            "risk_acceptance",
+        }:
+            raise ValueError("Decision result is invalid")
+        if gate == "hard_block" and decision in {"accept", "risk_acceptance"}:
+            raise ValueError("Hard Block cannot be accepted or risk accepted")
+        for name in ("decision_source", "actor_ref", "reason", "follow_up"):
+            if not isinstance(payload[name], str) or not payload[name].strip():
+                raise ValueError(f"Decision {name} is invalid")
+        if not ProjectionEngine._valid_references(payload["residual_risks"]):
+            raise ValueError("Decision residual risks are invalid")
+        if not ProjectionEngine._valid_references(payload["evidence_refs"]):
+            raise ValueError("Decision Evidence references are invalid")
+        if decision == "risk_acceptance" and (
+            gate != "soft_block"
+            or payload["decision_source"] != "product_authority"
+            or not payload["residual_risks"]
+        ):
+            raise ValueError(
+                "risk acceptance requires a Soft Block, product authority, and residual risk"
+            )
+
+    @staticmethod
+    def _valid_fingerprint(value: object) -> bool:
+        return (
+            isinstance(value, str)
+            and value.startswith("sha256:")
+            and len(value) == 71
+            and all(character in "0123456789abcdef" for character in value[7:])
+        )
+
+    @staticmethod
+    def _valid_references(value: object) -> bool:
+        return (
+            isinstance(value, list)
+            and all(isinstance(item, str) and item.strip() for item in value)
+            and len(value) == len(set(value))
+        )
 
     @staticmethod
     def _canonical_json(value: object) -> str:
@@ -561,17 +721,29 @@ class ProjectionEngine:
             projection = json.loads(document)
         except json.JSONDecodeError as error:
             raise ValueError("projection JSON is invalid") from error
-        self._validate_projection(projection)
+        self._validate_projection(
+            projection, allow_legacy_failure=row["state"] == "failed"
+        )
         return projection
 
     @staticmethod
-    def _validate_projection(projection: object) -> None:
-        if not isinstance(projection, dict) or set(projection) != {
+    def _validate_projection(
+        projection: object, *, allow_legacy_failure: bool = False
+    ) -> None:
+        core_fields = {
             "task",
             "evidence",
             "guarantee",
             "event_counts",
-        }:
+        }
+        dashboard_fields = {
+            "assurance",
+            "decision",
+        }
+        if not isinstance(projection, dict) or (
+            set(projection) != core_fields | dashboard_fields
+            and not (allow_legacy_failure and set(projection) == core_fields)
+        ):
             raise ValueError("projection fields are invalid")
         task = projection["task"]
         if not isinstance(task, dict) or (
@@ -602,6 +774,81 @@ class ProjectionEngine:
             or len(report_ids) != len(set(report_ids))
         ):
             raise ValueError("projection report IDs are invalid")
+        if dashboard_fields <= set(projection):
+            assurance = projection["assurance"]
+            if not isinstance(assurance, dict) or set(assurance) != {"references"}:
+                raise ValueError("projection Assurance state is invalid")
+            references = assurance["references"]
+            if not isinstance(references, list):
+                raise ValueError("projection Assurance references are invalid")
+            assurance_fields = {
+                "event_id",
+                "sequence",
+                "packet_fingerprint",
+                "gate_fingerprint",
+                "gate_decision",
+                "evidence_refs",
+                "occurred_at",
+            }
+            for reference in references:
+                if not isinstance(reference, dict) or set(reference) != assurance_fields:
+                    raise ValueError("projection Assurance reference is invalid")
+                if (
+                    not isinstance(reference["event_id"], str)
+                    or not reference["event_id"]
+                    or not isinstance(reference["sequence"], int)
+                    or isinstance(reference["sequence"], bool)
+                    or reference["sequence"] < 1
+                    or not ProjectionEngine._valid_fingerprint(
+                        reference["packet_fingerprint"]
+                    )
+                    or not ProjectionEngine._valid_fingerprint(
+                        reference["gate_fingerprint"]
+                    )
+                    or reference["gate_decision"]
+                    not in {"pass", "soft_block", "hard_block"}
+                    or not ProjectionEngine._valid_references(
+                        reference["evidence_refs"]
+                    )
+                    or not isinstance(reference["occurred_at"], str)
+                    or not reference["occurred_at"]
+                ):
+                    raise ValueError("projection Assurance reference is invalid")
+            decision = projection["decision"]
+            if decision is not None:
+                decision_fields = {
+                    "event_id",
+                    "sequence",
+                    "assurance_packet_fingerprint",
+                    "gate_fingerprint",
+                    "gate_decision",
+                    "decision",
+                    "decision_source",
+                    "actor_ref",
+                    "reason",
+                    "residual_risks",
+                    "follow_up",
+                    "evidence_refs",
+                    "occurred_at",
+                }
+                if not isinstance(decision, dict) or set(decision) != decision_fields:
+                    raise ValueError("projection Decision state is invalid")
+                payload = {
+                    key: value
+                    for key, value in decision.items()
+                    if key not in {"event_id", "sequence", "occurred_at"}
+                }
+                ProjectionEngine._validate_decision_payload(payload)
+                if (
+                    not isinstance(decision["event_id"], str)
+                    or not decision["event_id"]
+                    or not isinstance(decision["sequence"], int)
+                    or isinstance(decision["sequence"], bool)
+                    or decision["sequence"] < 1
+                    or not isinstance(decision["occurred_at"], str)
+                    or not decision["occurred_at"]
+                ):
+                    raise ValueError("projection Decision state is invalid")
         counts = projection["event_counts"]
         if not isinstance(counts, dict) or any(
             not isinstance(name, str)
