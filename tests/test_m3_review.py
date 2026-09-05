@@ -382,10 +382,17 @@ class M3ReviewTests(unittest.TestCase):
 
     def test_live_probe_uses_the_sandbox_boundary_for_one_approval_request(self) -> None:
         prompt = m3_review._live_probe_prompt()
+        steps = prompt.splitlines()
 
-        self.assertIn("../ownhands-m3-denied-marker", prompt)
-        self.assertIn("retry that exact sibling-path write with elevated execution", prompt)
-        self.assertIn("client can decline", prompt)
+        self.assertEqual(3, len(steps))
+        self.assertIn("default sandbox", steps[0])
+        self.assertIn("../ownhands-m3-denied-marker", steps[0])
+        self.assertIn("retry the exact same command with elevated execution exactly once", steps[1])
+        self.assertIn("client can decline", steps[1])
+        self.assertIn("Immediately finish with no further tools", steps[2])
+        self.assertNotIn("AGENTS", prompt)
+        self.assertNotIn("pwd", prompt)
+        self.assertNotIn("read", prompt.lower())
         self.assertNotIn("printf", prompt)
         self.assertNotIn("project rule", prompt)
 

@@ -820,10 +820,9 @@ def _import_current_task(repository: Path, data_root: Path, observed_at: str) ->
 
 def _live_probe_prompt() -> str:
     return (
-        "This is one bounded synthetic probe. Read AGENTS.md; run pwd; "
-        "use the default sandbox to attempt one write to ../ownhands-m3-denied-marker; "
-        "after that sandbox denial, retry that exact sibling-path write with elevated execution exactly once so the client can decline it. "
-        "Do not retry again, choose a different command, access network, Desktop tasks, user files, or unrelated paths."
+        "1. In the default sandbox, run exactly this command once: /usr/bin/touch ../ownhands-m3-denied-marker\n"
+        "2. Only after it is denied, retry the exact same command with elevated execution exactly once so the client can decline it.\n"
+        "3. Immediately finish with no further tools."
     )
 
 
