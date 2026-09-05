@@ -839,6 +839,63 @@ class IdentityRegistryTests(unittest.TestCase):
                 after_connection.close()
                 self.assertEqual(before, after)
 
+    def test_schema_v3_changed_table_constraint_is_rejected_before_ddl(self) -> None:
+        paths = DataPaths.resolve(
+            Path(self.temporary_directory.name) / "schema-v3-changed-table-constraint"
+        )
+        with Catalog.open(paths) as catalog:
+            registry = IdentityRegistry(catalog)
+            project = registry.register_project("file:///changed-table-constraint")
+            worktree = registry.register_worktree(
+                project.project_id, "file:///changed-table-constraint/main"
+            )
+            task = registry.create_task(
+                worktree.worktree_id,
+                mode="managed",
+                commit="abc123",
+                branch="main",
+                cwd="/changed-table-constraint",
+                environment_ref="local-test",
+            )
+            EventLog(catalog).append(
+                EventDraft(
+                    event_id="changed-table-constraint-event",
+                    task_id=task.task_id,
+                    event_type="task.created",
+                    event_version=1,
+                    occurred_at="2026-09-04T00:00:00+00:00",
+                    payload={"mode": "managed"},
+                    collection_method="schema-contract-test",
+                    redaction_status="not_needed",
+                ),
+                lambda payload: payload,
+            )
+
+        connection = sqlite3.connect(paths.catalog)
+        connection.execute("PRAGMA writable_schema=ON")
+        cursor = connection.execute(
+            """
+            UPDATE sqlite_schema
+            SET sql=replace(sql, 'CHECK(sequence > 0)', 'CHECK(sequence >= 0)')
+            WHERE type='table' AND name='events'
+            """
+        )
+        self.assertEqual(1, cursor.rowcount)
+        schema_version = connection.execute("PRAGMA schema_version").fetchone()[0]
+        connection.execute(f"PRAGMA schema_version={schema_version + 1}")
+        connection.execute("PRAGMA writable_schema=OFF")
+        connection.commit()
+        before = tuple(connection.iterdump())
+        connection.close()
+
+        with self.assertRaisesRegex(RuntimeError, "schema v3 contract"):
+            Catalog.open(paths)
+
+        after_connection = sqlite3.connect(paths.catalog)
+        after = tuple(after_connection.iterdump())
+        after_connection.close()
+        self.assertEqual(before, after)
+
     def test_v2_catalog_without_events_migrates_to_sequence_bound_schema(self) -> None:
         paths = DataPaths.resolve(
             Path(self.temporary_directory.name) / "empty-legacy-v2-event"

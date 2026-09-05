@@ -81,6 +81,15 @@ _V3_TABLE_COLUMNS = {
     },
 }
 
+# Exact table-definition documents produced by the canonical v3 bootstrap and
+# the two supported v1 upgrade layouts. The latter retain SQLite's ALTER TABLE
+# rendering for the lineage/projection columns.
+_V3_TABLE_DEFINITION_DIGESTS = {
+    "e35de50ee40fd3d63db590d3f419c4dfbf1c46cc4a352fc47aec87766a2d1f91",
+    "2ab933ed695214c5f3b8387e06a95ef9bac1cb049b0164d2a8d57598958b08a7",
+    "6a7d5188427c65d7069ea371724c7b8f730699d6092af52d2dd568265d61f6c5",
+}
+
 _V3_INDEX_COLUMNS = {
     "evidence_task_requirement": (
         "evidence",
@@ -145,6 +154,36 @@ _V3_COLUMN_DEFAULTS = {
 _V3_INDEX_TRIGGER_DEFINITION_DIGEST = (
     "8a6b3d5671a31b43ec56132a4b6f42dfebfe7657667bac28aa4a31c8f86988d0"
 )
+
+
+def _normalize_schema_sql(sql: str) -> str:
+    normalized: list[str] = []
+    quote: str | None = None
+    index = 0
+    while index < len(sql):
+        character = sql[index]
+        if quote is not None:
+            normalized.append(character)
+            if character == quote:
+                if (
+                    quote != "]"
+                    and index + 1 < len(sql)
+                    and sql[index + 1] == quote
+                ):
+                    index += 1
+                    normalized.append(sql[index])
+                else:
+                    quote = None
+        elif character in ("'", '"', "`"):
+            quote = character
+            normalized.append(character)
+        elif character == "[":
+            quote = "]"
+            normalized.append(character)
+        elif not character.isspace():
+            normalized.append(character.upper())
+        index += 1
+    return "".join(normalized)
 
 
 def projection_fingerprint(
@@ -604,6 +643,22 @@ class Catalog:
         }
         if tables != set(_V3_TABLE_COLUMNS):
             raise RuntimeError("schema v3 contract mismatch: tables")
+        table_definitions = connection.execute(
+            """
+            SELECT name, sql FROM sqlite_schema
+            WHERE type='table' AND name NOT LIKE 'sqlite_%'
+            ORDER BY name
+            """
+        ).fetchall()
+        table_definition_document = "\n".join(
+            f"{row['name']}:{_normalize_schema_sql(row['sql'])}"
+            for row in table_definitions
+        )
+        table_definition_digest = hashlib.sha256(
+            table_definition_document.encode("utf-8")
+        ).hexdigest()
+        if table_definition_digest not in _V3_TABLE_DEFINITION_DIGESTS:
+            raise RuntimeError("schema v3 contract mismatch: table definitions")
         for table, expected_columns in _V3_TABLE_COLUMNS.items():
             actual_columns = {
                 row["name"]: (
