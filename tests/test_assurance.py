@@ -155,24 +155,32 @@ def receipt(
     criterion_id: str,
     classification: str,
     result: str = "pass",
-    command_fingerprint: str = HASH_A,
+    command_fingerprint: str | None = None,
     environment_fingerprint: str = "sha256:" + "b" * 64,
     contract_fingerprint: str | None = None,
     start_patch_hash: str = "sha256:" + "c" * 64,
     target_patch_hash: str = "sha256:" + "d" * 64,
 ) -> dict:
+    if test_id == "test:widget-regression":
+        command = "python -m unittest tests.test_widget"
+        selection_scope = "tests.test_widget"
+        code_refs = ["tests/test_widget.py"]
+    else:
+        command = "python -m unittest tests.test_schema"
+        selection_scope = "tests.test_schema"
+        code_refs = ["tests/test_schema.py"]
     return {
         "test_id": test_id,
         "criterion_id": criterion_id,
         "classification": classification,
-        "validation_command": "python -m unittest " + test_id.removeprefix("test:").replace("-", "_"),
-        "command_fingerprint": command_fingerprint,
-        "selection_scope": test_id,
+        "validation_command": command,
+        "command_fingerprint": command_fingerprint or fingerprint({"command": command}),
+        "selection_scope": selection_scope,
         "environment_fingerprint": environment_fingerprint,
         "contract_fingerprint": contract_fingerprint or contract()["fingerprint"],
         "start_patch_hash": start_patch_hash,
         "target_patch_hash": target_patch_hash,
-        "code_refs": ["tests/test_widget.py"],
+        "code_refs": code_refs,
         "result": result,
         "basis": "observed" if result not in {"missing", "not_run"} else "unobserved",
         "evidence_refs": [] if result in {"missing", "not_run"} else [f"evidence:{test_id}:run"],
@@ -204,6 +212,7 @@ class AssuranceTests(unittest.TestCase):
             build_test_design(duplicate, {"relations": []}, requirement_catalog())
         unknown = contract()
         unknown["gate_criteria"] = ["tests_pass", "unknown"]
+        unknown["fingerprint"] = fingerprint({key: value for key, value in unknown.items() if key != "fingerprint"})
         with self.assertRaisesRegex(AssuranceError, "unknown"):
             build_test_design(unknown, {"relations": []}, requirement_catalog())
 
@@ -316,7 +325,8 @@ class AssuranceTests(unittest.TestCase):
         for key, expected in mutations.items():
             with self.subTest(key=key):
                 changed = copy.deepcopy(after)
-                changed["receipts"][0][key] = "sha256:" + "e" * 64 if key.endswith("fingerprint") or key.endswith("hash") else "different"
+                target = next(item for item in changed["receipts"] if item["test_id"] == "test:widget-regression")
+                target[key] = "sha256:" + "e" * 64 if key.endswith("fingerprint") or key.endswith("hash") else "different"
                 comparison = compare_test_runs(before, changed)
                 indexed = {item["test_id"]: item for item in comparison["comparisons"]}
                 self.assertEqual(expected, indexed["test:widget-regression"]["status"])
