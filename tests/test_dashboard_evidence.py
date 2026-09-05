@@ -10,6 +10,7 @@ from devharness.evidence import EvidenceDraft, EvidenceStore
 from devharness.events import EventDraft, EventLog
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
+from devharness.dashboard_view import _direct_evidence
 
 
 NOW = "2026-09-06T12:00:00+00:00"
@@ -156,6 +157,59 @@ class DashboardEvidenceTests(unittest.TestCase):
                         assurance_packet=self.assurance(record.evidence_id),
                         disclose_raw=True,
                     )
+
+    def test_direct_human_evidence_requires_complete_hwpx_contract_and_safe_object(self) -> None:
+        incomplete = self.store.put(
+            EvidenceDraft(
+                evidence_id="evidence:direct:unrelated",
+                task_id=self.task.task_id,
+                requirement_id="M5-06",
+                evidence_type="direct_feature_probe",
+                subject_ref="subject:generic",
+                exact_scope="generic feature",
+                result="pass",
+                basis="observed",
+                fields={"human_observation": True, "adapter": "generic"},
+                content=b"generic observation",
+                collection_method="test",
+                redaction_status="redacted",
+            ),
+            bytes,
+        )
+        self.assertIsNone(_direct_evidence(self.store, [incomplete], self.task))
+
+        valid = self.store.put(
+            EvidenceDraft(
+                evidence_id="evidence:direct:hwpx",
+                task_id=self.task.task_id,
+                requirement_id="M5-06",
+                evidence_type="direct_feature_probe",
+                subject_ref="subject:hwpx:document",
+                exact_scope="HWPX generated document",
+                result="pass",
+                basis="observed",
+                fields={
+                    "adapter": "hwpx",
+                    "input": "source:document",
+                    "expected": "expected:render",
+                    "actual": "actual:render",
+                    "environment": self.task.environment_ref,
+                    "generated_files": ["artifact:rendered-document"],
+                    "human_observation": "human confirmed rendering",
+                },
+                content=b"hwpx human observation",
+                collection_method="registered-hwpx-adapter",
+                redaction_status="redacted",
+            ),
+            bytes,
+        )
+        self.assertEqual(valid, _direct_evidence(self.store, [valid], self.task))
+        outside = Path(self.temporary.name) / "outside-human"
+        outside.write_bytes(b"hwpx human observation")
+        valid.object_path.unlink()
+        valid.object_path.symlink_to(outside)
+
+        self.assertIsNone(_direct_evidence(self.store, [valid], self.task))
 
 
 if __name__ == "__main__":

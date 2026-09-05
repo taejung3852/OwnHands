@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -14,6 +15,7 @@ from .dashboard_sources import (
 )
 from .evidence import EvidenceRecord, EvidenceStore
 from .events import EventLog, EventRecord
+from .guarantees import GuaranteeEvaluator
 from .identity import TaskIdentity
 from .projections import Freshness, ProjectionStatus
 
@@ -28,6 +30,47 @@ _VISIBLE_RESULTS = {
 _TASK_FIELDS = ("project_id", "worktree_id", "task_id", "environment_ref", "mode")
 _CONTROL_NAMES = ("config", "agents", "rules", "hooks", "sandbox", "approval")
 _STAGES = ("configured", "loaded", "enforced")
+_BASELINE_FIELDS = {
+    "baseline_version",
+    "baseline_id",
+    "version",
+    "predecessor_ref",
+    "project_id",
+    "worktree_id",
+    "environment_ref",
+    "profile_ref",
+    "interview_ref",
+    "source_fingerprints",
+    "sources",
+    "commands",
+    "sensitive_paths",
+    "external_services",
+    "hwpx_tool_contract",
+    "unobserved",
+    "event_refs",
+    "evidence_refs",
+    "fingerprint",
+}
+_CONTEXT_STATUS_FIELDS = {
+    "report_version",
+    "matrix_version",
+    "manifest_ref",
+    "active_context",
+    "active_controls",
+    "excluded_context",
+    "applicability_results",
+    "lint_findings",
+    "claim_results",
+}
+_HASH = re.compile(r"sha256:[0-9a-f]{64}\Z")
+_CONTEXT_DECISIONS = {
+    "maintain",
+    "add_for_task",
+    "exclude_for_task",
+    "replace_with_specific",
+    "forbidden",
+    "unobserved",
+}
 
 
 @dataclass(frozen=True)
@@ -186,6 +229,7 @@ def _freshness_view(task: TaskIdentity, projection: ProjectionStatus, freshness:
         and freshness.projection_state == "ready"
         and freshness.is_fresh
         and freshness.event_head == freshness.projected_sequence
+        and projection.projected_sequence == freshness.projected_sequence
     ):
         state = "fresh"
     else:
@@ -201,33 +245,92 @@ def _freshness_view(task: TaskIdentity, projection: ProjectionStatus, freshness:
     }
 
 
-def _matching_guarantee(task: TaskIdentity, report: dict | None) -> bool:
-    if not isinstance(report, dict) or report.get("report_version") != "1.0":
+def _matching_guarantee(
+    task: TaskIdentity,
+    report: dict | None,
+    evaluator: GuaranteeEvaluator | None,
+    evidence_store: EvidenceStore,
+) -> bool:
+    if (
+        not isinstance(report, dict)
+        or evaluator is None
+        or evaluator.catalog is not evidence_store.catalog
+        or evaluator.evidence is not evidence_store
+    ):
+        return False
+    try:
+        evaluator.validate_report(report)
+    except (OSError, ValueError):
         return False
     identity = report.get("task")
-    return (
+    claims = report.get("claim_results")
+    return bool(
         _task_matches(task, identity)
         and isinstance(identity, dict)
         and identity.get("target_commit") == task.commit
-        and isinstance(report.get("claim_results"), list)
-        and bool(report["claim_results"])
+        and isinstance(claims, list)
+        and claims
+    )
+
+
+def _material(value: object) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, dict)):
+        return bool(value)
+    return value is not None
+
+
+def _namespaced(value: object, namespace: str) -> bool:
+    return isinstance(value, str) and (
+        value == namespace or value.startswith(namespace + ":")
     )
 
 
 def _direct_evidence(
-    store: EvidenceStore, records: list[EvidenceRecord]
+    store: EvidenceStore,
+    records: list[EvidenceRecord],
+    task: TaskIdentity,
 ) -> EvidenceRecord | None:
+    required_fields = (
+        "input",
+        "expected",
+        "actual",
+        "environment",
+    )
     candidates = [
         record
         for record in records
-        if record.evidence_type == "direct_feature_probe"
+        if record.task_id == task.task_id
+        and record.requirement_id == "M5-06"
+        and record.evidence_type == "direct_feature_probe"
         and record.basis == "observed"
         and record.result in {"pass", "fail", "inconclusive"}
-        and record.fields.get("human_observation") is True
+        and _namespaced(record.subject_ref, "subject:hwpx")
+        and (
+            record.fields.get("adapter") == "hwpx"
+            or _namespaced(record.fields.get("adapter_ref"), "adapter:hwpx")
+        )
+        and all(_material(record.fields.get(field)) for field in required_fields)
+        and record.fields.get("environment") == task.environment_ref
+        and record.fields.get("task_ref", task.task_id) == task.task_id
+        and record.fields.get("target_commit", task.commit) == task.commit
+        and (
+            _material(record.fields.get("generated_output"))
+            or _material(record.fields.get("generated_files"))
+            or _material(record.fields.get("tool_error"))
+        )
+        and isinstance(record.fields.get("human_observation"), str)
+        and bool(record.fields["human_observation"].strip())
     ]
     for record in reversed(candidates):
         try:
-            store.read_content(record.evidence_id)
+            resolve_evidence(
+                store,
+                task_id=task.task_id,
+                evidence_id=record.evidence_id,
+                assurance_packet=None,
+            )
         except (OSError, ValueError):
             continue
         return record
@@ -246,14 +349,9 @@ def _completeness(
     direct: EvidenceRecord | None,
 ) -> dict:
     missing = []
-    if not isinstance(baseline, dict) or not baseline.get("baseline_id") or not baseline.get("fingerprint"):
+    if not _valid_baseline(task, baseline):
         missing.append("project_baseline")
-    elif any(
-        field in baseline and baseline[field] != getattr(task, field)
-        for field in ("project_id", "worktree_id", "environment_ref")
-    ):
-        missing.append("project_baseline")
-    if not isinstance(context_status, dict) or not context_status:
+    if not _valid_context_status(context_status):
         missing.append("context_status")
     if _contract_source(task, execution_contract, assurance_packet, m4).get("status") != "closed":
         missing.append("execution_contract")
@@ -272,11 +370,325 @@ def _completeness(
     }
 
 
-def _bounded_diagram(assurance_packet: dict | None, m4: SourceClosure) -> dict:
+def _valid_baseline(task: TaskIdentity, baseline: dict | None) -> bool:
+    if not isinstance(baseline, dict) or set(baseline) != _BASELINE_FIELDS:
+        return False
+    try:
+        expected = fingerprint(
+            {key: value for key, value in baseline.items() if key != "fingerprint"}
+        )
+    except (TypeError, ValueError):
+        return False
+    return bool(
+        baseline.get("baseline_version") == "1.0"
+        and isinstance(baseline.get("version"), int)
+        and not isinstance(baseline.get("version"), bool)
+        and baseline["version"] >= 1
+        and baseline.get("fingerprint") == expected
+        and baseline.get("project_id") == task.project_id
+        and baseline.get("worktree_id") == task.worktree_id
+        and baseline.get("environment_ref") == task.environment_ref
+        and all(
+            isinstance(baseline.get(field), str) and bool(baseline[field])
+            for field in ("baseline_id", "project_id", "worktree_id", "environment_ref")
+        )
+        and all(
+            isinstance(baseline.get(field), str) and _HASH.fullmatch(baseline[field])
+            for field in ("profile_ref", "interview_ref", "fingerprint")
+        )
+        and (
+            baseline["predecessor_ref"] is None
+            if baseline["version"] == 1
+            else isinstance(baseline["predecessor_ref"], str)
+            and bool(baseline["predecessor_ref"])
+        )
+        and all(
+            isinstance(baseline.get(field), list)
+            for field in (
+                "sources",
+                "commands",
+                "sensitive_paths",
+                "external_services",
+                "unobserved",
+                "event_refs",
+                "evidence_refs",
+            )
+        )
+        and isinstance(baseline.get("source_fingerprints"), dict)
+        and all(
+            isinstance(key, str)
+            and bool(key)
+            and isinstance(value, str)
+            and _HASH.fullmatch(value)
+            for key, value in baseline["source_fingerprints"].items()
+        )
+        and _valid_sources(baseline["sources"], baseline["source_fingerprints"])
+        and all(_valid_command(item) for item in baseline["commands"])
+        and all(_valid_sensitive_path(item) for item in baseline["sensitive_paths"])
+        and all(_valid_service(item) for item in baseline["external_services"])
+        and _valid_hwpx_contract(baseline.get("hwpx_tool_contract"))
+        and all(_valid_unobserved(item) for item in baseline["unobserved"])
+        and _valid_refs(baseline["event_refs"])
+        and _valid_refs(baseline["evidence_refs"])
+    )
+
+
+def _exact_object(value: object, fields: set[str]) -> bool:
+    return isinstance(value, dict) and set(value) == fields
+
+
+def _text(value: object) -> bool:
+    return isinstance(value, str) and bool(value)
+
+
+def _valid_refs(value: object, *, required: bool = False) -> bool:
+    return bool(
+        isinstance(value, list)
+        and (not required or value)
+        and all(_text(item) for item in value)
+        and len(value) == len(set(value))
+    )
+
+
+def _unique_objects(values: list[object]) -> bool:
+    try:
+        return len(values) == len({fingerprint(item) for item in values})
+    except (TypeError, ValueError):
+        return False
+
+
+def _valid_check(value: object) -> bool:
+    if not _exact_object(value, {"result", "basis", "evidence_refs"}):
+        return False
+    refs = value["evidence_refs"]
+    return bool(
+        _valid_refs(refs)
+        and (
+            value["result"] == "pass"
+            and value["basis"] == "observed"
+            and refs
+            or value["result"] == "not_run"
+            and value["basis"] == "unobserved"
+            and not refs
+        )
+    )
+
+
+def _valid_source(value: object) -> bool:
+    if not _exact_object(
+        value,
+        {"source_id", "source_type", "path", "content_hash", "scope", "freshness", "realization"},
+    ):
+        return False
+    freshness = value["freshness"]
+    realization = value["realization"]
+    return bool(
+        all(_text(value[field]) for field in ("source_id", "path", "scope"))
+        and value["source_type"]
+        in {
+            "agents_instruction",
+            "project_contract",
+            "project_manifest",
+            "codex_config",
+            "rule",
+            "hook",
+            "hwpx_tool_contract",
+            "external_service_declaration",
+        }
+        and isinstance(value["content_hash"], str)
+        and _HASH.fullmatch(value["content_hash"])
+        and _exact_object(freshness, {"status", "basis", "checked_at"})
+        and freshness["status"] == "current"
+        and freshness["basis"] == "observed"
+        and _text(freshness["checked_at"])
+        and _exact_object(realization, set(_STAGES))
+        and all(_valid_check(realization[stage]) for stage in _STAGES)
+    )
+
+
+def _valid_sources(values: list[object], source_fingerprints: dict) -> bool:
+    return bool(
+        _unique_objects(values)
+        and all(_valid_source(item) for item in values)
+        and source_fingerprints
+        == {item["source_id"]: item["content_hash"] for item in values}
+    )
+
+
+def _valid_command(value: object) -> bool:
+    return bool(
+        _exact_object(value, {"kind", "command", "source_ref"})
+        and all(_text(value[field]) for field in ("kind", "command", "source_ref"))
+    )
+
+
+def _valid_sensitive_path(value: object) -> bool:
+    return bool(
+        _exact_object(value, {"path", "basis", "value_exposed"})
+        and _text(value["path"])
+        and value["basis"] == "observed"
+        and value["value_exposed"] is False
+    )
+
+
+def _valid_service(value: object) -> bool:
+    return bool(
+        _exact_object(value, {"name", "purpose", "endpoint_host"})
+        and all(isinstance(value[field], str) for field in ("name", "purpose", "endpoint_host"))
+    )
+
+
+def _valid_hwpx_contract(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    if value.get("basis") == "unobserved":
+        return bool(
+            _exact_object(value, {"basis", "tools", "reason"})
+            and value["tools"] == []
+            and _text(value["reason"])
+        )
+    return bool(
+        value.get("basis") == "observed"
+        and _exact_object(value, {"basis", "tools", "source_ref"})
+        and isinstance(value["tools"], list)
+        and _unique_objects(value["tools"])
+        and all(
+            _exact_object(tool, {"name", "input", "output"})
+            and all(isinstance(tool[field], str) for field in ("name", "input", "output"))
+            for tool in value["tools"]
+        )
+        and isinstance(value["source_ref"], str)
+    )
+
+
+def _valid_unobserved(value: object) -> bool:
+    return bool(
+        _exact_object(value, {"path", "basis", "reason"})
+        and isinstance(value["path"], str)
+        and value["basis"] == "unobserved"
+        and isinstance(value["reason"], str)
+    )
+
+
+def _valid_context_status(status: dict | None) -> bool:
+    if not _exact_object(status, _CONTEXT_STATUS_FIELDS):
+        return False
+    if not (
+        status["report_version"] == "1.0"
+        and status["matrix_version"] == "1.5-proposed-1"
+        and _text(status["manifest_ref"])
+    ):
+        return False
+    source_fields = {"source_ref", "evidence_refs"}
+    excluded_fields = {"source_ref", "reason", "evidence_refs"}
+    applicability_fields = {"source_ref", "decision", "evidence_refs"}
+    lint_fields = {
+        "finding_id", "rule_id", "source_refs", "locations", "impact", "suggestion", "evidence_refs"
+    }
+    claim_fields = {
+        "claim_id", "category", "verdict", "evidence_refs", "conflict_refs",
+        "residual_risks", "permitted_statement",
+    }
+    active = status["active_context"] + status["active_controls"]
+    claims = status["claim_results"]
+    return bool(
+        all(
+            isinstance(status[field], list) and _unique_objects(status[field])
+            for field in (
+                "active_context", "active_controls", "excluded_context",
+                "applicability_results", "lint_findings", "claim_results",
+            )
+        )
+        and all(
+            _exact_object(item, source_fields)
+            and _text(item["source_ref"])
+            and _valid_refs(item["evidence_refs"], required=True)
+            for item in active
+        )
+        and all(
+            _exact_object(item, excluded_fields)
+            and _text(item["source_ref"])
+            and _text(item["reason"])
+            and _valid_refs(item["evidence_refs"])
+            for item in status["excluded_context"]
+        )
+        and all(
+            _exact_object(item, applicability_fields)
+            and _text(item["source_ref"])
+            and item["decision"] in _CONTEXT_DECISIONS
+            and _valid_refs(item["evidence_refs"])
+            for item in status["applicability_results"]
+        )
+        and all(
+            _exact_object(item, lint_fields)
+            and all(_text(item[field]) for field in ("finding_id", "rule_id", "impact", "suggestion"))
+            and all(_valid_refs(item[field]) for field in ("source_refs", "locations", "evidence_refs"))
+            for item in status["lint_findings"]
+        )
+        and len(claims) == 6
+        and len({item.get("claim_id") for item in claims if isinstance(item, dict)}) == 6
+        and all(_valid_context_claim(item, claim_fields) for item in claims)
+    )
+
+
+def _valid_context_claim(value: object, fields: set[str]) -> bool:
+    if not _exact_object(value, fields):
+        return False
+    verdict = value["verdict"]
+    return bool(
+        isinstance(value["claim_id"], str)
+        and re.fullmatch(r"CGM-[0-9]{3}", value["claim_id"])
+        and _text(value["category"])
+        and verdict in {"supported", "contradicted", "not_evaluated"}
+        and _valid_refs(value["evidence_refs"])
+        and _valid_refs(value["conflict_refs"])
+        and _valid_refs(value["residual_risks"], required=True)
+        and (
+            verdict == "supported"
+            and bool(value["evidence_refs"])
+            and not value["conflict_refs"]
+            and _text(value["permitted_statement"])
+            or verdict in {"contradicted", "not_evaluated"}
+            and value["permitted_statement"] is None
+        )
+    )
+
+
+def _bounded_diagram(
+    task: TaskIdentity,
+    baseline: dict | None,
+    execution_contract: dict | None,
+    assurance_packet: dict | None,
+    m4: SourceClosure,
+) -> dict:
     if m4.status != "closed" or not isinstance(assurance_packet, dict):
         return {"state": "unobserved", "kind": None, "nodes": (), "edges": ()}
     relations = assurance_packet["impact"].get("relations", [])
-    if not relations:
+    contract = _contract_source(task, execution_contract, assurance_packet, m4)
+    draft = execution_contract.get("assurance_draft") if isinstance(execution_contract, dict) else None
+    hypotheses = draft.get("impact_hypotheses") if isinstance(draft, dict) else None
+    declared_relation_refs = {
+        reference
+        for hypothesis in hypotheses or []
+        if isinstance(hypothesis, dict)
+        for reference in hypothesis.get("relation_refs", [])
+        if isinstance(reference, str)
+    }
+    relation_ids = {
+        relation.get("relation_id")
+        for relation in relations
+        if isinstance(relation, dict)
+    }
+    sources_close = bool(
+        contract.get("status") == "closed"
+        and _valid_baseline(task, baseline)
+        and execution_contract.get("baseline_ref") == baseline.get("baseline_id")
+        and execution_contract.get("baseline_fingerprint") == baseline.get("fingerprint")
+        and isinstance(hypotheses, list)
+        and hypotheses
+        and relation_ids <= declared_relation_refs
+    )
+    if not relations or not sources_close:
         return {"state": "unobserved", "kind": None, "nodes": (), "edges": ()}
     node_map: dict[str, dict] = {}
     edges = []
@@ -347,7 +759,28 @@ def _relations(assurance_packet: dict | None, m4: SourceClosure) -> tuple[dict, 
                 "priority": priority,
             }
         )
-    return tuple(sorted(rows, key=lambda item: (item["priority"], item["relation_id"])))
+    for item in assurance_packet["impact"].get("unobserved", []):
+        area = item.get("area") if isinstance(item, dict) else None
+        reason = item.get("reason") if isinstance(item, dict) else None
+        if not isinstance(area, str) or not area or not isinstance(reason, str) or not reason:
+            continue
+        changed_paths = (area.removeprefix("changed_path:"),) if area.startswith("changed_path:") else ()
+        rows.append(
+            {
+                "relation_id": "unobserved:" + fingerprint({"area": area, "reason": reason})[7:23],
+                "relation_type": "unobserved",
+                "target_ref": area,
+                "changed_paths": changed_paths,
+                "basis": "unobserved",
+                "evidence_refs": (),
+                "priority": "recommended",
+                "reason": reason,
+            }
+        )
+    priority_order = {"required": 0, "recommended": 1, "reference": 2}
+    return tuple(
+        sorted(rows, key=lambda item: (priority_order[item["priority"]], item["relation_id"]))
+    )
 
 
 def _visible_result(value: object) -> str:
@@ -402,16 +835,30 @@ def _verification(
     return tuple(rows)
 
 
-def _guarantees(task: TaskIdentity, report: dict | None) -> tuple[dict, ...]:
-    if not _matching_guarantee(task, report):
-        return (
+def _guarantees(
+    report: dict | None, guarantee_matches: bool
+) -> tuple[dict, ...]:
+    if not guarantee_matches:
+        claim_ids = []
+        if isinstance(report, dict) and isinstance(report.get("claim_results"), list):
+            claim_ids = [
+                claim.get("claim_id")
+                for claim in report["claim_results"]
+                if isinstance(claim, dict)
+                and isinstance(claim.get("claim_id"), str)
+                and claim["claim_id"]
+            ]
+        if not claim_ids:
+            claim_ids = ["task_guarantees"]
+        return tuple(
             {
-                "claim_id": "task_guarantees",
+                "claim_id": claim_id,
                 "status": "not_evaluated",
                 "verdict": None,
                 "basis": "unobserved",
                 "evidence_refs": (),
-            },
+            }
+            for claim_id in dict.fromkeys(claim_ids)
         )
     rows = []
     for result in report["claim_results"]:
@@ -427,7 +874,11 @@ def _guarantees(task: TaskIdentity, report: dict | None) -> tuple[dict, ...]:
                 "claim_id": result.get("claim_id"),
                 "status": result.get("verdict", "not_evaluated"),
                 "verdict": result.get("verdict"),
-                "basis": "observed",
+                "basis": (
+                    "observed"
+                    if result.get("verdict") in {"supported", "contradicted"}
+                    else "unobserved"
+                ),
                 "permitted_statement": result.get("permitted_statement"),
                 "evidence_refs": requirement_refs,
                 "residual_risks": tuple(result.get("residual_risks", [])),
@@ -451,9 +902,11 @@ def _unobserved_controls(reason: str) -> dict:
     }
 
 
-def _artifact_ref(value: dict | None, id_field: str) -> dict:
+def _artifact_ref(value: dict | None, id_field: str, *, valid: bool) -> dict:
     if not isinstance(value, dict):
         return {"status": "unavailable"}
+    if not valid:
+        return {"status": "invalid"}
     return {
         "status": "observed",
         id_field: value.get(id_field),
@@ -462,6 +915,7 @@ def _artifact_ref(value: dict | None, id_field: str) -> dict:
 
 
 def _harness(
+    task: TaskIdentity,
     baseline: dict | None,
     context_status: dict | None,
     m3_packet: dict | None,
@@ -478,8 +932,14 @@ def _harness(
         else _unobserved_controls("M3 task_ref does not close to this Task")
     )
     return {
-        "baseline": _artifact_ref(baseline, "baseline_id"),
-        "context_status": _artifact_ref(context_status, "status_id"),
+        "baseline": _artifact_ref(
+            baseline, "baseline_id", valid=_valid_baseline(task, baseline)
+        ),
+        "context_status": _artifact_ref(
+            context_status,
+            "manifest_ref",
+            valid=_valid_context_status(context_status),
+        ),
         "source": {
             "scope": m3.scope,
             "status": m3.status,
@@ -653,13 +1113,16 @@ def assemble_task_review(
     assurance_packet: dict | None,
     guarantee_report: dict | None,
     assembled_at: str,
+    guarantee_evaluator: GuaranteeEvaluator | None = None,
 ) -> TaskReviewView:
     m3 = validate_m3_source(task=task, packet=m3_packet) if m3_packet is not None else _unavailable("m3")
     m4 = validate_m4_source(task=task, packet=assurance_packet) if assurance_packet is not None else _unavailable("m4")
     freshness_view = _freshness_view(task, projection, freshness)
     evidence_records = evidence_store.list_for_task(task.task_id)
-    direct = _direct_evidence(evidence_store, evidence_records)
-    guarantee_matches = _matching_guarantee(task, guarantee_report)
+    direct = _direct_evidence(evidence_store, evidence_records, task)
+    guarantee_matches = _matching_guarantee(
+        task, guarantee_report, guarantee_evaluator, evidence_store
+    )
     return TaskReviewView(
         task=_task_identity(task),
         summary=_source_backed_summary(task, execution_contract, assurance_packet, m3, m4),
@@ -675,11 +1138,13 @@ def assemble_task_review(
             guarantee_matches,
             direct,
         ),
-        diagram=_bounded_diagram(assurance_packet, m4),
+        diagram=_bounded_diagram(
+            task, baseline, execution_contract, assurance_packet, m4
+        ),
         relations=_relations(assurance_packet, m4),
         verification=_verification(assurance_packet, m4, direct),
-        guarantees=_guarantees(task, guarantee_report),
-        harness=_harness(baseline, context_status, m3_packet, m3),
+        guarantees=_guarantees(guarantee_report, guarantee_matches),
+        harness=_harness(task, baseline, context_status, m3_packet, m3),
         assurance=_assurance(assurance_packet, m4),
         decision=_decision(projection, freshness_view, assurance_packet, m4),
         history=_history(events.list_for_task(task.task_id)),
