@@ -18,6 +18,7 @@ from devharness.evidence import EvidenceStore
 from devharness.events import EventDraft, EventLog
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
+from devharness.projections import ProjectionEngine
 
 
 NOW = "2026-09-06T12:00:00+00:00"
@@ -54,6 +55,7 @@ class DashboardActionTests(unittest.TestCase):
             environment_ref="macos-arm64-python-3.12",
         )
         self.events = EventLog(self.catalog)
+        self.projections = ProjectionEngine(self.catalog, self.events)
         self.events.append(
             EventDraft(
                 event_id="event:task:1",
@@ -152,6 +154,7 @@ class DashboardActionTests(unittest.TestCase):
             evidence_refs=("evidence:gate",),
             occurred_at=NOW,
         )
+        self.projections.project(self.task.task_id)
 
     def test_missing_adapter_records_unobserved_probe_without_fake_human_observation(self) -> None:
         record = run_feature_validation(
@@ -235,6 +238,31 @@ class DashboardActionTests(unittest.TestCase):
                 evidence_id="evidence:direct:3",
                 occurred_at=NOW,
             )
+
+    def test_hwpx_adapter_without_human_observation_cannot_store_observed_pass(self) -> None:
+        adapter = HwpxAdapter(
+            ValidationObservation(
+                result="pass",
+                basis="observed",
+                actual="Automated HWPX output completed",
+                generated_files=(),
+                generated_output="rendered-page-1.png",
+                tool_error=None,
+                human_observation=None,
+            )
+        )
+
+        record = run_feature_validation(
+            adapter=adapter,
+            request=self.request(),
+            evidence_store=self.store,
+            evidence_id="evidence:direct:no-human",
+            occurred_at=NOW,
+        )
+
+        self.assertEqual(("not_run", "unobserved"), (record.result, record.basis))
+        self.assertIsNone(record.fields["human_observation"])
+        self.assertEqual("rendered-page-1.png", record.fields["generated_output"])
 
     def test_stale_and_hard_block_decisions_are_rejected_before_append(self) -> None:
         for view, decision in (
@@ -326,6 +354,28 @@ class DashboardActionTests(unittest.TestCase):
                     event_id="event:decision:forged",
                     occurred_at=NOW,
                 )
+
+    def test_decision_rechecks_current_event_head_inside_append_boundary(self) -> None:
+        self.record_assurance()
+        fresh_view = self.view()
+        run_feature_validation(
+            adapter=None,
+            request=self.request(),
+            evidence_store=self.store,
+            evidence_id="evidence:direct:after-view",
+            occurred_at=NOW,
+        )
+
+        with self.assertRaisesRegex(ValueError, "stale"):
+            submit_task_decision(
+                view=fresh_view,
+                events=self.events,
+                form=self.decision_form(),
+                event_id="event:decision:toctou",
+                occurred_at=NOW,
+            )
+
+        self.assertEqual(3, self.events.head_sequence(self.task.task_id))
 
 
 if __name__ == "__main__":

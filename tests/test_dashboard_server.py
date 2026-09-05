@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+import contextlib
+import http.cookiejar
+import io
+import tempfile
+import threading
+import time
 import unittest
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import patch
@@ -9,10 +17,15 @@ from devharness.dashboard_server import (
     DashboardConfig,
     DashboardResponse,
     DashboardServices,
+    create_dashboard_server,
     route_request,
+    serve_dashboard,
 )
 from devharness.dashboard_sources import EvidenceView
 from devharness.__main__ import main
+from devharness.catalog import Catalog
+from devharness.identity import IdentityRegistry
+from devharness.paths import DataPaths
 
 
 TASK = "task:opaque-1"
@@ -238,6 +251,96 @@ class DashboardRouteTests(unittest.TestCase):
         ) as serve, self.assertRaises(SystemExit):
             main()
         serve.assert_not_called()
+
+    def test_serve_dashboard_prints_and_follows_a_real_task_bootstrap_url(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            data_root = Path(temporary) / "data"
+            catalog = Catalog.open(DataPaths.resolve(data_root))
+            registry = IdentityRegistry(catalog)
+            project = registry.register_project("file:///bootstrap-repo")
+            worktree = registry.register_worktree(
+                project.project_id, "file:///bootstrap-repo/main"
+            )
+            registry.create_task(
+                worktree.worktree_id,
+                mode="managed",
+                commit="older123",
+                branch="older",
+                cwd="/bootstrap-repo/main",
+                environment_ref="local-test",
+            )
+            task = registry.create_task(
+                worktree.worktree_id,
+                mode="managed",
+                commit="bootstrap123",
+                branch="main",
+                cwd="/bootstrap-repo/main",
+                environment_ref="local-test",
+            )
+            catalog.close()
+
+            def load_view(task_id: str) -> View:
+                if task_id != task.task_id:
+                    raise ValueError(f"unknown task: {task_id}")
+                return View(task={"task_id": task_id}, decision={})
+
+            services = DashboardServices(
+                load_view=load_view,
+                resolve_evidence=lambda *_args: (_ for _ in ()).throw(
+                    AssertionError("unexpected resolver call")
+                ),
+                validate_feature=lambda *_args: object(),
+                decide=lambda *_args: object(),
+                export_history=lambda *_args: b"{}",
+            )
+            config = DashboardConfig(
+                host="127.0.0.1",
+                port=0,
+                session_token="followable-one-use-token",
+                data_root=data_root,
+            )
+            output = io.StringIO()
+            servers = []
+            real_create = create_dashboard_server
+
+            def capture_server(config: DashboardConfig, services: DashboardServices):
+                server = real_create(config, services)
+                servers.append(server)
+                return server
+
+            def run() -> None:
+                with contextlib.redirect_stdout(output):
+                    serve_dashboard(config, services)
+
+            with patch(
+                "devharness.dashboard_server.create_dashboard_server",
+                side_effect=capture_server,
+            ):
+                thread = threading.Thread(target=run, daemon=True)
+                thread.start()
+                deadline = time.monotonic() + 2
+                while (not servers or "dashboard=" not in output.getvalue()) and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                try:
+                    printed = output.getvalue().strip()
+                    self.assertTrue(printed.startswith("dashboard=http://"), printed)
+                    url = printed.removeprefix("dashboard=")
+                    self.assertNotIn("{task_id}", url)
+                    self.assertIn(f"/tasks/{task.task_id}?session_token=", url)
+                    opener = urllib.request.build_opener(
+                        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+                    )
+                    with opener.open(url, timeout=2) as response:
+                        self.assertEqual(200, response.status)
+                        self.assertEqual(
+                            f"/tasks/{task.task_id}",
+                            urllib.parse.urlsplit(response.url).path,
+                        )
+                        self.assertNotIn("session_token", response.url)
+                finally:
+                    if servers:
+                        servers[0].shutdown()
+                    thread.join(timeout=2)
 
 
 if __name__ == "__main__":

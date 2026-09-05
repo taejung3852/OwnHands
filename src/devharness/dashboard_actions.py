@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Protocol
 
-from .dashboard_events import record_task_decision
+from .dashboard_events import _record_task_decision
 from .dashboard_security import require_opaque_identifier
 from .dashboard_view import TaskReviewView
 from .evidence import EvidenceDraft, EvidenceRecord, EvidenceStore
@@ -167,6 +167,12 @@ def run_feature_validation(
     else:
         adapter_ref = _adapter_reference(adapter)
         observation = _validation_observation(adapter.validate(request))
+        if observation.human_observation is None:
+            observation = replace(
+                observation,
+                result="not_run",
+                basis="unobserved",
+            )
         collection_method = f"dashboard-feature-adapter:{adapter_ref}"
     fields = _allowlisted_observation(
         request,
@@ -310,19 +316,23 @@ def submit_task_decision(
             "risk acceptance requires exact Soft Block, product_authority, reason, and residual risk"
         )
 
-    return record_task_decision(
+    return _record_task_decision(
         events,
-        event_id=_text(event_id, "event_id"),
-        task_id=task_id,
-        assurance_packet_fingerprint=packet_fingerprint,
-        gate_fingerprint=gate_fingerprint,
-        gate_decision=gate_decision,
-        decision=selected,
-        decision_source=decision_source,
-        actor_ref=actor_ref,
-        reason=reason,
-        residual_risks=residual_risks,
-        follow_up=follow_up,
-        evidence_refs=evidence_refs,
-        occurred_at=_timestamp(occurred_at, "occurred_at"),
+        values={
+            "event_id": _text(event_id, "event_id"),
+            "task_id": task_id,
+            "assurance_packet_fingerprint": packet_fingerprint,
+            "gate_fingerprint": gate_fingerprint,
+            "gate_decision": gate_decision,
+            "decision": selected,
+            "decision_source": decision_source,
+            "actor_ref": actor_ref,
+            "reason": reason,
+            "residual_risks": residual_risks,
+            "follow_up": follow_up,
+            "evidence_refs": evidence_refs,
+            "occurred_at": _timestamp(occurred_at, "occurred_at"),
+        },
+        expected_event_head=freshness["event_head"],
+        expected_projected_sequence=freshness["projected_sequence"],
     )

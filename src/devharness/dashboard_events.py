@@ -102,39 +102,83 @@ def record_task_decision(
     evidence_refs: Sequence[str],
     occurred_at: str,
 ) -> EventRecord:
-    selected_decision = _member(decision, DECISIONS, "decision")
-    selected_gate = _member(gate_decision, GATE_DECISIONS, "gate_decision")
-    source = _text(decision_source, "decision_source")
-    risks = _references(residual_risks, "residual_risks")
-    task_id = _text(task_id, "task_id")
+    return _record_task_decision(
+        events,
+        values={
+            "event_id": event_id,
+            "task_id": task_id,
+            "assurance_packet_fingerprint": assurance_packet_fingerprint,
+            "gate_fingerprint": gate_fingerprint,
+            "gate_decision": gate_decision,
+            "decision": decision,
+            "decision_source": decision_source,
+            "actor_ref": actor_ref,
+            "reason": reason,
+            "residual_risks": residual_risks,
+            "follow_up": follow_up,
+            "evidence_refs": evidence_refs,
+            "occurred_at": occurred_at,
+        },
+    )
+
+
+def _record_task_decision(
+    events: EventLog,
+    *,
+    values: dict,
+    expected_event_head: int | None = None,
+    expected_projected_sequence: int | None = None,
+) -> EventRecord:
+    selected_decision = _member(values["decision"], DECISIONS, "decision")
+    selected_gate = _member(
+        values["gate_decision"], GATE_DECISIONS, "gate_decision"
+    )
+    source = _text(values["decision_source"], "decision_source")
+    risks = _references(values["residual_risks"], "residual_risks")
+    task_id = _text(values["task_id"], "task_id")
     packet_fingerprint = _fingerprint(
-        assurance_packet_fingerprint,
+        values["assurance_packet_fingerprint"],
         "assurance_packet_fingerprint",
     )
-    gate_fingerprint = _fingerprint(gate_fingerprint, "gate_fingerprint")
+    gate_fingerprint = _fingerprint(values["gate_fingerprint"], "gate_fingerprint")
     draft = EventDraft(
-        event_id=_text(event_id, "event_id"),
+        event_id=_text(values["event_id"], "event_id"),
         task_id=task_id,
         event_type="task.decision.recorded",
         event_version=1,
-        occurred_at=_text(occurred_at, "occurred_at"),
+        occurred_at=_text(values["occurred_at"], "occurred_at"),
         payload={
             "assurance_packet_fingerprint": packet_fingerprint,
             "gate_fingerprint": gate_fingerprint,
             "gate_decision": selected_gate,
             "decision": selected_decision,
             "decision_source": source,
-            "actor_ref": _text(actor_ref, "actor_ref"),
-            "reason": _text(reason, "reason"),
+            "actor_ref": _text(values["actor_ref"], "actor_ref"),
+            "reason": _text(values["reason"], "reason"),
             "residual_risks": risks,
-            "follow_up": _text(follow_up, "follow_up"),
-            "evidence_refs": _references(evidence_refs, "evidence_refs"),
+            "follow_up": _text(values["follow_up"], "follow_up"),
+            "evidence_refs": _references(values["evidence_refs"], "evidence_refs"),
         },
         collection_method="dashboard-decision-form",
         redaction_status="redacted",
     )
     with events.catalog.transaction() as connection:
         task_events = events.list_for_task(task_id)
+        if expected_event_head is not None:
+            current_head = task_events[-1].sequence if task_events else 0
+            projection = connection.execute(
+                "SELECT projected_sequence, state FROM task_projections WHERE task_id=?",
+                (task_id,),
+            ).fetchone()
+            if (
+                expected_projected_sequence is None
+                or current_head != expected_event_head
+                or expected_projected_sequence != expected_event_head
+                or projection is None
+                or projection["state"] != "ready"
+                or projection["projected_sequence"] != current_head
+            ):
+                raise ValueError("stale Dashboard view cannot record a Decision")
         existing = next(
             (event for event in task_events if event.event_id == draft.event_id), None
         )

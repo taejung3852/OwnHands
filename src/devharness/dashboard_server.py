@@ -12,12 +12,14 @@ from threading import Lock
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlsplit
 
+from .catalog import Catalog
 from .dashboard_security import (
     RequestSecurityError,
     issue_csrf_token,
     require_opaque_identifier,
     validate_request_security,
 )
+from .paths import DataPaths
 
 
 _COOKIE_NAME = "devharness_session"
@@ -421,6 +423,17 @@ def create_dashboard_server(
 
 
 def serve_dashboard(config: DashboardConfig, services: DashboardServices) -> None:
+    with Catalog.open(DataPaths.resolve(config.data_root)) as catalog:
+        row = catalog.connection.execute(
+            "SELECT task_id FROM tasks ORDER BY created_at DESC, task_id DESC LIMIT 1"
+        ).fetchone()
+    if row is None:
+        raise ValueError("Dashboard requires an existing canonical Task")
+    task_id = require_opaque_identifier(row["task_id"], "task_id")
+    services.load_view(task_id)
     with create_dashboard_server(config, services) as server:
-        print(f"dashboard={config.origin}/tasks/{{task_id}}?session_token={config.session_token}")
+        print(
+            f"dashboard={config.origin}/tasks/{task_id}?session_token={config.session_token}",
+            flush=True,
+        )
         server.serve_forever()
