@@ -17,6 +17,24 @@ from .events import EventDraft, EventLog
 RESULTS = {"pass", "fail", "not_run", "inconclusive"}
 BASES = {"observed", "inferred", "unobserved"}
 REDACTION_STATUSES = {"not_needed", "redacted", "reference_only"}
+EVIDENCE_TYPES = {
+    "active_configuration",
+    "approval_lifecycle",
+    "configuration_conflict",
+    "direct_feature_probe",
+    "event_projection_sequence",
+    "feature_impact",
+    "file_creation",
+    "hook_execution",
+    "instruction_loading",
+    "mcp_capability",
+    "regression_gate",
+    "rule_probe",
+    "sandbox_probe",
+    "test_execution",
+    "workspace_diff",
+    "workspace_restore_point",
+}
 SENSITIVE_FIELD_FRAGMENTS = {
     "api_key",
     "apikey",
@@ -293,10 +311,6 @@ class EvidenceStore:
                 if row is None:
                     raise ValueError(f"unknown evidence: {evidence_id}")
                 if row["purged_at"] is None:
-                    connection.execute(
-                        "UPDATE evidence SET purged_at=?, purge_reason=? WHERE evidence_id=?",
-                        (purged_at, reason, evidence_id),
-                    )
                     self.events.append_in_transaction(
                         EventDraft(
                             event_id=f"evidence-purged:{evidence_id}",
@@ -315,6 +329,10 @@ class EvidenceStore:
                         _identity_payload,
                         connection,
                     )
+                    connection.execute(
+                        "UPDATE evidence SET purged_at=?, purge_reason=? WHERE evidence_id=?",
+                        (purged_at, reason, evidence_id),
+                    )
                 remaining_references = connection.execute(
                     """
                     SELECT COUNT(*) FROM evidence
@@ -323,8 +341,9 @@ class EvidenceStore:
                     (row["content_hash"],),
                 ).fetchone()[0]
                 object_path = self.catalog.paths.objects / row["object_relpath"]
+                purge_key = hashlib.sha256(evidence_id.encode("utf-8")).hexdigest()
                 trash_path = object_path.with_name(
-                    f".{object_path.name}.purging"
+                    f".{object_path.name}.purging.{purge_key}"
                 )
                 if remaining_references == 0:
                     if object_path.exists() and not trash_path.exists():
@@ -359,8 +378,11 @@ class EvidenceStore:
                     "SELECT object_relpath FROM evidence WHERE purged_at IS NULL"
                 ).fetchall()
             }
-            for trash_path in sorted(self.catalog.paths.objects.rglob(".*.purging")):
-                original_name = trash_path.name[1 : -len(".purging")]
+            for trash_path in sorted(self.catalog.paths.objects.rglob(".*.purging*")):
+                marker = trash_path.name.find(".purging", 1)
+                if marker < 0:
+                    continue
+                original_name = trash_path.name[1:marker]
                 original_path = trash_path.with_name(original_name)
                 if original_path in active_paths and not original_path.exists():
                     os.replace(trash_path, original_path)
@@ -372,7 +394,7 @@ class EvidenceStore:
                 if (
                     not path.is_file()
                     or path in active_paths
-                    or path.name.endswith(".purging")
+                    or ".purging" in path.name
                 ):
                     continue
                 if path.stat().st_mtime > cutoff:
@@ -393,6 +415,8 @@ class EvidenceStore:
             "collection_method",
         ):
             _required_text(getattr(draft, name), name)
+        if draft.evidence_type not in EVIDENCE_TYPES:
+            raise ValueError(f"unknown evidence_type: {draft.evidence_type}")
         if draft.result not in RESULTS:
             raise ValueError("result is invalid")
         if draft.basis not in BASES:

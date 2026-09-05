@@ -10,6 +10,9 @@ from .catalog import Catalog, projection_fingerprint
 from .events import EventLog, EventRecord
 
 
+PROJECTION_VERSION = "1.0"
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 

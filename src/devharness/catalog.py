@@ -91,8 +91,20 @@ class Catalog:
                 SELECT RAISE(ABORT, 'project identities are immutable');
             END;
 
+            CREATE TRIGGER IF NOT EXISTS projects_no_delete
+            BEFORE DELETE ON projects
+            BEGIN
+                SELECT RAISE(ABORT, 'project identities are immutable');
+            END;
+
             CREATE TRIGGER IF NOT EXISTS worktrees_no_update
             BEFORE UPDATE ON worktrees
+            BEGIN
+                SELECT RAISE(ABORT, 'worktree identities are immutable');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS worktrees_no_delete
+            BEFORE DELETE ON worktrees
             BEGIN
                 SELECT RAISE(ABORT, 'worktree identities are immutable');
             END;
@@ -113,6 +125,17 @@ class Catalog:
             BEFORE UPDATE ON tasks
             BEGIN
                 SELECT RAISE(ABORT, 'task snapshots are immutable');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS tasks_project_worktree_scope
+            BEFORE INSERT ON tasks
+            WHEN NOT EXISTS (
+                SELECT 1 FROM worktrees
+                WHERE worktree_id = NEW.worktree_id
+                  AND project_id = NEW.project_id
+            )
+            BEGIN
+                SELECT RAISE(ABORT, 'task project/worktree scope mismatch');
             END;
 
             CREATE TRIGGER IF NOT EXISTS tasks_no_delete
@@ -222,6 +245,32 @@ class Catalog:
                 SELECT RAISE(ABORT, 'evidence purge transition is immutable');
             END;
 
+            CREATE TRIGGER IF NOT EXISTS evidence_purge_requires_audit_event
+            BEFORE UPDATE ON evidence
+            WHEN OLD.purged_at IS NULL
+              AND NEW.purged_at IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM events
+                  WHERE event_id = 'evidence-purged:' || OLD.evidence_id
+                    AND task_id = OLD.task_id
+                    AND event_type = 'evidence.purged'
+                    AND occurred_at = NEW.purged_at
+                    AND collection_method = 'explicit-user-purge'
+                    AND redaction_status = 'reference_only'
+                    AND json_extract(payload_json, '$.evidence_id') = OLD.evidence_id
+                    AND json_extract(payload_json, '$.content_hash') = OLD.content_hash
+                    AND json_extract(payload_json, '$.reason') = NEW.purge_reason
+              )
+            BEGIN
+                SELECT RAISE(ABORT, 'evidence purge requires matching audit event');
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS evidence_no_delete
+            BEFORE DELETE ON evidence
+            BEGIN
+                SELECT RAISE(ABORT, 'evidence rows are append-only; use purge');
+            END;
+
             CREATE TABLE IF NOT EXISTS retention_policy (
                 singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
                 mode TEXT NOT NULL CHECK(mode IN ('keep_until_user_deletes', 'days')),
@@ -280,13 +329,22 @@ class Catalog:
             )
 
     def _migrate_v1_to_v2(self) -> None:
-        columns = {
-            row["name"]
-            for row in self.connection.execute(
-                "PRAGMA table_info(task_projections)"
-            ).fetchall()
-        }
         with self.transaction() as connection:
+            version = connection.execute(
+                "SELECT value FROM schema_metadata WHERE key='schema_version'"
+            ).fetchone()[0]
+            if version == "2":
+                return
+            if version != "1":
+                raise RuntimeError(
+                    f"unsupported catalog schema version during migration: {version!r}"
+                )
+            columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(task_projections)"
+                ).fetchall()
+            }
             if "projection_hash" not in columns:
                 connection.execute(
                     """

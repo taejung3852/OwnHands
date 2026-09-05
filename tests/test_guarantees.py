@@ -9,11 +9,12 @@ from dataclasses import replace
 from pathlib import Path
 
 from devharness.catalog import Catalog
-from devharness.evidence import EvidenceDraft, EvidenceStore
-from devharness.events import EventLog
+from devharness.evidence import EVIDENCE_TYPES, EvidenceDraft, EvidenceStore
+from devharness.events import EventDraft, EventLog
 from devharness.guarantees import GuaranteeEvaluator, GuaranteeValidationError
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
+from devharness.projections import PROJECTION_VERSION, ProjectionEngine
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -312,6 +313,66 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
         self.assertEqual("contradicted", result["verdict"])
         self.assertIn("declared-conflict", result["conflict_refs"])
 
+    def test_inferred_evidence_requires_an_observed_source_record(self) -> None:
+        def add_inferred(evidence_id: str, source_id: str):
+            return self.store.put(
+                EvidenceDraft(
+                    evidence_id=evidence_id,
+                    task_id=self.managed.task_id,
+                    requirement_id="impact-analysis",
+                    evidence_type="feature_impact",
+                    subject_ref="feature.synthetic",
+                    exact_scope="src/devharness",
+                    result="pass",
+                    basis="inferred",
+                    fields={
+                        "analysis_scope": "src/devharness",
+                        "dependency_data_or_trace": "synthetic dependency trace",
+                        "basis": "inferred",
+                        "unobserved_paths": "runtime plugins",
+                    },
+                    content=b"synthetic inferred impact analysis",
+                    collection_method="synthetic-fixture",
+                    redaction_status="not_needed",
+                    inference_from=(source_id,),
+                ),
+                identity_bytes,
+            )
+
+        missing_source = add_inferred("inferred-with-missing-source", "does-not-exist")
+        self.assertEqual(
+            "not_evaluated",
+            self.evaluator.evaluate(self.managed.task_id, ["GM-012"])[
+                "claim_results"
+            ][0]["verdict"],
+        )
+        self.store.purge(missing_source.evidence_id, "test isolation")
+
+        source = self.store.put(
+            EvidenceDraft(
+                evidence_id="observed-impact-source",
+                task_id=self.managed.task_id,
+                requirement_id="impact-source",
+                evidence_type="workspace_diff",
+                subject_ref="task:synthetic:diff",
+                exact_scope="src/devharness",
+                result="pass",
+                basis="observed",
+                fields={"diff_summary": "three files changed"},
+                content=b"synthetic observed workspace diff",
+                collection_method="synthetic-fixture",
+                redaction_status="not_needed",
+            ),
+            identity_bytes,
+        )
+        add_inferred("inferred-with-observed-source", source.evidence_id)
+
+        result = self.evaluator.evaluate(self.managed.task_id, ["GM-012"])[
+            "claim_results"
+        ][0]
+        self.assertEqual("supported", result["verdict"])
+        self.assertEqual([source.evidence_id], result["requirement_results"][0]["inference_from"])
+
     def test_required_evidence_fields_bind_to_task_and_record(self) -> None:
         mutations = {
             "target_commit": {
@@ -597,6 +658,30 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
                 self.catalog, self.store, invalid_required_fields_path
             )
 
+    def test_unknown_evidence_type_in_matrix_is_rejected(self) -> None:
+        matrix = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
+        matrix["claims"][12]["required_evidence"][0]["type"] = (
+            "invented_magic_evidence"
+        )
+        matrix_path = Path(self.temporary_directory.name) / "unknown-evidence-type.json"
+        matrix_path.write_text(json.dumps(matrix), encoding="utf-8")
+
+        with self.assertRaisesRegex(GuaranteeValidationError, "unknown Evidence type"):
+            GuaranteeEvaluator(self.catalog, self.store, matrix_path)
+
+    def test_runtime_and_matrix_schema_evidence_type_registries_match(self) -> None:
+        schema = json.loads(
+            (REPOSITORY_ROOT / "docs/product/guarantee-matrix.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        schema_types = set(
+            schema["$defs"]["claim"]["properties"]["required_evidence"]["items"]
+            ["properties"]["type"]["enum"]
+        )
+
+        self.assertEqual(EVIDENCE_TYPES, schema_types)
+
     def test_forbidden_wording_in_evidence_scope_cannot_be_supported(self) -> None:
         self.store.put(
             EvidenceDraft(
@@ -629,6 +714,102 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
             "전체 시스템이 안전하다", report["claim_results"][0]["scope"]
         )
         self.evaluator.validate_report(report)
+
+    def test_forbidden_wording_is_withheld_from_inapplicable_requirement_scope(self) -> None:
+        imported = self.registry.create_task(
+            self.imported.worktree_id,
+            mode="imported",
+            commit="abc123",
+            branch="main",
+            cwd="/tmp/전체 시스템이 안전하다",
+            environment_ref="local-test",
+        )
+
+        report = self.evaluator.evaluate(imported.task_id, ["GM-002"])
+        result = report["claim_results"][0]
+
+        self.assertEqual("not_evaluated", result["verdict"])
+        self.assertNotIn(
+            "전체 시스템이 안전하다",
+            result["requirement_results"][0]["exact_scope"],
+        )
+        self.evaluator.validate_report(report)
+
+    def test_dashboard_freshness_claim_requires_actual_projection_state(self) -> None:
+        self.events.append(
+            EventDraft(
+                event_id="task-created-for-freshness",
+                task_id=self.managed.task_id,
+                event_type="task.created",
+                event_version=1,
+                occurred_at="2026-09-04T12:00:00+00:00",
+                payload={"mode": "managed"},
+                collection_method="synthetic-fixture",
+                redaction_status="not_needed",
+            ),
+            lambda payload: payload,
+        )
+        fake = self.store.put(
+            EvidenceDraft(
+                evidence_id="fake-projection-freshness",
+                task_id=self.managed.task_id,
+                requirement_id="projection-freshness",
+                evidence_type="event_projection_sequence",
+                subject_ref=f"task:{self.managed.task_id}:projection",
+                exact_scope="task projection",
+                result="pass",
+                basis="observed",
+                fields={
+                    "event_head": "999",
+                    "projected_sequence": "0",
+                    "projection_version": "bogus",
+                    "checked_at": "2026-09-04T12:00:00+00:00",
+                },
+                content=b"fake freshness",
+                collection_method="synthetic-fixture",
+                redaction_status="not_needed",
+            ),
+            identity_bytes,
+        )
+        self.assertEqual(
+            "not_evaluated",
+            self.evaluator.evaluate(self.managed.task_id, ["GM-016"])[
+                "claim_results"
+            ][0]["verdict"],
+        )
+        self.store.purge(fake.evidence_id, "test isolation")
+
+        expected_head = self.events.head_sequence(self.managed.task_id) + 1
+        self.store.put(
+            EvidenceDraft(
+                evidence_id="actual-projection-freshness",
+                task_id=self.managed.task_id,
+                requirement_id="projection-freshness",
+                evidence_type="event_projection_sequence",
+                subject_ref=f"task:{self.managed.task_id}:projection",
+                exact_scope="task projection",
+                result="pass",
+                basis="observed",
+                fields={
+                    "event_head": expected_head,
+                    "projected_sequence": expected_head,
+                    "projection_version": PROJECTION_VERSION,
+                    "checked_at": "2026-09-04T12:00:01+00:00",
+                },
+                content=b"actual freshness",
+                collection_method="synthetic-fixture",
+                redaction_status="not_needed",
+            ),
+            identity_bytes,
+        )
+        ProjectionEngine(self.catalog, self.events).project(self.managed.task_id)
+
+        self.assertEqual(
+            "supported",
+            self.evaluator.evaluate(self.managed.task_id, ["GM-016"])[
+                "claim_results"
+            ][0]["verdict"],
+        )
 
     def test_attack_fixture_names_are_unique_and_expected(self) -> None:
         attacks = json.loads(ATTACKS_PATH.read_text(encoding="utf-8"))

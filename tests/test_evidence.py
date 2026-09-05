@@ -146,6 +146,7 @@ class EvidenceStoreTests(unittest.TestCase):
                 replace(self.draft, evidence_id="empty-content", content=b""),
                 redact_bytes,
             )
+
         with self.assertRaisesRegex(ValueError, "sensitive field"):
             self.store.put(
                 replace(
@@ -164,6 +165,13 @@ class EvidenceStoreTests(unittest.TestCase):
             objects_before_unknown_task,
             {path for path in self.paths.objects.rglob("*") if path.is_file()},
         )
+
+    def test_unknown_evidence_type_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unknown evidence_type"):
+            self.store.put(
+                replace(self.draft, evidence_type="invented_magic_evidence"),
+                redact_bytes,
+            )
 
     def test_default_retention_never_deletes_automatically(self) -> None:
         self.assertEqual(
@@ -216,9 +224,10 @@ class EvidenceStoreTests(unittest.TestCase):
                 self.store.purge(record.evidence_id, "user request")
             self.assertTrue(
                 record.object_path.exists()
-                or record.object_path.with_name(
-                    f".{record.object_path.name}.purging"
-                ).exists()
+                or any(
+                    path.name.startswith(f".{record.object_path.name}.purging")
+                    for path in record.object_path.parent.iterdir()
+                )
             )
             self.store.purge(record.evidence_id, "user request")
 
@@ -229,6 +238,27 @@ class EvidenceStoreTests(unittest.TestCase):
             if event.event_type == "evidence.purged"
         ]
         self.assertEqual(1, len(purge_events))
+
+    def test_failed_purge_staging_does_not_hide_a_later_object(self) -> None:
+        first = self.store.put(self.draft, redact_bytes)
+        with mock.patch("pathlib.Path.unlink", side_effect=OSError("injected")):
+            with self.assertRaisesRegex(OSError, "injected"):
+                self.store.purge(first.evidence_id, "first purge")
+
+        second = self.store.put(
+            replace(self.draft, evidence_id="evidence-2"), redact_bytes
+        )
+        self.assertTrue(second.object_path.exists())
+        self.assertTrue(
+            any(
+                path.name.startswith(f".{second.object_path.name}.purging")
+                for path in second.object_path.parent.iterdir()
+            )
+        )
+
+        self.store.purge(second.evidence_id, "second purge")
+
+        self.assertFalse(second.object_path.exists())
 
     def test_reconciliation_removes_old_unreferenced_objects_only(self) -> None:
         referenced = self.store.put(self.draft, redact_bytes)
@@ -297,6 +327,37 @@ class EvidenceStoreTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "fingerprint"):
             self.store.resolve(record.evidence_id)
+
+    def test_evidence_rows_cannot_be_deleted_without_purge_audit(self) -> None:
+        record = self.store.put(self.draft, redact_bytes)
+
+        with self.assertRaisesRegex(sqlite3.DatabaseError, "append-only"):
+            self.catalog.connection.execute(
+                "DELETE FROM evidence WHERE evidence_id=?", (record.evidence_id,)
+            )
+
+    def test_evidence_cannot_be_marked_purged_without_audit_event(self) -> None:
+        record = self.store.put(self.draft, redact_bytes)
+
+        with self.assertRaisesRegex(sqlite3.DatabaseError, "audit event"):
+            self.catalog.connection.execute(
+                """
+                UPDATE evidence
+                SET purged_at='2026-09-05T00:00:00+00:00',
+                    purge_reason='manual sql'
+                WHERE evidence_id=?
+                """,
+                (record.evidence_id,),
+            )
+
+        self.assertEqual(record, self.store.resolve(record.evidence_id))
+        self.assertTrue(record.object_path.exists())
+        self.assertEqual(
+            0,
+            self.catalog.query_value(
+                "SELECT COUNT(*) FROM events WHERE event_type='evidence.purged'"
+            ),
+        )
 
     def test_hash_mismatch_is_detected_on_read(self) -> None:
         record = self.store.put(self.draft, redact_bytes)

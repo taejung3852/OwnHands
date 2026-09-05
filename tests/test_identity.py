@@ -3,9 +3,12 @@ from __future__ import annotations
 import stat
 import sqlite3
 import tempfile
+import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
+from unittest import mock
 
 from devharness.catalog import Catalog, projection_fingerprint
 from devharness.identity import IdentityRegistry
@@ -49,6 +52,32 @@ class IdentityRegistryTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "unknown project"):
             self.registry.register_worktree("missing-project", "file:///repo/other")
+
+    def test_project_and_worktree_identities_cannot_be_deleted_and_recreated(self) -> None:
+        project = self.registry.register_project("file:///stable")
+        worktree = self.registry.register_worktree(
+            project.project_id, "file:///stable/main"
+        )
+
+        with self.assertRaisesRegex(sqlite3.DatabaseError, "immutable"):
+            self.catalog.connection.execute(
+                "DELETE FROM worktrees WHERE worktree_id=?", (worktree.worktree_id,)
+            )
+        with self.assertRaisesRegex(sqlite3.DatabaseError, "immutable"):
+            self.catalog.connection.execute(
+                "DELETE FROM projects WHERE project_id=?", (project.project_id,)
+            )
+
+        self.assertEqual(
+            project,
+            self.registry.register_project("file:///stable"),
+        )
+        self.assertEqual(
+            worktree,
+            self.registry.register_worktree(
+                project.project_id, "file:///stable/main"
+            ),
+        )
 
     def test_task_snapshot_captures_mode_and_git_context(self) -> None:
         project = self.registry.register_project("file:///repo")
@@ -167,6 +196,29 @@ class IdentityRegistryTests(unittest.TestCase):
                 (task.task_id,),
             )
 
+    def test_database_rejects_cross_project_task_scope(self) -> None:
+        first_project = self.registry.register_project("file:///first")
+        second_project = self.registry.register_project("file:///second")
+        second_worktree = self.registry.register_worktree(
+            second_project.project_id, "file:///second/main"
+        )
+
+        with self.assertRaisesRegex(sqlite3.DatabaseError, "project/worktree"):
+            self.catalog.connection.execute(
+                """
+                INSERT INTO tasks(
+                    task_id, project_id, worktree_id, mode, commit_hash, branch,
+                    cwd, environment_ref, created_at
+                ) VALUES (?, ?, ?, 'managed', 'abc', 'main', '/repo', 'local', ?)
+                """,
+                (
+                    "cross-project-task",
+                    first_project.project_id,
+                    second_worktree.worktree_id,
+                    "2026-09-04T00:00:00+00:00",
+                ),
+            )
+
     def test_v1_projection_catalog_migrates_with_integrity_hash(self) -> None:
         root = Path(self.temporary_directory.name) / "legacy-v1"
         root.mkdir()
@@ -214,6 +266,50 @@ class IdentityRegistryTests(unittest.TestCase):
                 ),
                 row["projection_hash"],
             )
+
+    def test_concurrent_v1_catalog_open_migrates_once(self) -> None:
+        root = Path(self.temporary_directory.name) / "concurrent-legacy-v1"
+        root.mkdir()
+        database = root / "catalog.sqlite3"
+        connection = sqlite3.connect(database)
+        connection.executescript(
+            """
+            CREATE TABLE schema_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
+            INSERT INTO schema_metadata(key, value) VALUES ('schema_version', '1');
+            CREATE TABLE task_projections (
+                task_id TEXT PRIMARY KEY,
+                projected_sequence INTEGER NOT NULL,
+                state TEXT NOT NULL,
+                projection_json TEXT NOT NULL,
+                last_error TEXT,
+                updated_at TEXT NOT NULL
+            ) STRICT;
+            """
+        )
+        connection.commit()
+        connection.close()
+
+        barrier = threading.Barrier(2)
+        original_transaction = Catalog.transaction
+
+        @contextmanager
+        def synchronized_transaction(catalog):
+            barrier.wait(timeout=5)
+            with original_transaction(catalog) as connection:
+                yield connection
+
+        def open_catalog(_index: int) -> str:
+            try:
+                with Catalog.open(DataPaths.resolve(root)):
+                    return "ok"
+            except sqlite3.DatabaseError as error:
+                return str(error)
+
+        with mock.patch.object(Catalog, "transaction", synchronized_transaction):
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                results = list(executor.map(open_catalog, range(2)))
+
+        self.assertEqual(["ok", "ok"], sorted(results))
 
 
 if __name__ == "__main__":

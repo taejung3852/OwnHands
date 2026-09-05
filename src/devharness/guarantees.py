@@ -10,9 +10,10 @@ from typing import Iterable
 from uuid import uuid4
 
 from .catalog import Catalog
-from .evidence import EvidenceRecord, EvidenceStore
+from .evidence import EVIDENCE_TYPES, EvidenceRecord, EvidenceStore
 from .events import EventDraft, EventLog
 from .identity import IdentityRegistry, TaskIdentity
+from .projections import PROJECTION_VERSION, ProjectionEngine
 
 
 EXPECTED_MATRIX_VERSION = "1.0"
@@ -105,6 +106,7 @@ class GuaranteeEvaluator:
         self.catalog = catalog
         self.evidence = evidence
         self.events = EventLog(catalog)
+        self.projections = ProjectionEngine(catalog, self.events)
         self.identities = IdentityRegistry(catalog)
         self.matrix_path = Path(matrix_path)
         try:
@@ -393,6 +395,10 @@ class GuaranteeEvaluator:
                     )
                 _required_text(requirement["requirement_id"], "requirement_id")
                 _required_text(requirement["type"], "Evidence type")
+                if requirement["type"] not in EVIDENCE_TYPES:
+                    raise GuaranteeValidationError(
+                        f"unknown Evidence type: {requirement['type']}"
+                    )
                 self._validate_nonempty_unique_strings(
                     requirement["required_fields"], "required_fields"
                 )
@@ -685,10 +691,18 @@ class GuaranteeEvaluator:
             and not explicit_conflicts
             and not forbidden_scope
             and all(
-                all(_material(record.fields.get(field)) for field in requirement["required_fields"])
+                all(
+                    self._required_evidence_field_material(record, field)
+                    for field in requirement["required_fields"]
+                )
                 for record in candidates
             )
             and all(self._evidence_matches_task(record, task) for record in candidates)
+            and all(self._evidence_matches_runtime(record, task) for record in candidates)
+            and all(
+                self._inference_sources_valid(record, all_evidence, task)
+                for record in candidates
+            )
             and all(self._evidence_object_valid(record) for record in candidates)
         )
         if complete:
@@ -736,6 +750,61 @@ class GuaranteeEvaluator:
             for key, expected in bindings.items()
         )
 
+    @staticmethod
+    def _required_evidence_field_material(
+        record: EvidenceRecord, field: str
+    ) -> bool:
+        value = record.fields.get(field)
+        if record.evidence_type == "event_projection_sequence" and field in {
+            "event_head",
+            "projected_sequence",
+        }:
+            return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        return _material(value)
+
+    def _evidence_matches_runtime(
+        self, record: EvidenceRecord, task: TaskIdentity
+    ) -> bool:
+        if record.evidence_type != "event_projection_sequence":
+            return True
+        try:
+            self._validate_timestamp(record.fields.get("checked_at"), "checked_at")
+            freshness = self.projections.freshness(task.task_id)
+        except (GuaranteeValidationError, OSError, ValueError):
+            return False
+        return (
+            record.subject_ref == f"task:{task.task_id}:projection"
+            and record.fields.get("event_head") == freshness.event_head
+            and record.fields.get("projected_sequence")
+            == freshness.projected_sequence
+            and record.fields.get("projection_version") == PROJECTION_VERSION
+            and freshness.is_fresh
+        )
+
+    def _inference_sources_valid(
+        self,
+        record: EvidenceRecord,
+        all_evidence: list[EvidenceRecord],
+        task: TaskIdentity,
+    ) -> bool:
+        if record.basis != "inferred":
+            return True
+        sources = {source.evidence_id: source for source in all_evidence}
+        for source_id in record.inference_from:
+            source = sources.get(source_id)
+            if (
+                source is None
+                or source.evidence_id == record.evidence_id
+                or source.task_id != task.task_id
+                or source.basis != "observed"
+                or source.result != "pass"
+                or source.conflict_refs
+                or not self._evidence_matches_task(source, task)
+                or not self._evidence_object_valid(source)
+            ):
+                return False
+        return True
+
     def _control_check_material_valid(
         self,
         check: dict,
@@ -781,6 +850,17 @@ class GuaranteeEvaluator:
     ) -> dict:
         if self._contains_forbidden(scope, claim):
             scope = "scope withheld by wording policy"
+        requirement_results = [
+            {
+                **result,
+                "exact_scope": (
+                    ""
+                    if self._contains_forbidden(result.get("exact_scope"), claim)
+                    else result["exact_scope"]
+                ),
+            }
+            for result in requirement_results
+        ]
         return {
             "claim_id": claim["claim_id"],
             "verdict": verdict,

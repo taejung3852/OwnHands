@@ -35,5 +35,9 @@
   {"name":"invalid required field types","expected":"not_evaluated","probe":"test_required_evidence_fields_bind_to_task_and_record"},
   {"name":"unrelated control evidence","expected":"not_evaluated","probe":"test_unrelated_evidence_cannot_close_an_observed_control_check"},
   {"name":"schema invalid weakened matrix","expected":"rejected","probe":"test_unknown_or_duplicate_claim_request_and_bad_matrix_are_rejected"},
-  {"name":"forbidden wording in evidence scope","expected":"not_evaluated","probe":"test_forbidden_wording_in_evidence_scope_cannot_be_supported"}
+  {"name":"forbidden wording in evidence scope","expected":"not_evaluated","probe":"test_forbidden_wording_in_evidence_scope_cannot_be_supported"},
+  {"name":"forbidden wording in inapplicable requirement scope","expected":"not_evaluated","probe":"test_forbidden_wording_is_withheld_from_inapplicable_requirement_scope"},
+  {"name":"synthetic projection freshness without runtime state","expected":"not_evaluated","probe":"test_dashboard_freshness_claim_requires_actual_projection_state"},
+  {"name":"unknown Evidence type in Matrix","expected":"rejected","probe":"test_unknown_evidence_type_in_matrix_is_rejected"},
+  {"name":"inferred Evidence without observed source","expected":"not_evaluated","probe":"test_inferred_evidence_requires_an_observed_source_record"}
 ]

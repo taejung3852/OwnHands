@@ -109,7 +109,26 @@
             "required": ["requirement_id", "type", "required_fields"],
             "properties": {
               "requirement_id": {"type": "string", "minLength": 1},
-              "type": {"type": "string", "minLength": 1},
+              "type": {
+                "enum": [
+                  "active_configuration",
+                  "approval_lifecycle",
+                  "configuration_conflict",
+                  "direct_feature_probe",
+                  "event_projection_sequence",
+                  "feature_impact",
+                  "file_creation",
+                  "hook_execution",
+                  "instruction_loading",
+                  "mcp_capability",
+                  "regression_gate",
+                  "rule_probe",
+                  "sandbox_probe",
+                  "test_execution",
+                  "workspace_diff",
+                  "workspace_restore_point"
+                ]
+              },
               "required_fields": {
                 "type": "array",
                 "minItems": 1,
