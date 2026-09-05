@@ -1,0 +1,9 @@
+[
+  {"name": "context source uses control type", "mutation": {"path": "/context_sources/0/source_type", "value": "sandbox"}, "expected": "rejected by schema and semantic validator"},
+  {"name": "control source referenced by instruction overlay", "mutation": {"path": "/instruction_overlay/source_refs/0", "value": "control-sandbox"}, "expected": "rejected by semantic validator"},
+  {"name": "source omits hash", "mutation": {"remove": "/context_sources/0/content_hash"}, "expected": "rejected by schema and semantic validator"},
+  {"name": "source omits scope", "mutation": {"remove": "/context_sources/0/scope"}, "expected": "rejected by schema and semantic validator"},
+  {"name": "loaded pass uses unobserved basis", "mutation": {"path": "/context_sources/0/realization/loaded/basis", "value": "unobserved"}, "expected": "rejected by schema and semantic validator"},
+  {"name": "unknown context source type", "mutation": {"path": "/context_sources/0/source_type", "value": "prompt_blob"}, "expected": "rejected by schema and semantic validator"},
+  {"name": "evidence reference does not resolve", "mutation": {"path": "/context_sources/0/realization/loaded/evidence_refs/0", "value": "missing-evidence"}, "expected": "rejected by semantic validator"}
+]

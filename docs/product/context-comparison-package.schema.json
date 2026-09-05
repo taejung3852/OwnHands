@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/taejung3852/own-hands/docs/product/context-comparison-package.schema.json",
+  "title": "ownhands M1.5 fixed context comparison package",
+  "type": "object",
+  "required": ["package_version", "package_id", "fixture", "fixed_conditions", "conditions", "repetitions", "crossover_order", "metrics"],
+  "properties": {
+    "package_version": {"const": "1.0"},
+    "package_id": {"type": "string", "minLength": 1},
+    "fixture": {"type": "object", "required": ["fixture_id", "path", "task"], "properties": {"fixture_id": {"type": "string", "minLength": 1}, "path": {"type": "string", "minLength": 1}, "task": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "fixed_conditions": {
+      "type": "object",
+      "required": ["model", "reasoning_effort", "prompt", "environment", "controls"],
+      "properties": {
+        "model": {"const": "gpt-5.6-sol"},
+        "reasoning_effort": {"const": "medium"},
+        "prompt": {"type": "string", "minLength": 1},
+        "environment": {"type": "object", "required": ["client", "os", "python", "locale"], "properties": {"client": {"type": "string", "minLength": 1}, "os": {"type": "string", "minLength": 1}, "python": {"type": "string", "minLength": 1}, "locale": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+        "controls": {"type": "object", "required": ["sandbox", "approval_policy", "rules", "hooks", "network", "other_deterministic_controls"], "properties": {"sandbox": {"type": "string", "minLength": 1}, "approval_policy": {"type": "string", "minLength": 1}, "rules": {"type": "string", "minLength": 1}, "hooks": {"type": "string", "minLength": 1}, "network": {"type": "string", "minLength": 1}, "other_deterministic_controls": {"type": "string", "minLength": 1}}, "additionalProperties": false}
+      },
+      "additionalProperties": false
+    },
+    "conditions": {"type": "object", "required": ["A", "B", "C"], "properties": {"A": {"$ref": "#/$defs/condition"}, "B": {"$ref": "#/$defs/condition"}, "C": {"$ref": "#/$defs/condition"}}, "additionalProperties": false},
+    "repetitions": {"const": 3},
+    "crossover_order": {"type": "array", "minItems": 9, "maxItems": 9, "items": {"enum": ["A", "B", "C"]}},
+    "metrics": {"type": "array", "minItems": 10, "maxItems": 10, "items": {"enum": ["requirements_met", "tests_passed", "instruction_violations", "out_of_scope_changes", "tool_calls", "elapsed_seconds", "input_tokens", "output_tokens", "human_understanding", "human_review_seconds"]}, "uniqueItems": true}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "condition": {"type": "object", "required": ["label", "context_sources"], "properties": {"label": {"type": "string", "minLength": 1}, "context_sources": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}}, "additionalProperties": false}
+  }
+}
