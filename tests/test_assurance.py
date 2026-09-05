@@ -244,6 +244,15 @@ class AssuranceTests(unittest.TestCase):
             self.assertEqual("pass", verification["result"])
             self.assertEqual(restore["tracked_patch_hash"], verification["reconstructed_patch_hash"])
 
+    def test_restore_reconstructs_from_a_detached_head_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repository = disposable_repository(Path(temporary))
+            git(repository, "checkout", "--detach", "--quiet", "HEAD")
+            restore = capture_restore_point(repository, contract()["task"], NOW)
+            verification = verify_restore_point(repository, restore)
+            self.assertEqual("pass", verification["result"])
+            self.assertEqual(restore["tracked_patch_hash"], verification["reconstructed_patch_hash"])
+
     def test_actual_diff_joins_only_declared_relations_and_records_boundaries(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             repository = disposable_repository(Path(temporary))
