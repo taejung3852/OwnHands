@@ -67,3 +67,9 @@ git diff --check
 - `no_adequate_test`, wrong classification, required error/recovery omissions, missing/stale/incomparable/contradictory Evidence, protected changes and observed failures cannot collapse into pass.
 - A Soft Block accepts only exact `explicit_product_approval` scoped to `soft_block_override` for the Contract fingerprint. A Hard Block remains blocked.
 - GM-013 remains the existing evidence claim that related tests ran; M4 comparison success and test-gap semantics live in the Assurance packet and do not redefine `GuaranteeEvaluator`.
+
+## Actual branch observation
+
+`observed-gate-summary.json` records the allowlisted result for base `f2a1dd3` through target `5ce66a9`. Restore reconstruction passed without changing the source worktree; 18 tracked paths were analyzed, all five before/after meanings were comparable after the change, and no required test Gap remained. The resulting Gate is `soft_block / unobserved`, not Pass: declared path relations do not establish complete dynamic runtime dependency coverage, and no exact product override was supplied.
+
+The full actual packet is local at `/tmp/ownhands-m4-actual-packet-5ce66a9.json`; its raw before/after command output is local under `/tmp/ownhands-m4-actual-raw-5ce66a9/`. Those paths are intentionally not committed.
