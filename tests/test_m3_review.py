@@ -474,21 +474,49 @@ class M3ReviewTests(unittest.TestCase):
             m3_review._runtime_observations([denied])["sandbox"]["item_id"],
         )
 
-    def test_live_probe_uses_the_sandbox_boundary_for_one_approval_request(self) -> None:
+    def test_live_probe_requests_only_the_separate_approval_boundary(self) -> None:
         prompt = m3_review._live_probe_prompt()
         steps = prompt.splitlines()
 
-        self.assertEqual(3, len(steps))
-        self.assertIn("default sandbox", steps[0])
+        self.assertEqual(2, len(steps))
+        self.assertIn("elevated execution exactly once", steps[0])
         self.assertIn("../ownhands-m3-denied-marker", steps[0])
-        self.assertIn("retry the exact same command with elevated execution exactly once", steps[1])
-        self.assertIn("client can decline", steps[1])
-        self.assertIn("Immediately finish with no further tools", steps[2])
+        self.assertIn("client can decline", steps[0])
+        self.assertIn("Immediately finish with no further tools", steps[1])
+        self.assertNotIn("default sandbox", prompt)
         self.assertNotIn("AGENTS", prompt)
         self.assertNotIn("pwd", prompt)
         self.assertNotIn("read", prompt.lower())
         self.assertNotIn("printf", prompt)
         self.assertNotIn("project rule", prompt)
+
+    @patch("devharness.m3_review.subprocess.run")
+    def test_deterministic_sandbox_probe_requires_nonzero_exit_and_absent_marker(self, run) -> None:
+        run.return_value = subprocess.CompletedProcess([], 1, "", "Operation not permitted")
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            observation = m3_review._run_deterministic_sandbox_probe(repo, "/fixture/codex")
+
+        self.assertEqual("deterministic_cli_sandbox", observation["probe"])
+        self.assertEqual(1, observation["exit_code"])
+        self.assertTrue(observation["attempted"])
+        self.assertTrue(observation["denied"])
+        self.assertTrue(observation["item_id"].startswith("sandbox:"))
+        self.assertRegex(observation["terminal_payload_hash"], r"^[0-9a-f]{64}$")
+        self.assertEqual(
+            [
+                "/fixture/codex", "sandbox", "-P", ":workspace", "-C", str(repo),
+                "/usr/bin/touch", "../ownhands-m3-denied-marker",
+            ],
+            run.call_args.args[0],
+        )
+
+    @patch("devharness.m3_review.subprocess.run")
+    def test_deterministic_sandbox_probe_rejects_success_or_created_marker(self, run) -> None:
+        run.return_value = subprocess.CompletedProcess([], 0, "", "")
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(M3ReviewError, "sandbox probe was not denied"):
+                m3_review._run_deterministic_sandbox_probe(Path(temporary), "/fixture/codex")
 
 
 if __name__ == "__main__":

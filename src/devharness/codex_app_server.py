@@ -44,6 +44,7 @@ class AppServerConfig:
     protocol_fingerprint: str
     reasoning_effort: str
     absolute_timeout_seconds: float | None = None
+    trust_project_for_run: bool = False
 
 
 @dataclass(frozen=True)
@@ -90,8 +91,15 @@ class JsonRpcTransport(Protocol):
 class StdioJsonRpcTransport:
     def __init__(self, config: AppServerConfig) -> None:
         self._stdout_buffer = b""
+        command = [config.executable]
+        if config.trust_project_for_run:
+            project_key = json.dumps(str(config.cwd.resolve()))
+            command.extend(
+                ["-c", f'projects.{project_key}.trust_level="trusted"']
+            )
+        command.extend(["app-server", "--listen", "stdio://"])
         self._process = subprocess.Popen(
-            [config.executable, "app-server", "--listen", "stdio://"],
+            command,
             cwd=config.cwd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -568,9 +576,11 @@ def run_app_server(
                     raise AppServerError("approval missing serverRequest/resolved")
                 item = terminal_by_id.get(approval["item_id"])
                 if (
-                    item is None
-                    or approval["terminal_status"] is None
-                    or item.get("status") != approval["terminal_status"]
+                    approval["terminal_status"] is None
+                    or (
+                        item is not None
+                        and item.get("status") != approval["terminal_status"]
+                    )
                 ):
                     raise AppServerError("terminal item mismatch for approval")
             emit(

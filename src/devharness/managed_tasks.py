@@ -264,6 +264,15 @@ def prepare_managed_task(request: dict, *, now: str) -> dict:
     sandbox_observation = runtime_observations.get("sandbox")
     if sandbox_observation is not None and sandbox_observation.get("attempted") is not True:
         raise ManagedTaskError("sandbox runtime observation requires an attempted probe")
+    if (
+        sandbox_observation is not None
+        and sandbox_observation.get("probe") == "deterministic_cli_sandbox"
+        and (
+            sandbox_observation.get("denied") is not True
+            or sandbox_observation.get("exit_code") != 1
+        )
+    ):
+        raise ManagedTaskError("deterministic sandbox observation is not a denial")
 
     return {
         "repository": str(repository),

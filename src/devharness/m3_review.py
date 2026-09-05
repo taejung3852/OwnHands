@@ -387,7 +387,7 @@ def live_fixture_sources() -> dict[str, str]:
         # policy that could preempt the default-sandbox attempt or its retry.
         ".codex/rules/ownhands.rules": (
             "# Synthetic M3 Rules source: no command policy overrides.\n"
-            "# Approval is triggered only by the elevated sibling-write retry.\n"
+            "# Approval is triggered only by the elevated sibling-write request.\n"
         ),
         ".codex/hooks.json": json.dumps({
             "description": "Synthetic M3 hook lifecycle probe",
@@ -871,10 +871,60 @@ def _import_current_task(repository: Path, data_root: Path, observed_at: str) ->
 
 def _live_probe_prompt() -> str:
     return (
-        "1. In the default sandbox, run exactly this command once: /usr/bin/touch ../ownhands-m3-denied-marker\n"
-        "2. Only after it is denied, retry the exact same command with elevated execution exactly once so the client can decline it.\n"
-        "3. Immediately finish with no further tools."
+        "1. Request elevated execution exactly once for this command so the client can decline it: /usr/bin/touch ../ownhands-m3-denied-marker\n"
+        "2. Immediately finish with no further tools."
     )
+
+
+def _run_deterministic_sandbox_probe(repository: Path, codex_bin: str) -> dict:
+    """Observe workspace boundary enforcement without invoking a model."""
+    marker = (repository / _SANDBOX_PROBE_MARKER).resolve()
+    if marker.exists():
+        raise M3ReviewError("sandbox probe marker already exists")
+    command = [
+        codex_bin,
+        "sandbox",
+        "-P",
+        ":workspace",
+        "-C",
+        str(repository),
+        "/usr/bin/touch",
+        _SANDBOX_PROBE_MARKER,
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=repository,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        raise M3ReviewError("sandbox probe could not start") from error
+    denied = (
+        completed.returncode == 1
+        and "Operation not permitted" in completed.stderr
+        and not marker.exists()
+    )
+    if not denied:
+        raise M3ReviewError("sandbox probe was not denied")
+    receipt = {
+        "profile": ":workspace",
+        "scope": "one sibling-path write outside the disposable worktree",
+        "exit_code": completed.returncode,
+        "marker_absent": True,
+    }
+    receipt_hash = _fingerprint(receipt).removeprefix(_HASH)
+    return {
+        "item_id": "sandbox:" + receipt_hash,
+        "exact_scope": receipt["scope"],
+        "probe": "deterministic_cli_sandbox",
+        "attempted": True,
+        "denied": True,
+        "exit_code": completed.returncode,
+        "terminal_payload_hash": receipt_hash,
+    }
 
 
 def execute_live_probe(preflight: dict) -> dict:
@@ -905,6 +955,11 @@ def _execute_live_probe(preflight: dict, progress: _LiveProgress) -> dict:
     patch = _command(repository, "git", "diff", "--binary", start_commit, binary=True)
     patch_hash = _content_hash(patch)
     environment = f"codex-cli-{_EXPECTED_VERSION}"
+
+    progress.set_stage("sandbox_probe")
+    sandbox_observation = _run_deterministic_sandbox_probe(
+        repository, preflight["codex_bin"]
+    )
 
     progress.set_stage("managed_setup")
     with Catalog.open(DataPaths.resolve(data_root / "managed")) as catalog:
@@ -948,6 +1003,7 @@ def _execute_live_probe(preflight: dict, progress: _LiveProgress) -> dict:
                 protocol_fingerprint=protocol,
                 reasoning_effort="low",
                 absolute_timeout_seconds=preflight["timeout"] * 2,
+                trust_project_for_run=True,
             ),
             StdioJsonRpcTransport,
             observe_record,
@@ -956,6 +1012,7 @@ def _execute_live_probe(preflight: dict, progress: _LiveProgress) -> dict:
         )
         progress.set_stage("managed_recording")
         observations = _runtime_observations(run.records)
+        observations["sandbox"] = sandbox_observation
         request = _managed_request(repository, task, start_commit, patch_hash, observed_at, observations)
         prepared = prepare_managed_task(request, now=observed_at)
         managed = record_managed_run(catalog, prepared, run)

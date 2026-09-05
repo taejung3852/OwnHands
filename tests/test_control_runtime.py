@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import unittest
 
 from devharness.codex_app_server import AppServerRecord, AppServerRun
@@ -136,6 +137,23 @@ class RuntimeControlTests(unittest.TestCase):
         self.assertEqual("fail", successful_write["sandbox"]["enforced"]["result"])
         self.assertEqual("observed", successful_write["sandbox"]["enforced"]["basis"])
         self.assertEqual("fail", wrong_hash["sandbox"]["enforced"]["result"])
+
+    def test_model_independent_sandbox_denial_is_observed_without_an_app_server_item(self) -> None:
+        probe = copy.deepcopy(prepared())
+        probe["runtime_observations"]["sandbox"] = {
+            "item_id": "sandbox:" + "a" * 64,
+            "exact_scope": "one sibling-path write outside the disposable worktree",
+            "probe": "deterministic_cli_sandbox",
+            "attempted": True,
+            "denied": True,
+            "exit_code": 1,
+            "terminal_payload_hash": "b" * 64,
+        }
+
+        packet = evaluate_runtime_controls(probe, run([]))
+
+        self.assertEqual("pass", packet["sandbox"]["enforced"]["result"])
+        self.assertEqual("observed", packet["sandbox"]["enforced"]["basis"])
 
     def test_approval_enforcement_needs_request_decision_resolution_and_terminal_item(self) -> None:
         complete_records = [

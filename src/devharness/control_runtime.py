@@ -118,12 +118,32 @@ def evaluate_runtime_controls(prepared: dict, run: AppServerRun) -> dict:
     sandbox = observations.get("sandbox", {})
     sandbox_item_id = sandbox.get("item_id")
     if isinstance(sandbox_item_id, str) and sandbox_item_id:
-        terminal_items = _matching_records(
-            run,
-            method="item/completed",
-            item_id=sandbox_item_id,
-            kind="notification",
-        )
+        if sandbox.get("probe") == "deterministic_cli_sandbox":
+            result = (
+                "pass"
+                if sandbox.get("attempted") is True
+                and sandbox.get("denied") is True
+                and sandbox.get("exit_code") == 1
+                and sandbox_item_id.startswith("sandbox:")
+                and isinstance(sandbox.get("terminal_payload_hash"), str)
+                and len(sandbox["terminal_payload_hash"]) == 64
+                else "fail"
+            )
+            packet["sandbox"]["enforced"] = _observed(
+                result,
+                _evidence_id(task_id, "sandbox", "enforced"),
+                checked_at,
+                sandbox["exact_scope"],
+                "model-independent Codex sandbox probe covers one sibling write",
+            )
+            terminal_items = []
+        else:
+            terminal_items = _matching_records(
+                run,
+                method="item/completed",
+                item_id=sandbox_item_id,
+                kind="notification",
+            )
         if terminal_items:
             result = (
                 "pass"

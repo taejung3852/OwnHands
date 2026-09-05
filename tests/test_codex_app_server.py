@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 import json
 import subprocess
 import sys
@@ -520,6 +521,19 @@ class AppServerAdapterTests(unittest.TestCase):
                 decline,
             )
 
+    def test_terminal_turn_may_omit_an_already_completed_approval_item(self) -> None:
+        messages = success_messages()
+        messages[8]["params"]["turn"]["items"] = []
+
+        run = run_app_server(
+            CONFIG,
+            transport_factory(FakeTransport(messages)),
+            lambda _record: None,
+            decline,
+        )
+
+        self.assertEqual("completed", run.terminal_status)
+
     def test_invalid_approval_handler_decision_fails_closed(self) -> None:
         transport = FakeTransport(SUCCESS_JSONL)
 
@@ -606,6 +620,31 @@ class AppServerAdapterTests(unittest.TestCase):
         )
         process.terminate.assert_called_once_with()
         process.kill.assert_called_once_with()
+
+    @patch("devharness.codex_app_server.subprocess.Popen")
+    def test_stdio_transport_can_trust_only_the_disposable_run_project(self, popen) -> None:
+        process = popen.return_value
+        process.stdin = unittest.mock.Mock()
+        process.stdout = unittest.mock.Mock()
+
+        StdioJsonRpcTransport(replace(CONFIG, trust_project_for_run=True))
+
+        popen.assert_called_once_with(
+            [
+                "/fixture/codex",
+                "-c",
+                'projects."/fixture".trust_level="trusted"',
+                "app-server",
+                "--listen",
+                "stdio://",
+            ],
+            cwd=Path("/fixture"),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1,
+        )
 
 
 if __name__ == "__main__":
