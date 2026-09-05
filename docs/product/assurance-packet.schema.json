@@ -1,0 +1,343 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ownhands.local/schemas/assurance-packet.schema.json",
+  "title": "ownhands Assurance Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["packet_version", "packet_id", "contract_id", "contract_fingerprint", "contract_snapshot", "task", "observed_at", "input_fingerprint", "restore_point", "restore_verification", "impact", "test_design", "before", "after", "comparison", "gaps", "gate", "evidence_refs", "fingerprint"],
+  "properties": {
+    "packet_version": {"const": "1.0"},
+    "packet_id": {"type": "string", "pattern": "^assurance:[0-9a-f]{64}$"},
+    "contract_id": {"$ref": "#/$defs/nonempty"},
+    "contract_fingerprint": {"$ref": "#/$defs/hash"},
+    "contract_snapshot": {"$ref": "#/$defs/contractSnapshot"},
+    "task": {"$ref": "#/$defs/task"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "input_fingerprint": {"$ref": "#/$defs/hash"},
+    "restore_point": {"$ref": "#/$defs/restorePoint"},
+    "restore_verification": {"$ref": "#/$defs/restoreVerification"},
+    "impact": {"$ref": "#/$defs/impact"},
+    "test_design": {"$ref": "#/$defs/testDesign"},
+    "before": {"$ref": "#/$defs/testRun"},
+    "after": {"$ref": "#/$defs/testRun"},
+    "comparison": {"$ref": "#/$defs/comparison"},
+    "gaps": {"$ref": "#/$defs/gaps"},
+    "gate": {"$ref": "#/$defs/gate"},
+    "evidence_refs": {"$ref": "#/$defs/strings"},
+    "fingerprint": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "nonempty": {"type": "string", "minLength": 1},
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonempty"}},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "worktree_id", "environment_ref", "task_id"],
+      "properties": {
+        "project_id": {"$ref": "#/$defs/nonempty"},
+        "worktree_id": {"$ref": "#/$defs/nonempty"},
+        "environment_ref": {"$ref": "#/$defs/nonempty"},
+        "task_id": {"$ref": "#/$defs/nonempty"}
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "worktree_id", "environment_ref", "task_id", "mode", "goal"],
+      "properties": {
+        "project_id": {"$ref": "#/$defs/nonempty"},
+        "worktree_id": {"$ref": "#/$defs/nonempty"},
+        "environment_ref": {"$ref": "#/$defs/nonempty"},
+        "task_id": {"$ref": "#/$defs/nonempty"},
+        "mode": {"enum": ["managed", "imported"]},
+        "goal": {"$ref": "#/$defs/nonempty"}
+      }
+    },
+    "contractSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_version", "contract_version", "contract_id", "source_contract_fingerprint", "task", "protected_targets", "validation_criteria", "gate_criteria", "gate_status", "assurance_draft", "fingerprint"],
+      "properties": {
+        "snapshot_version": {"const": "1.0"},
+        "contract_version": {"const": "1.1"},
+        "contract_id": {"$ref": "#/$defs/nonempty"},
+        "source_contract_fingerprint": {"$ref": "#/$defs/hash"},
+        "task": {"$ref": "#/$defs/task"},
+        "protected_targets": {"$ref": "#/$defs/strings"},
+        "validation_criteria": {"$ref": "#/$defs/strings"},
+        "gate_criteria": {"$ref": "#/$defs/strings"},
+        "gate_status": {"type": ["string", "null"]},
+        "assurance_draft": {"$ref": "#/$defs/assuranceDraft"},
+        "fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "assuranceDraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["impact_hypotheses", "tests", "mappings", "criteria"],
+      "properties": {
+        "impact_hypotheses": {"type": "array", "items": {"$ref": "#/$defs/impactHypothesis"}},
+        "tests": {"type": "array", "items": {"$ref": "#/$defs/testSelection"}},
+        "mappings": {"type": "array", "items": {"$ref": "#/$defs/assuranceMapping"}},
+        "criteria": {"type": "array", "items": {"$ref": "#/$defs/assuranceCriterion"}}
+      }
+    },
+    "impactHypothesis": {"type": "object", "additionalProperties": false, "required": ["hypothesis_id", "path_globs", "relation_refs", "basis"], "properties": {"hypothesis_id": {"$ref": "#/$defs/nonempty"}, "path_globs": {"$ref": "#/$defs/strings"}, "relation_refs": {"$ref": "#/$defs/strings"}, "basis": {"enum": ["declared", "static_observed"]}}},
+    "assuranceMapping": {"type": "object", "additionalProperties": false, "required": ["criterion_id", "test_ids", "viewpoints", "reason"], "properties": {"criterion_id": {"$ref": "#/$defs/nonempty"}, "test_ids": {"$ref": "#/$defs/strings"}, "viewpoints": {"$ref": "#/$defs/strings"}, "reason": {"$ref": "#/$defs/nonempty"}}},
+    "assuranceCriterion": {"type": "object", "additionalProperties": false, "required": ["criterion_id", "block_level"], "properties": {"criterion_id": {"$ref": "#/$defs/nonempty"}, "block_level": {"enum": ["hard", "soft"]}}},
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["area", "basis", "reason"],
+      "properties": {
+        "area": {"$ref": "#/$defs/nonempty"},
+        "basis": {"const": "unobserved"},
+        "reason": {"$ref": "#/$defs/nonempty"}
+      }
+    },
+    "boundaries": {"type": "array", "items": {"$ref": "#/$defs/boundary"}},
+    "restorePoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["restore_point_version", "restore_point_id", "task", "observed_at", "start_commit", "start_patch_hash", "tracked_patch_hash", "tracked_patch_size", "scope", "exclusions"],
+      "properties": {
+        "restore_point_version": {"const": "1.0"},
+        "restore_point_id": {"type": "string", "pattern": "^restore:[0-9a-f]{64}$"},
+        "task": {"$ref": "#/$defs/identity"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "start_commit": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "start_patch_hash": {"$ref": "#/$defs/hash"},
+        "tracked_patch_hash": {"$ref": "#/$defs/hash"},
+        "tracked_patch_size": {"type": "integer", "minimum": 0},
+        "scope": {"const": "local_tracked_git_workspace"},
+        "exclusions": {"$ref": "#/$defs/boundaries"}
+      }
+    },
+    "restoreVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verification_version", "restore_point_ref", "task", "result", "basis", "method", "reconstructed_patch_hash", "source_worktree_unchanged", "exclusions", "evidence_refs"],
+      "properties": {
+        "verification_version": {"const": "1.0"},
+        "restore_point_ref": {"$ref": "#/$defs/nonempty"},
+        "task": {"$ref": "#/$defs/identity"},
+        "result": {"enum": ["pass", "fail"]},
+        "basis": {"const": "observed"},
+        "method": {"const": "disposable_local_clone_reconstruction"},
+        "reconstructed_patch_hash": {"$ref": "#/$defs/hash"},
+        "source_worktree_unchanged": {"type": "boolean"},
+        "exclusions": {"$ref": "#/$defs/boundaries"},
+        "evidence_refs": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "changedPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "status", "basis"],
+      "properties": {
+        "path": {"$ref": "#/$defs/nonempty"},
+        "status": {"$ref": "#/$defs/nonempty"},
+        "basis": {"const": "observed"}
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation_id", "relation_type", "target_ref", "changed_paths", "basis", "evidence_refs"],
+      "properties": {
+        "relation_id": {"$ref": "#/$defs/nonempty"},
+        "relation_type": {"enum": ["feature", "contract", "dependency", "test"]},
+        "target_ref": {"$ref": "#/$defs/nonempty"},
+        "changed_paths": {"$ref": "#/$defs/strings"},
+        "basis": {"enum": ["declared", "static_observed"]},
+        "evidence_refs": {"$ref": "#/$defs/strings"},
+        "required_classification": {"enum": ["new_feature", "regression"]}
+      }
+    },
+    "impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["impact_version", "contract_id", "contract_fingerprint", "restore_point_ref", "observed_at", "analysis_scope", "changed_paths", "relations", "protected_target_changes", "exclusions", "unobserved", "claims_complete_dependency_analysis", "fingerprint"],
+      "properties": {
+        "impact_version": {"const": "1.0"},
+        "contract_id": {"$ref": "#/$defs/nonempty"},
+        "contract_fingerprint": {"$ref": "#/$defs/hash"},
+        "restore_point_ref": {"$ref": "#/$defs/nonempty"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "analysis_scope": {"$ref": "#/$defs/nonempty"},
+        "changed_paths": {"type": "array", "items": {"$ref": "#/$defs/changedPath"}},
+        "relations": {"type": "array", "items": {"$ref": "#/$defs/relation"}},
+        "protected_target_changes": {"$ref": "#/$defs/strings"},
+        "exclusions": {"$ref": "#/$defs/boundaries"},
+        "unobserved": {"$ref": "#/$defs/boundaries"},
+        "claims_complete_dependency_analysis": {"const": false},
+        "fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "testSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["test_id", "subject_ref", "command", "selection_scope", "classification", "code_refs"],
+      "properties": {
+        "test_id": {"$ref": "#/$defs/nonempty"},
+        "subject_ref": {"$ref": "#/$defs/nonempty"},
+        "command": {"$ref": "#/$defs/nonempty"},
+        "selection_scope": {"$ref": "#/$defs/nonempty"},
+        "classification": {"enum": ["new_feature", "regression"]},
+        "code_refs": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "designMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion_id", "block_level", "tests", "selected_viewpoints", "required_viewpoints", "omitted_viewpoints", "reason"],
+      "properties": {
+        "criterion_id": {"$ref": "#/$defs/nonempty"},
+        "block_level": {"enum": ["hard", "soft"]},
+        "tests": {"type": "array", "items": {"$ref": "#/$defs/testSelection"}},
+        "selected_viewpoints": {"$ref": "#/$defs/strings"},
+        "required_viewpoints": {"$ref": "#/$defs/strings"},
+        "omitted_viewpoints": {"$ref": "#/$defs/strings"},
+        "reason": {"$ref": "#/$defs/nonempty"}
+      }
+    },
+    "testDesign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["design_version", "contract_id", "contract_fingerprint", "impact_fingerprint", "selected_tests", "mappings", "fingerprint"],
+      "properties": {
+        "design_version": {"const": "1.0"},
+        "contract_id": {"$ref": "#/$defs/nonempty"},
+        "contract_fingerprint": {"$ref": "#/$defs/hash"},
+        "impact_fingerprint": {"$ref": "#/$defs/hash"},
+        "selected_tests": {"type": "array", "items": {"$ref": "#/$defs/testSelection"}},
+        "mappings": {"type": "array", "items": {"$ref": "#/$defs/designMapping"}},
+        "fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["test_id", "subject_ref", "criterion_id", "classification", "validation_command", "command_fingerprint", "selection_scope", "environment_fingerprint", "contract_fingerprint", "start_patch_hash", "target_patch_hash", "code_refs", "result", "basis", "evidence_refs", "conflict_refs"],
+      "properties": {
+        "test_id": {"$ref": "#/$defs/nonempty"},
+        "subject_ref": {"$ref": "#/$defs/nonempty"},
+        "criterion_id": {"$ref": "#/$defs/nonempty"},
+        "classification": {"enum": ["new_feature", "regression"]},
+        "validation_command": {"$ref": "#/$defs/nonempty"},
+        "command_fingerprint": {"$ref": "#/$defs/hash"},
+        "selection_scope": {"$ref": "#/$defs/nonempty"},
+        "environment_fingerprint": {"$ref": "#/$defs/hash"},
+        "contract_fingerprint": {"$ref": "#/$defs/hash"},
+        "start_patch_hash": {"$ref": "#/$defs/hash"},
+        "target_patch_hash": {"$ref": "#/$defs/hash"},
+        "code_refs": {"$ref": "#/$defs/strings"},
+        "result": {"enum": ["pass", "fail", "not_run", "inconclusive", "missing"]},
+        "basis": {"enum": ["observed", "inferred", "unobserved"]},
+        "evidence_refs": {"$ref": "#/$defs/strings"},
+        "conflict_refs": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "testRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["test_run_version", "contract_id", "contract_fingerprint", "task_id", "observed_at", "selection_fingerprint", "receipts", "evidence_refs", "fingerprint"],
+      "properties": {
+        "test_run_version": {"const": "1.0"},
+        "contract_id": {"$ref": "#/$defs/nonempty"},
+        "contract_fingerprint": {"$ref": "#/$defs/hash"},
+        "task_id": {"$ref": "#/$defs/nonempty"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "selection_fingerprint": {"$ref": "#/$defs/hash"},
+        "receipts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/receipt"}},
+        "evidence_refs": {"$ref": "#/$defs/strings"},
+        "fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "comparisonItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["test_id", "criterion_id", "classification", "status", "evidence_refs"],
+      "properties": {
+        "test_id": {"$ref": "#/$defs/nonempty"},
+        "criterion_id": {"$ref": "#/$defs/nonempty"},
+        "classification": {"enum": ["new_feature", "regression"]},
+        "status": {"enum": ["comparable_pass", "fixed_failure", "unchanged_failure", "regression", "missing_before", "missing_after", "stale", "incomparable", "not_run", "inconclusive", "contradicted"]},
+        "evidence_refs": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["comparison_version", "contract_id", "contract_fingerprint", "before_ref", "after_ref", "comparisons", "fingerprint"],
+      "properties": {
+        "comparison_version": {"const": "1.0"},
+        "contract_id": {"$ref": "#/$defs/nonempty"},
+        "contract_fingerprint": {"$ref": "#/$defs/hash"},
+        "before_ref": {"$ref": "#/$defs/hash"},
+        "after_ref": {"$ref": "#/$defs/hash"},
+        "comparisons": {"type": "array", "items": {"$ref": "#/$defs/comparisonItem"}},
+        "fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gap_id", "kind", "required", "reason"],
+      "properties": {
+        "gap_id": {"type": "string", "pattern": "^gap:[0-9a-f]{64}$"},
+        "kind": {"enum": ["no_adequate_test", "wrong_test_classification", "missing_viewpoint"]},
+        "required": {"type": "boolean"},
+        "criterion_id": {"$ref": "#/$defs/nonempty"},
+        "relation_id": {"$ref": "#/$defs/nonempty"},
+        "test_id": {"$ref": "#/$defs/nonempty"},
+        "reason": {"$ref": "#/$defs/nonempty"}
+      }
+    },
+    "gaps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gap_report_version", "contract_id", "contract_fingerprint", "gaps", "fingerprint"],
+      "properties": {
+        "gap_report_version": {"const": "1.0"},
+        "contract_id": {"$ref": "#/$defs/nonempty"},
+        "contract_fingerprint": {"$ref": "#/$defs/hash"},
+        "gaps": {"type": "array", "items": {"$ref": "#/$defs/gap"}},
+        "fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "override": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["not_requested", "accepted", "rejected"]},
+        "decision_source": {"type": ["string", "null"]},
+        "decision_scope": {"type": ["object", "null"]},
+        "approved_by": {"type": ["string", "null"]},
+        "approval_ref": {"type": ["string", "null"]},
+        "reason": {"type": ["string", "null"]},
+        "residual_risk": {"type": ["string", "null"]}
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_version", "contract_id", "contract_fingerprint", "initial_decision", "decision", "basis", "hard_reasons", "soft_reasons", "override", "evidence_refs", "fingerprint"],
+      "properties": {
+        "gate_version": {"const": "1.0"},
+        "contract_id": {"$ref": "#/$defs/nonempty"},
+        "contract_fingerprint": {"$ref": "#/$defs/hash"},
+        "initial_decision": {"enum": ["pass", "soft_block", "hard_block"]},
+        "decision": {"enum": ["pass", "soft_block", "hard_block"]},
+        "basis": {"enum": ["observed", "unobserved"]},
+        "hard_reasons": {"$ref": "#/$defs/strings"},
+        "soft_reasons": {"$ref": "#/$defs/strings"},
+        "override": {"$ref": "#/$defs/override"},
+        "evidence_refs": {"$ref": "#/$defs/strings"},
+        "fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    }
+  }
+}

@@ -1,0 +1,1166 @@
+from __future__ import annotations
+
+import copy
+import fnmatch
+import hashlib
+import json
+import subprocess
+import tempfile
+from pathlib import Path
+
+
+HASH_PREFIX = "sha256:"
+RESULTS = {"pass", "fail", "not_run", "inconclusive", "missing"}
+BASES = {"observed", "inferred", "unobserved"}
+CLASSIFICATIONS = {"new_feature", "regression"}
+BLOCK_LEVELS = {"hard", "soft"}
+RELATION_TYPES = {"feature", "contract", "dependency", "test"}
+TEST_FIELDS = {"test_id", "subject_ref", "command", "selection_scope", "classification", "code_refs"}
+RECEIPT_FIELDS = {
+    "test_id", "subject_ref", "criterion_id", "classification", "validation_command",
+    "command_fingerprint", "selection_scope", "environment_fingerprint",
+    "contract_fingerprint", "start_patch_hash", "target_patch_hash", "code_refs",
+    "result", "basis", "evidence_refs", "conflict_refs",
+}
+DRAFT_FIELDS = {"impact_hypotheses", "tests", "mappings", "criteria"}
+CRITERION_FIELDS = {"criterion_id", "block_level"}
+MAPPING_FIELDS = {"criterion_id", "test_ids", "viewpoints", "reason"}
+HYPOTHESIS_FIELDS = {"hypothesis_id", "path_globs", "relation_refs", "basis"}
+
+
+class AssuranceError(ValueError):
+    pass
+
+
+def canonical_json(value: object) -> str:
+    try:
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as error:
+        raise AssuranceError(f"value is not canonical JSON: {error}") from error
+
+
+def fingerprint(value: object) -> str:
+    payload = value if isinstance(value, bytes) else canonical_json(value).encode("utf-8")
+    return HASH_PREFIX + hashlib.sha256(payload).hexdigest()
+
+
+def _is_hash(value: object) -> bool:
+    if not isinstance(value, str) or not value.startswith(HASH_PREFIX):
+        return False
+    digest = value[len(HASH_PREFIX) :]
+    return len(digest) == 64 and all(character in "0123456789abcdef" for character in digest)
+
+
+def _text(value: object, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise AssuranceError(f"{name} must be a non-empty string")
+    return value
+
+
+def _unique_strings(value: object, name: str, *, allow_empty: bool = True) -> list[str]:
+    if not isinstance(value, list) or (not allow_empty and not value):
+        raise AssuranceError(f"{name} must be a list")
+    result = [_text(item, name) for item in value]
+    if len(result) != len(set(result)):
+        raise AssuranceError(f"{name} contains a duplicate value")
+    return result
+
+
+def _unique_records(value: object, key: str, name: str, *, allow_empty: bool = True) -> list[dict]:
+    if not isinstance(value, list) or (not allow_empty and not value):
+        raise AssuranceError(f"{name} must be a list")
+    records: list[dict] = []
+    identities: list[str] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise AssuranceError(f"{name} entries must be objects")
+        identities.append(_text(item.get(key), f"{name}.{key}"))
+        records.append(item)
+    if len(identities) != len(set(identities)):
+        raise AssuranceError(f"{name} contains a duplicate {key}")
+    return records
+
+
+def _exact_fields(record: dict, expected: set[str], name: str) -> None:
+    missing = sorted(expected - set(record))
+    unexpected = sorted(set(record) - expected)
+    if missing or unexpected:
+        raise AssuranceError(f"{name} fields mismatch; missing={missing}, unexpected={unexpected}")
+
+
+def _validate_task(task: object) -> dict:
+    if not isinstance(task, dict):
+        raise AssuranceError("task identity is missing")
+    required = ("project_id", "worktree_id", "environment_ref", "task_id")
+    return {key: _text(task.get(key), f"task.{key}") for key in required}
+
+
+def _validate_hash(value: object, name: str) -> str:
+    if not _is_hash(value):
+        raise AssuranceError(f"{name} must be a sha256 fingerprint")
+    return value
+
+
+def validate_assurance_draft(draft: object, gate_criteria: list[str]) -> dict:
+    if not isinstance(draft, dict):
+        raise AssuranceError("contract assurance_draft is missing")
+    _exact_fields(draft, DRAFT_FIELDS, "assurance_draft")
+    criteria = _unique_records(draft.get("criteria"), "criterion_id", "assurance_draft.criteria", allow_empty=False)
+    criterion_ids = [item["criterion_id"] for item in criteria]
+    if set(criterion_ids) != set(gate_criteria):
+        missing = sorted(set(gate_criteria) - set(criterion_ids))
+        unknown = sorted(set(criterion_ids) - set(gate_criteria))
+        raise AssuranceError(f"assurance criteria mismatch; missing={missing}, unknown={unknown}")
+    for criterion in criteria:
+        _exact_fields(criterion, CRITERION_FIELDS, "assurance criterion")
+        if criterion.get("block_level") not in BLOCK_LEVELS:
+            raise AssuranceError("assurance criterion block_level is invalid")
+
+    tests = _unique_records(draft.get("tests"), "test_id", "assurance_draft.tests")
+    test_ids = {item["test_id"] for item in tests}
+    for test in tests:
+        _exact_fields(test, TEST_FIELDS, "assurance test")
+        _text(test.get("subject_ref"), "assurance test subject_ref")
+        _text(test.get("command"), "assurance test command")
+        _text(test.get("selection_scope"), "assurance test selection_scope")
+        if test.get("classification") not in CLASSIFICATIONS:
+            raise AssuranceError("assurance test classification is invalid")
+        _unique_strings(test.get("code_refs"), "assurance test code_refs")
+
+    mappings = _unique_records(draft.get("mappings"), "criterion_id", "assurance_draft.mappings", allow_empty=False)
+    mapping_ids = {item["criterion_id"] for item in mappings}
+    if mapping_ids != set(gate_criteria):
+        missing = sorted(set(gate_criteria) - mapping_ids)
+        unknown = sorted(mapping_ids - set(gate_criteria))
+        raise AssuranceError(f"assurance mappings mismatch; missing={missing}, unknown={unknown}")
+    assigned_tests: list[str] = []
+    for mapping in mappings:
+        _exact_fields(mapping, MAPPING_FIELDS, "assurance mapping")
+        mapped_tests = _unique_strings(mapping.get("test_ids"), "assurance mapping test_ids")
+        unknown_tests = sorted(set(mapped_tests) - test_ids)
+        if unknown_tests:
+            raise AssuranceError(f"assurance mapping has unknown test: {unknown_tests}")
+        assigned_tests.extend(mapped_tests)
+        _unique_strings(mapping.get("viewpoints"), "assurance mapping viewpoints")
+        _text(mapping.get("reason"), "assurance mapping reason")
+    if set(assigned_tests) != test_ids or len(assigned_tests) != len(set(assigned_tests)):
+        raise AssuranceError("each assurance test must have exactly one criterion mapping")
+
+    hypotheses = _unique_records(
+        draft.get("impact_hypotheses"),
+        "hypothesis_id",
+        "assurance_draft.impact_hypotheses",
+    )
+    for hypothesis in hypotheses:
+        _exact_fields(hypothesis, HYPOTHESIS_FIELDS, "impact hypothesis")
+        _unique_strings(hypothesis.get("path_globs"), "impact hypothesis path_globs", allow_empty=False)
+        _unique_strings(hypothesis.get("relation_refs"), "impact hypothesis relation_refs")
+        if hypothesis.get("basis") not in {"declared", "static_observed"}:
+            raise AssuranceError("impact hypothesis basis is invalid")
+    return copy.deepcopy(draft)
+
+
+def _validate_contract(contract: object) -> tuple[dict, dict]:
+    if not isinstance(contract, dict):
+        raise AssuranceError("contract must be an object")
+    version = contract.get("contract_version")
+    if version == "1.0":
+        raise AssuranceError("legacy contract v1.0 is readable but cannot enter M4")
+    if version != "1.1":
+        raise AssuranceError("contract version is invalid")
+    _text(contract.get("contract_id"), "contract_id")
+    _validate_task(contract.get("task"))
+    gate_criteria = _unique_strings(contract.get("gate_criteria"), "gate_criteria", allow_empty=False)
+    _unique_strings(contract.get("validation_criteria"), "validation_criteria", allow_empty=False)
+    _unique_strings(contract.get("protected_targets"), "protected_targets")
+    actual = _validate_hash(contract.get("fingerprint"), "contract fingerprint")
+    body = {key: value for key, value in contract.items() if key != "fingerprint"}
+    if actual != fingerprint(body):
+        raise AssuranceError("contract fingerprint does not match its contents")
+    draft = validate_assurance_draft(contract.get("assurance_draft"), gate_criteria)
+    return contract, draft
+
+
+def _repository(path: Path | str) -> Path:
+    repository = Path(path).resolve()
+    if not repository.is_dir():
+        raise AssuranceError("repository must be a directory")
+    result = _git(repository, "rev-parse", "--show-toplevel", text=True).strip()
+    if Path(result).resolve() != repository:
+        raise AssuranceError("repository must be the exact Git worktree root")
+    return repository
+
+
+def _git(
+    repository: Path,
+    *arguments: str,
+    input_bytes: bytes | None = None,
+    text: bool = False,
+) -> bytes | str:
+    try:
+        completed = subprocess.run(
+            ["git", *arguments],
+            cwd=repository,
+            input=input_bytes,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=False,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        detail = getattr(error, "stderr", b"")
+        if isinstance(detail, bytes):
+            detail = detail.decode("utf-8", errors="replace")
+        raise AssuranceError(f"Git operation failed: {detail.strip()}") from error
+    return completed.stdout.decode("utf-8") if text else completed.stdout
+
+
+def _restore_public(restore_point: dict) -> dict:
+    return {key: copy.deepcopy(value) for key, value in restore_point.items() if not key.startswith("_")}
+
+
+def capture_restore_point(repository: Path | str, task: dict, observed_at: str) -> dict:
+    repository = _repository(repository)
+    identity = _validate_task(task)
+    observed_at = _text(observed_at, "observed_at")
+    start_commit = _git(repository, "rev-parse", "HEAD", text=True).strip()
+    tracked_patch = _git(repository, "diff", "--binary", "HEAD", "--")
+    tracked_patch_hash = fingerprint(tracked_patch)
+    start_patch_hash = fingerprint({"start_commit": start_commit, "tracked_patch_hash": fingerprint(b"")})
+    exclusions = [
+        {"area": "untracked_content", "basis": "unobserved", "reason": "Git tracked patch excludes untracked files"},
+        {"area": "submodules", "basis": "unobserved", "reason": "submodule working trees are not reconstructed"},
+        {"area": "symbolic_links", "basis": "unobserved", "reason": "link targets are not captured or followed"},
+    ]
+    public = {
+        "restore_point_version": "1.0",
+        "restore_point_id": "restore:" + fingerprint(
+            {"task": identity, "start_commit": start_commit, "tracked_patch_hash": tracked_patch_hash}
+        ).removeprefix(HASH_PREFIX),
+        "task": identity,
+        "observed_at": observed_at,
+        "start_commit": start_commit,
+        "start_patch_hash": start_patch_hash,
+        "tracked_patch_hash": tracked_patch_hash,
+        "tracked_patch_size": len(tracked_patch),
+        "scope": "local_tracked_git_workspace",
+        "exclusions": exclusions,
+    }
+    return {**public, "_tracked_patch": tracked_patch}
+
+
+def verify_restore_point(repository: Path | str, restore_point: dict) -> dict:
+    repository = _repository(repository)
+    if not isinstance(restore_point, dict) or not isinstance(restore_point.get("_tracked_patch"), bytes):
+        raise AssuranceError("restore point lacks the captured tracked patch")
+    patch = restore_point["_tracked_patch"]
+    if fingerprint(patch) != restore_point.get("tracked_patch_hash"):
+        raise AssuranceError("restore point tracked patch is stale or corrupted")
+    source_before = _git(repository, "status", "--porcelain=v1", "-z")
+    with tempfile.TemporaryDirectory(prefix="ownhands-m4-restore-") as temporary:
+        clone = Path(temporary) / "clone"
+        try:
+            subprocess.run(
+                ["git", "clone", "--quiet", "--no-hardlinks", str(repository), str(clone)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except (OSError, subprocess.CalledProcessError) as error:
+            raise AssuranceError("disposable clone creation failed") from error
+        _git(clone, "checkout", "--quiet", restore_point["start_commit"])
+        if patch:
+            _git(clone, "apply", "--binary", "-", input_bytes=patch)
+            added = _git(clone, "ls-files", "--others", "--exclude-standard", "-z")
+            added_paths = [
+                item.decode("utf-8", errors="surrogateescape")
+                for item in added.split(b"\0")
+                if item
+            ]
+            if added_paths:
+                _git(clone, "add", "-N", "--", *added_paths)
+        reconstructed = _git(clone, "diff", "--binary", "HEAD", "--")
+        reconstructed_hash = fingerprint(reconstructed)
+    source_after = _git(repository, "status", "--porcelain=v1", "-z")
+    source_unchanged = source_before == source_after
+    passed = reconstructed_hash == restore_point["tracked_patch_hash"] and source_unchanged
+    return {
+        "verification_version": "1.0",
+        "restore_point_ref": restore_point["restore_point_id"],
+        "task": copy.deepcopy(restore_point["task"]),
+        "result": "pass" if passed else "fail",
+        "basis": "observed",
+        "method": "disposable_local_clone_reconstruction",
+        "reconstructed_patch_hash": reconstructed_hash,
+        "source_worktree_unchanged": source_unchanged,
+        "exclusions": copy.deepcopy(restore_point["exclusions"]),
+        "evidence_refs": [],
+    }
+
+
+def _changed_paths(repository: Path) -> list[dict]:
+    raw = _git(repository, "diff", "--name-status", "--no-renames", "-z", "HEAD", "--")
+    pieces = raw.split(b"\0")
+    if pieces and pieces[-1] == b"":
+        pieces.pop()
+    if len(pieces) % 2:
+        raise AssuranceError("Git changed-path output was malformed")
+    changed = []
+    for index in range(0, len(pieces), 2):
+        status = pieces[index].decode("ascii", errors="strict")
+        path = pieces[index + 1].decode("utf-8", errors="surrogateescape")
+        changed.append({"path": path, "status": status, "basis": "observed"})
+    return sorted(changed, key=lambda item: item["path"])
+
+
+def _matches(path: str, pattern: str) -> bool:
+    return fnmatch.fnmatchcase(path, pattern) or (
+        pattern.endswith("/**") and path == pattern[:-3]
+    )
+
+
+def analyze_impact(
+    repository: Path | str,
+    restore_point: dict,
+    contract: dict,
+    relation_catalog: dict,
+    observed_at: str,
+) -> dict:
+    repository = _repository(repository)
+    contract, draft = _validate_contract(contract)
+    if restore_point.get("task") != _validate_task(contract["task"]):
+        raise AssuranceError("restore point and contract identity mismatch")
+    actual_patch = _git(repository, "diff", "--binary", "HEAD", "--")
+    if fingerprint(actual_patch) != restore_point.get("tracked_patch_hash"):
+        raise AssuranceError("actual Git diff no longer matches the Restore Point")
+    if not isinstance(relation_catalog, dict):
+        raise AssuranceError("relation catalog must be an object")
+    declared = _unique_records(relation_catalog.get("relations"), "relation_id", "relations")
+    changed_paths = _changed_paths(repository)
+    joined = []
+    matched_paths: set[str] = set()
+    relation_ids = set()
+    for relation in declared:
+        relation_id = relation["relation_id"]
+        relation_ids.add(relation_id)
+        pattern = _text(relation.get("changed_path_glob"), "relation changed_path_glob")
+        relation_type = relation.get("relation_type")
+        if relation_type not in RELATION_TYPES:
+            raise AssuranceError("relation type is invalid")
+        basis = relation.get("basis")
+        if basis not in {"declared", "static_observed"}:
+            raise AssuranceError("relation basis is invalid")
+        target_ref = _text(relation.get("target_ref"), "relation target_ref")
+        evidence_refs = _unique_strings(relation.get("evidence_refs"), "relation evidence_refs")
+        paths = [item["path"] for item in changed_paths if _matches(item["path"], pattern)]
+        if not paths:
+            continue
+        matched_paths.update(paths)
+        joined_relation = {
+            "relation_id": relation_id,
+            "relation_type": relation_type,
+            "target_ref": target_ref,
+            "changed_paths": paths,
+            "basis": basis,
+            "evidence_refs": evidence_refs,
+        }
+        if relation_type == "test":
+            classification = relation.get("required_classification")
+            if classification not in CLASSIFICATIONS:
+                raise AssuranceError("test relation required_classification is invalid")
+            joined_relation["required_classification"] = classification
+        joined.append(joined_relation)
+
+    hypotheses = draft["impact_hypotheses"]
+    referenced_relations = {
+        relation_ref for hypothesis in hypotheses for relation_ref in hypothesis["relation_refs"]
+    }
+    unknown_relations = sorted(referenced_relations - relation_ids)
+    if unknown_relations:
+        raise AssuranceError(f"impact hypothesis has unknown relation: {unknown_relations}")
+
+    exclusions = copy.deepcopy(restore_point.get("exclusions", []))
+    for item in relation_catalog.get("excluded", []):
+        if not isinstance(item, dict):
+            raise AssuranceError("excluded relation area must be an object")
+        exclusions.append(
+            {"area": _text(item.get("area"), "excluded area"), "basis": "unobserved", "reason": _text(item.get("reason"), "excluded reason")}
+        )
+    unique_exclusions = {item["area"]: item for item in exclusions}
+
+    unobserved = []
+    for item in relation_catalog.get("unobserved", []):
+        if not isinstance(item, dict):
+            raise AssuranceError("unobserved relation area must be an object")
+        unobserved.append(
+            {"area": _text(item.get("area"), "unobserved area"), "basis": "unobserved", "reason": _text(item.get("reason"), "unobserved reason")}
+        )
+    for path in sorted({item["path"] for item in changed_paths} - matched_paths):
+        unobserved.append(
+            {"area": f"changed_path:{path}", "basis": "unobserved", "reason": "no declared relation matched this changed path"}
+        )
+    protected_changes = [
+        item["path"]
+        for item in changed_paths
+        if any(_matches(item["path"], pattern) for pattern in contract["protected_targets"])
+    ]
+    result = {
+        "impact_version": "1.0",
+        "contract_id": contract["contract_id"],
+        "contract_fingerprint": contract["fingerprint"],
+        "restore_point_ref": restore_point["restore_point_id"],
+        "observed_at": _text(observed_at, "observed_at"),
+        "analysis_scope": "actual tracked Git diff joined to declared relations",
+        "changed_paths": changed_paths,
+        "relations": sorted(joined, key=lambda item: item["relation_id"]),
+        "protected_target_changes": sorted(protected_changes),
+        "exclusions": [unique_exclusions[key] for key in sorted(unique_exclusions)],
+        "unobserved": sorted(unobserved, key=lambda item: item["area"]),
+        "claims_complete_dependency_analysis": False,
+    }
+    result["fingerprint"] = fingerprint(result)
+    return result
+
+
+def build_test_design(contract: dict, impact: dict, requirement_catalog: list[dict]) -> dict:
+    contract, draft = _validate_contract(contract)
+    requirements = _unique_records(requirement_catalog, "criterion_id", "requirement_catalog", allow_empty=False)
+    required_by_id = {item["criterion_id"]: item for item in requirements}
+    criterion_ids = set(contract["gate_criteria"])
+    unknown = sorted(set(required_by_id) - criterion_ids)
+    missing = sorted(criterion_ids - set(required_by_id))
+    if unknown or missing:
+        raise AssuranceError(f"requirement catalog criterion mismatch; missing={missing}, unknown={unknown}")
+    tests = {item["test_id"]: copy.deepcopy(item) for item in draft["tests"]}
+    criteria = {item["criterion_id"]: item for item in draft["criteria"]}
+    mappings = []
+    for mapping in draft["mappings"]:
+        criterion_id = mapping["criterion_id"]
+        requirement = required_by_id[criterion_id]
+        expected_tests = _unique_strings(requirement.get("test_ids"), "requirement test_ids")
+        if set(expected_tests) != set(mapping["test_ids"]):
+            raise AssuranceError(f"contract mapping differs from requirement catalog for {criterion_id}")
+        required_viewpoints = _unique_strings(requirement.get("required_viewpoints"), "required_viewpoints")
+        selected_viewpoints = list(mapping["viewpoints"])
+        mappings.append(
+            {
+                "criterion_id": criterion_id,
+                "block_level": criteria[criterion_id]["block_level"],
+                "tests": [tests[test_id] for test_id in mapping["test_ids"]],
+                "selected_viewpoints": selected_viewpoints,
+                "required_viewpoints": required_viewpoints,
+                "omitted_viewpoints": [item for item in required_viewpoints if item not in selected_viewpoints],
+                "reason": mapping["reason"],
+            }
+        )
+    design = {
+        "design_version": "1.0",
+        "contract_id": contract["contract_id"],
+        "contract_fingerprint": contract["fingerprint"],
+        "impact_fingerprint": impact.get("fingerprint"),
+        "selected_tests": [copy.deepcopy(item) for item in draft["tests"]],
+        "mappings": mappings,
+    }
+    design["fingerprint"] = fingerprint(design)
+    return design
+
+
+def record_test_baseline(
+    contract: dict,
+    selection: list[dict],
+    receipts: list[dict],
+    observed_at: str,
+) -> dict:
+    contract, draft = _validate_contract(contract)
+    selected = _unique_records(selection, "test_id", "test selection", allow_empty=False)
+    authoritative = {item["test_id"]: item for item in draft["tests"]}
+    if {item["test_id"] for item in selected} != set(authoritative):
+        raise AssuranceError("test selection must match the exact contract test selection")
+    for item in selected:
+        if item != authoritative[item["test_id"]]:
+            raise AssuranceError("test selection differs from the contract assurance draft")
+    records = _unique_records(receipts, "test_id", "test receipts", allow_empty=False)
+    if {item["test_id"] for item in records} != set(authoritative):
+        raise AssuranceError("receipts must cover the exact test selection")
+    criterion_for_test = {
+        test_id: mapping["criterion_id"]
+        for mapping in draft["mappings"]
+        for test_id in mapping["test_ids"]
+    }
+    validated = []
+    for receipt in records:
+        _exact_fields(receipt, RECEIPT_FIELDS, "test receipt")
+        test = authoritative[receipt["test_id"]]
+        for key in ("subject_ref", "classification", "selection_scope"):
+            if receipt.get(key) != test[key]:
+                raise AssuranceError(f"receipt {key} differs from contract test selection")
+        if receipt.get("validation_command") != test["command"]:
+            raise AssuranceError("receipt validation command differs from contract test selection")
+        if receipt.get("code_refs") != test["code_refs"]:
+            raise AssuranceError("receipt code_refs differ from contract test selection")
+        if receipt.get("command_fingerprint") != fingerprint({"command": test["command"]}):
+            raise AssuranceError("receipt command fingerprint is invalid")
+        _text(receipt.get("criterion_id"), "receipt criterion_id")
+        if receipt["criterion_id"] != criterion_for_test[receipt["test_id"]]:
+            raise AssuranceError("receipt criterion_id differs from the exact Contract mapping")
+        _validate_hash(receipt.get("environment_fingerprint"), "receipt environment_fingerprint")
+        if receipt.get("contract_fingerprint") != contract["fingerprint"]:
+            raise AssuranceError("receipt contract fingerprint is stale")
+        _validate_hash(receipt.get("start_patch_hash"), "receipt start_patch_hash")
+        _validate_hash(receipt.get("target_patch_hash"), "receipt target_patch_hash")
+        result = receipt.get("result")
+        basis = receipt.get("basis")
+        if result not in RESULTS or basis not in BASES:
+            raise AssuranceError("receipt result or basis is invalid")
+        evidence_refs = _unique_strings(receipt.get("evidence_refs"), "receipt evidence_refs")
+        conflict_refs = _unique_strings(receipt.get("conflict_refs"), "receipt conflict_refs")
+        if result in {"missing", "not_run"}:
+            if basis != "unobserved" or evidence_refs:
+                raise AssuranceError("missing or not_run receipt must be unobserved without Evidence")
+        elif basis == "observed" and not evidence_refs:
+            raise AssuranceError("observed receipt lacks Evidence")
+        elif result in {"pass", "fail"} and basis != "observed":
+            raise AssuranceError("test pass or fail must be observed")
+        validated.append(copy.deepcopy(receipt))
+    validated.sort(key=lambda item: item["test_id"])
+    run = {
+        "test_run_version": "1.0",
+        "contract_id": contract["contract_id"],
+        "contract_fingerprint": contract["fingerprint"],
+        "task_id": contract["task"]["task_id"],
+        "observed_at": _text(observed_at, "observed_at"),
+        "selection_fingerprint": fingerprint(sorted(selected, key=lambda item: item["test_id"])),
+        "receipts": validated,
+        "evidence_refs": sorted({ref for item in validated for ref in item["evidence_refs"]}),
+    }
+    run["fingerprint"] = fingerprint(run)
+    return run
+
+
+def compare_test_runs(before: dict, after: dict) -> dict:
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        raise AssuranceError("test runs must be objects")
+    before_receipts = {item["test_id"]: item for item in _unique_records(before.get("receipts"), "test_id", "before receipts")}
+    after_receipts = {item["test_id"]: item for item in _unique_records(after.get("receipts"), "test_id", "after receipts")}
+    comparisons = []
+    for test_id in sorted(set(before_receipts) | set(after_receipts)):
+        left = before_receipts.get(test_id)
+        right = after_receipts.get(test_id)
+        if left is None:
+            status, criterion, classification, refs = "missing_before", right.get("criterion_id"), right.get("classification"), right.get("evidence_refs", [])
+        elif right is None:
+            status, criterion, classification, refs = "missing_after", left.get("criterion_id"), left.get("classification"), left.get("evidence_refs", [])
+        else:
+            criterion = right.get("criterion_id")
+            classification = right.get("classification")
+            refs = sorted(set(left.get("evidence_refs", [])) | set(right.get("evidence_refs", [])))
+            stale_fields = (
+                "criterion_id",
+                "subject_ref",
+                "classification",
+                "validation_command",
+                "selection_scope",
+                "contract_fingerprint",
+                "start_patch_hash",
+                "target_patch_hash",
+                "code_refs",
+            )
+            if any(left.get(key) != right.get(key) for key in stale_fields):
+                status = "stale"
+            elif left.get("command_fingerprint") != right.get("command_fingerprint") or left.get("environment_fingerprint") != right.get("environment_fingerprint"):
+                status = "incomparable"
+            elif left.get("conflict_refs") or right.get("conflict_refs"):
+                status = "contradicted"
+            elif left.get("result") == "missing":
+                status = "missing_before"
+            elif right.get("result") == "missing":
+                status = "missing_after"
+            elif left.get("result") == "not_run" or right.get("result") == "not_run":
+                status = "not_run"
+            elif left.get("result") == "inconclusive" or right.get("result") == "inconclusive":
+                status = "inconclusive"
+            elif left.get("result") == "pass" and right.get("result") == "fail":
+                status = "regression"
+            elif left.get("result") == "fail" and right.get("result") == "fail":
+                status = "unchanged_failure"
+            elif left.get("result") == "fail" and right.get("result") == "pass":
+                status = "fixed_failure"
+            elif left.get("result") == "pass" and right.get("result") == "pass" and right.get("basis") == "observed" and left.get("basis") == "observed":
+                status = "comparable_pass"
+            else:
+                status = "incomparable"
+        comparisons.append(
+            {"test_id": test_id, "criterion_id": criterion, "classification": classification, "status": status, "evidence_refs": refs}
+        )
+    result = {
+        "comparison_version": "1.0",
+        "contract_id": after.get("contract_id"),
+        "contract_fingerprint": after.get("contract_fingerprint"),
+        "before_ref": before.get("fingerprint"),
+        "after_ref": after.get("fingerprint"),
+        "comparisons": comparisons,
+    }
+    result["fingerprint"] = fingerprint(result)
+    return result
+
+
+def _validate_artifact_fingerprint(artifact: object, name: str) -> dict:
+    if not isinstance(artifact, dict):
+        raise AssuranceError(f"{name} must be an object")
+    actual = _validate_hash(artifact.get("fingerprint"), f"{name} fingerprint")
+    body = {key: value for key, value in artifact.items() if key != "fingerprint"}
+    if actual != fingerprint(body):
+        raise AssuranceError(f"{name} fingerprint does not match its contents")
+    return artifact
+
+
+def _validate_test_run(run: object, contract: dict, draft: dict, name: str) -> dict:
+    run = _validate_artifact_fingerprint(run, name)
+    if run.get("contract_id") != contract["contract_id"] or run.get("contract_fingerprint") != contract["fingerprint"]:
+        raise AssuranceError(f"{name} identity/reference mismatch")
+    if run.get("task_id") != contract["task"]["task_id"]:
+        raise AssuranceError(f"{name} task identity mismatch")
+    receipts = _unique_records(run.get("receipts"), "test_id", f"{name} receipts", allow_empty=False)
+    authoritative = {item["test_id"]: item for item in draft["tests"]}
+    criterion_for_test = {
+        test_id: mapping["criterion_id"]
+        for mapping in draft["mappings"]
+        for test_id in mapping["test_ids"]
+    }
+    if set(authoritative) != {item["test_id"] for item in receipts}:
+        raise AssuranceError(f"{name} receipts do not match the Contract selection")
+    for receipt in receipts:
+        _exact_fields(receipt, RECEIPT_FIELDS, f"{name} receipt")
+        test = authoritative[receipt["test_id"]]
+        expected = {
+            "subject_ref": test["subject_ref"],
+            "criterion_id": criterion_for_test[receipt["test_id"]],
+            "classification": test["classification"],
+            "validation_command": test["command"],
+            "selection_scope": test["selection_scope"],
+            "code_refs": test["code_refs"],
+            "contract_fingerprint": contract["fingerprint"],
+        }
+        if any(receipt.get(key) != value for key, value in expected.items()):
+            raise AssuranceError(f"{name} receipt meaning differs from the authoritative Contract mapping")
+        if receipt.get("command_fingerprint") != fingerprint({"command": test["command"]}):
+            raise AssuranceError(f"{name} receipt command fingerprint is invalid")
+        _validate_hash(receipt.get("environment_fingerprint"), f"{name} environment fingerprint")
+        _validate_hash(receipt.get("start_patch_hash"), f"{name} start patch hash")
+        _validate_hash(receipt.get("target_patch_hash"), f"{name} target patch hash")
+    selected = sorted(draft["tests"], key=lambda item: item["test_id"])
+    if run.get("selection_fingerprint") != fingerprint(selected):
+        raise AssuranceError(f"{name} selection fingerprint is invalid")
+    expected_refs = sorted({ref for receipt in receipts for ref in receipt["evidence_refs"]})
+    if run.get("evidence_refs") != expected_refs:
+        raise AssuranceError(f"{name} Evidence index is invalid")
+    return run
+
+
+def _adequate_status(test: dict, comparison: dict) -> bool:
+    status = comparison.get("status")
+    return status == "comparable_pass" or (
+        test.get("classification") == "new_feature" and status == "fixed_failure"
+    )
+
+
+def _validate_design_binding(contract: dict, draft: dict, design: dict) -> None:
+    _validate_artifact_fingerprint(design, "test design")
+    if design.get("contract_id") != contract["contract_id"] or design.get("contract_fingerprint") != contract["fingerprint"]:
+        raise AssuranceError("test design identity/reference mismatch")
+    selected = _unique_records(design.get("selected_tests"), "test_id", "test design selected_tests")
+    authoritative = {item["test_id"]: item for item in draft["tests"]}
+    if {item["test_id"]: item for item in selected} != authoritative:
+        raise AssuranceError("test design selection differs from the authoritative Contract")
+    mappings = _unique_records(design.get("mappings"), "criterion_id", "test design mappings", allow_empty=False)
+    mapped = {item["criterion_id"]: item for item in mappings}
+    draft_mapped = {item["criterion_id"]: item for item in draft["mappings"]}
+    levels = {item["criterion_id"]: item["block_level"] for item in draft["criteria"]}
+    if set(mapped) != set(draft_mapped):
+        raise AssuranceError("test design criteria differ from the authoritative Contract")
+    for criterion_id, expected in draft_mapped.items():
+        actual = mapped[criterion_id]
+        actual_test_ids = [item.get("test_id") for item in actual.get("tests", []) if isinstance(item, dict)]
+        if actual_test_ids != expected["test_ids"] or actual.get("tests") != [authoritative[test_id] for test_id in expected["test_ids"]]:
+            raise AssuranceError("test design criterion-to-test binding differs from the authoritative Contract")
+        if actual.get("block_level") != levels[criterion_id] or actual.get("selected_viewpoints") != expected["viewpoints"]:
+            raise AssuranceError("test design criterion metadata differs from the authoritative Contract")
+
+
+def _detect_test_gaps(contract: dict, draft: dict, impact: dict, design: dict, comparison: dict) -> dict:
+    criterion_levels = {item["criterion_id"]: item["block_level"] for item in draft["criteria"]}
+    selected = {item["test_id"]: item for item in design.get("selected_tests", [])}
+    mappings = {item["criterion_id"]: item for item in design.get("mappings", [])}
+    comparisons = {item["test_id"]: item for item in comparison.get("comparisons", [])}
+    gaps = []
+
+    def add(kind: str, required: bool, reason: str, *, criterion_id: str | None = None, relation_id: str | None = None, test_id: str | None = None) -> None:
+        identity = {"kind": kind, "criterion_id": criterion_id, "relation_id": relation_id, "test_id": test_id, "reason": reason}
+        gaps.append(
+            {
+                "gap_id": "gap:" + fingerprint(identity).removeprefix(HASH_PREFIX),
+                "kind": kind,
+                "required": required,
+                **({"criterion_id": criterion_id} if criterion_id else {}),
+                **({"relation_id": relation_id} if relation_id else {}),
+                **({"test_id": test_id} if test_id else {}),
+                "reason": reason,
+            }
+        )
+
+    for criterion_id in contract["gate_criteria"]:
+        required = criterion_levels[criterion_id] == "hard"
+        mapping = mappings.get(criterion_id)
+        tests = [] if mapping is None else mapping.get("tests", [])
+        if not tests:
+            add("no_adequate_test", required, "Contract criterion has no selected test", criterion_id=criterion_id)
+            continue
+        if not any(_adequate_status(item, comparisons.get(item["test_id"], {})) for item in tests):
+            add("no_adequate_test", required, "Contract criterion lacks observed adequate test Evidence", criterion_id=criterion_id)
+        for viewpoint in mapping.get("omitted_viewpoints", []):
+            add("missing_viewpoint", required, f"Required {viewpoint} coverage is omitted", criterion_id=criterion_id)
+
+    for relation in impact.get("relations", []):
+        if relation.get("relation_type") != "test":
+            continue
+        test_id = relation.get("target_ref")
+        selected_test = selected.get(test_id)
+        required_classification = relation.get("required_classification")
+        if selected_test is None:
+            add("no_adequate_test", True, "Impacted test relation has no selected test", relation_id=relation.get("relation_id"), test_id=test_id)
+        elif selected_test.get("classification") != required_classification:
+            add("wrong_test_classification", True, f"{selected_test.get('classification')} cannot satisfy required {required_classification} coverage", relation_id=relation.get("relation_id"), test_id=test_id)
+    unique = {item["gap_id"]: item for item in gaps}
+    result = {
+        "gap_report_version": "1.0",
+        "contract_id": contract["contract_id"],
+        "contract_fingerprint": contract["fingerprint"],
+        "gaps": [unique[key] for key in sorted(unique)],
+    }
+    result["fingerprint"] = fingerprint(result)
+    return result
+
+
+def detect_test_gaps(contract: dict, impact: dict, design: dict, comparison: dict) -> dict:
+    contract, draft = _validate_contract(contract)
+    return _detect_test_gaps(contract, draft, impact, design, comparison)
+
+
+def _identity_mismatch(contract: dict, artifact: dict) -> bool:
+    return (
+        artifact.get("contract_id") is not None
+        and artifact.get("contract_id") != contract["contract_id"]
+        or artifact.get("contract_fingerprint") is not None
+        and artifact.get("contract_fingerprint") != contract["fingerprint"]
+    )
+
+
+def _override_record(contract: dict, override: dict | None, decision: str) -> dict:
+    if override is None:
+        return {"status": "not_requested"}
+    required_text = ("approved_by", "approval_ref", "reason", "residual_risk")
+    scope = override.get("decision_scope") if isinstance(override, dict) else None
+    exact = (
+        isinstance(override, dict)
+        and override.get("decision_source") == "explicit_product_approval"
+        and isinstance(scope, dict)
+        and scope.get("contract_id") == contract["contract_id"]
+        and scope.get("contract_fingerprint") == contract["fingerprint"]
+        and scope.get("decision") == "soft_block_override"
+        and all(isinstance(override.get(key), str) and override[key].strip() for key in required_text)
+    )
+    accepted = decision == "soft_block" and exact
+    return {
+        "status": "accepted" if accepted else "rejected",
+        "decision_source": override.get("decision_source") if isinstance(override, dict) else None,
+        "decision_scope": copy.deepcopy(scope),
+        "approved_by": override.get("approved_by") if isinstance(override, dict) else None,
+        "approval_ref": override.get("approval_ref") if isinstance(override, dict) else None,
+        "reason": override.get("reason") if isinstance(override, dict) else None,
+        "residual_risk": override.get("residual_risk") if isinstance(override, dict) else None,
+    }
+
+
+def _evaluate_regression_gate(
+    contract: dict,
+    draft: dict,
+    impact: dict,
+    design: dict,
+    comparison: dict,
+    gaps: dict,
+    override: dict | None = None,
+    boundary_errors: tuple[str, ...] = (),
+) -> dict:
+    hard_reasons = list(boundary_errors)
+    soft_reasons = []
+    for artifact_name, artifact in (("impact", impact), ("test design", design), ("comparison", comparison), ("gap report", gaps)):
+        if _identity_mismatch(contract, artifact):
+            hard_reasons.append(f"{artifact_name} identity/reference mismatch")
+    if contract.get("gate_status") == "hard_block":
+        hard_reasons.append("Task Execution Contract is already hard-blocked")
+    if impact.get("protected_target_changes"):
+        hard_reasons.append("protected target changed")
+    criterion_levels = {item["criterion_id"]: item["block_level"] for item in draft["criteria"]}
+    design_mappings = {}
+    for mapping in design.get("mappings", []):
+        criterion_id = mapping.get("criterion_id")
+        if criterion_id in design_mappings or criterion_id not in criterion_levels:
+            hard_reasons.append("test design contains duplicate or unknown Contract criterion")
+            continue
+        design_mappings[criterion_id] = mapping
+    comparison_by_test = {}
+    for item in comparison.get("comparisons", []):
+        test_id = item.get("test_id")
+        if test_id in comparison_by_test:
+            hard_reasons.append("comparison contains a duplicate test_id")
+            continue
+        comparison_by_test[test_id] = item
+    expected_test_ids = set()
+    for criterion_id in contract["gate_criteria"]:
+        mapping = design_mappings.get(criterion_id)
+        mapped_tests = [] if mapping is None else mapping.get("tests", [])
+        mapped_test_ids = [item.get("test_id") for item in mapped_tests if isinstance(item, dict)]
+        expected_test_ids.update(mapped_test_ids)
+        adequate = bool(mapped_test_ids) and all(
+            comparison_by_test.get(test_id, {}).get("criterion_id") == criterion_id
+            and _adequate_status(
+                next((item for item in mapped_tests if item.get("test_id") == test_id), {}),
+                comparison_by_test.get(test_id, {}),
+            )
+            for test_id in mapped_test_ids
+        )
+        if not adequate:
+            reason = f"Contract criterion {criterion_id} lacks an adequate observed comparison"
+            (hard_reasons if criterion_levels[criterion_id] == "hard" else soft_reasons).append(reason)
+    if set(comparison_by_test) - expected_test_ids:
+        hard_reasons.append("comparison contains a test outside the Contract design mappings")
+    for item in comparison.get("comparisons", []):
+        mapped_test = next(
+            (
+                test
+                for mapping in design_mappings.values()
+                for test in mapping.get("tests", [])
+                if test.get("test_id") == item.get("test_id")
+            ),
+            {},
+        )
+        if _adequate_status(mapped_test, item):
+            continue
+        criterion_id = item.get("criterion_id")
+        reason = f"{item.get('test_id')} comparison is {item.get('status')}"
+        if criterion_levels.get(criterion_id, "hard") == "hard":
+            hard_reasons.append(reason)
+        else:
+            soft_reasons.append(reason)
+    for item in gaps.get("gaps", []):
+        reason = f"{item.get('kind')}: {item.get('reason')}"
+        (hard_reasons if item.get("required") else soft_reasons).append(reason)
+    for item in impact.get("unobserved", []):
+        soft_reasons.append(f"Unobserved {item.get('area')}: {item.get('reason')}")
+    if hard_reasons:
+        initial = "hard_block"
+    elif soft_reasons:
+        initial = "soft_block"
+    else:
+        initial = "pass"
+    override_record = _override_record(contract, override, initial)
+    decision = "pass" if override_record["status"] == "accepted" else initial
+    result = {
+        "gate_version": "1.0",
+        "contract_id": contract["contract_id"],
+        "contract_fingerprint": contract["fingerprint"],
+        "initial_decision": initial,
+        "decision": decision,
+        "basis": "observed" if initial in {"pass", "hard_block"} else "unobserved",
+        "hard_reasons": sorted(set(hard_reasons)),
+        "soft_reasons": sorted(set(soft_reasons)),
+        "override": override_record,
+        "evidence_refs": sorted({ref for item in comparison.get("comparisons", []) for ref in item.get("evidence_refs", [])}),
+    }
+    result["fingerprint"] = fingerprint(result)
+    return result
+
+
+def evaluate_regression_gate(
+    contract: dict,
+    impact: dict,
+    design: dict,
+    comparison: dict,
+    gaps: dict,
+    override: dict | None = None,
+) -> dict:
+    contract, draft = _validate_contract(contract)
+    boundary_errors = []
+    try:
+        _validate_design_binding(contract, draft, design)
+    except AssuranceError as error:
+        boundary_errors.append(f"test design Contract binding invalid: {error}")
+    return _evaluate_regression_gate(
+        contract,
+        draft,
+        impact,
+        design,
+        comparison,
+        gaps,
+        override,
+        tuple(boundary_errors),
+    )
+
+
+def _collect_evidence_refs(value: object) -> set[str]:
+    found: set[str] = set()
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "evidence_refs":
+                found.update(_unique_strings(item, "evidence_refs"))
+            else:
+                found.update(_collect_evidence_refs(item))
+    elif isinstance(value, list):
+        for item in value:
+            found.update(_collect_evidence_refs(item))
+    return found
+
+
+CONTRACT_SNAPSHOT_FIELDS = {
+    "snapshot_version", "contract_version", "contract_id", "source_contract_fingerprint",
+    "task", "protected_targets", "validation_criteria", "gate_criteria", "gate_status",
+    "assurance_draft", "fingerprint",
+}
+PACKET_FIELDS = {
+    "packet_version", "packet_id", "contract_id", "contract_fingerprint", "contract_snapshot",
+    "task", "observed_at", "input_fingerprint", "restore_point", "restore_verification",
+    "impact", "test_design", "before", "after", "comparison", "gaps", "gate",
+    "evidence_refs", "fingerprint",
+}
+
+
+def _contract_snapshot(contract: dict, draft: dict) -> dict:
+    snapshot = {
+        "snapshot_version": "1.0",
+        "contract_version": contract["contract_version"],
+        "contract_id": contract["contract_id"],
+        "source_contract_fingerprint": contract["fingerprint"],
+        "task": copy.deepcopy(contract["task"]),
+        "protected_targets": copy.deepcopy(contract["protected_targets"]),
+        "validation_criteria": copy.deepcopy(contract["validation_criteria"]),
+        "gate_criteria": copy.deepcopy(contract["gate_criteria"]),
+        "gate_status": contract.get("gate_status"),
+        "assurance_draft": copy.deepcopy(draft),
+    }
+    snapshot["fingerprint"] = fingerprint(snapshot)
+    return snapshot
+
+
+def _contract_from_snapshot(snapshot: object) -> tuple[dict, dict]:
+    snapshot = _validate_artifact_fingerprint(snapshot, "contract snapshot")
+    _exact_fields(snapshot, CONTRACT_SNAPSHOT_FIELDS, "contract snapshot")
+    if snapshot.get("snapshot_version") != "1.0" or snapshot.get("contract_version") != "1.1":
+        raise AssuranceError("contract snapshot version is invalid for M4")
+    gate_criteria = _unique_strings(snapshot.get("gate_criteria"), "contract snapshot gate_criteria", allow_empty=False)
+    draft = validate_assurance_draft(snapshot.get("assurance_draft"), gate_criteria)
+    contract = {
+        "contract_version": snapshot["contract_version"],
+        "contract_id": snapshot["contract_id"],
+        "task": copy.deepcopy(snapshot["task"]),
+        "protected_targets": copy.deepcopy(snapshot["protected_targets"]),
+        "validation_criteria": copy.deepcopy(snapshot["validation_criteria"]),
+        "gate_criteria": gate_criteria,
+        "gate_status": snapshot.get("gate_status"),
+        "assurance_draft": draft,
+        "fingerprint": snapshot["source_contract_fingerprint"],
+    }
+    _validate_task(contract["task"])
+    _validate_hash(contract["fingerprint"], "contract snapshot source fingerprint")
+    return contract, draft
+
+
+def _override_input(gate: dict) -> dict | None:
+    record = gate.get("override")
+    if not isinstance(record, dict) or record.get("status") == "not_requested":
+        return None
+    return {key: copy.deepcopy(value) for key, value in record.items() if key != "status"}
+
+
+def _assert_equal_authoritative(actual: dict, expected: dict, name: str) -> None:
+    if actual != expected:
+        raise AssuranceError(f"{name} differs from authoritative recomputation")
+
+
+def _validate_patch_closure(before: dict, after: dict, restore_point: dict) -> None:
+    before_pairs = {(item["start_patch_hash"], item["target_patch_hash"]) for item in before["receipts"]}
+    after_pairs = {(item["start_patch_hash"], item["target_patch_hash"]) for item in after["receipts"]}
+    expected = {(restore_point.get("start_patch_hash"), restore_point.get("tracked_patch_hash"))}
+    if before_pairs != expected or after_pairs != expected:
+        raise AssuranceError("before/after patch identity does not close to the Restore Point")
+
+
+def validate_assurance_packet(packet: object) -> dict:
+    if not isinstance(packet, dict):
+        raise AssuranceError("Assurance packet must be an object")
+    _exact_fields(packet, PACKET_FIELDS, "Assurance packet")
+    if packet.get("packet_version") != "1.0":
+        raise AssuranceError("Assurance packet version is invalid")
+    _validate_artifact_fingerprint(packet, "Assurance packet")
+    contract, draft = _contract_from_snapshot(packet.get("contract_snapshot"))
+    if (
+        packet.get("contract_id") != contract["contract_id"]
+        or packet.get("contract_fingerprint") != contract["fingerprint"]
+        or packet.get("task") != contract["task"]
+    ):
+        raise AssuranceError("Assurance packet Contract identity/reference mismatch")
+    restore = packet["restore_point"]
+    verification = packet["restore_verification"]
+    if (
+        restore.get("task") != _validate_task(contract["task"])
+        or verification.get("restore_point_ref") != restore.get("restore_point_id")
+        or verification.get("task") != restore.get("task")
+        or verification.get("result") != "pass"
+        or verification.get("basis") != "observed"
+        or not verification.get("source_worktree_unchanged")
+        or verification.get("reconstructed_patch_hash") != restore.get("tracked_patch_hash")
+    ):
+        raise AssuranceError("Restore verification reference/patch closure is invalid")
+    impact = _validate_artifact_fingerprint(packet["impact"], "impact")
+    design = packet["test_design"]
+    before = _validate_test_run(packet["before"], contract, draft, "before")
+    after = _validate_test_run(packet["after"], contract, draft, "after")
+    if impact.get("contract_id") != contract["contract_id"] or impact.get("contract_fingerprint") != contract["fingerprint"]:
+        raise AssuranceError("impact identity/reference mismatch")
+    if impact.get("restore_point_ref") != restore.get("restore_point_id"):
+        raise AssuranceError("impact Restore Point reference is invalid")
+    _validate_design_binding(contract, draft, design)
+    if design.get("impact_fingerprint") != impact.get("fingerprint"):
+        raise AssuranceError("test design impact reference is invalid")
+    _validate_patch_closure(before, after, restore)
+    expected_comparison = compare_test_runs(before, after)
+    _assert_equal_authoritative(packet["comparison"], expected_comparison, "comparison")
+    expected_gaps = _detect_test_gaps(contract, draft, impact, design, expected_comparison)
+    _assert_equal_authoritative(packet["gaps"], expected_gaps, "gap report")
+    expected_gate = _evaluate_regression_gate(
+        contract, draft, impact, design, expected_comparison, expected_gaps,
+        _override_input(packet["gate"]),
+    )
+    _assert_equal_authoritative(packet["gate"], expected_gate, "Gate")
+    declared_refs = set(_unique_strings(packet.get("evidence_refs"), "packet evidence_refs"))
+    sections = {
+        name: packet[name]
+        for name in (
+            "contract_snapshot", "restore_point", "restore_verification", "impact", "test_design",
+            "before", "after", "comparison", "gaps", "gate",
+        )
+    }
+    used_refs = _collect_evidence_refs(sections)
+    if used_refs != declared_refs:
+        raise AssuranceError(
+            "packet Evidence reference closure failed: "
+            f"unresolved={sorted(used_refs - declared_refs)}, dangling={sorted(declared_refs - used_refs)}"
+        )
+    input_payload = {
+        "contract_id": contract["contract_id"],
+        "contract_fingerprint": contract["fingerprint"],
+        "sections": sections,
+        "evidence_refs": sorted(declared_refs),
+    }
+    expected_input = fingerprint(input_payload)
+    if packet.get("input_fingerprint") != expected_input or packet.get("packet_id") != "assurance:" + expected_input.removeprefix(HASH_PREFIX):
+        raise AssuranceError("Assurance packet input fingerprint/reference is invalid")
+    return packet
+
+
+def build_assurance_packet(
+    *,
+    contract: dict,
+    restore_point: dict,
+    restore_verification: dict,
+    impact: dict,
+    test_design: dict,
+    before: dict,
+    after: dict,
+    comparison: dict,
+    gaps: dict,
+    gate: dict,
+    evidence_refs: list[str],
+    observed_at: str,
+) -> dict:
+    contract, draft = _validate_contract(contract)
+    if restore_point.get("task") != _validate_task(contract["task"]):
+        raise AssuranceError("packet restore identity mismatch")
+    if (
+        restore_verification.get("restore_point_ref") != restore_point.get("restore_point_id")
+        or restore_verification.get("task") != restore_point.get("task")
+        or restore_verification.get("result") != "pass"
+        or restore_verification.get("basis") != "observed"
+        or not restore_verification.get("source_worktree_unchanged")
+        or restore_verification.get("reconstructed_patch_hash") != restore_point.get("tracked_patch_hash")
+    ):
+        raise AssuranceError("Restore verification is not an observed successful reconstruction")
+    for artifact_name, artifact in (
+        ("impact", impact), ("test design", test_design), ("before", before),
+        ("after", after), ("comparison", comparison), ("gaps", gaps), ("gate", gate),
+    ):
+        if _identity_mismatch(contract, artifact):
+            raise AssuranceError(f"packet {artifact_name} identity/reference mismatch")
+    _validate_artifact_fingerprint(impact, "impact")
+    _validate_design_binding(contract, draft, test_design)
+    if impact.get("restore_point_ref") != restore_point.get("restore_point_id"):
+        raise AssuranceError("packet impact Restore Point reference mismatch")
+    if test_design.get("impact_fingerprint") != impact.get("fingerprint"):
+        raise AssuranceError("packet test design impact reference mismatch")
+    _validate_test_run(before, contract, draft, "before")
+    _validate_test_run(after, contract, draft, "after")
+    _validate_patch_closure(before, after, restore_point)
+    expected_comparison = compare_test_runs(before, after)
+    _assert_equal_authoritative(comparison, expected_comparison, "comparison")
+    expected_gaps = _detect_test_gaps(contract, draft, impact, test_design, expected_comparison)
+    _assert_equal_authoritative(gaps, expected_gaps, "gap report")
+    expected_gate = _evaluate_regression_gate(
+        contract, draft, impact, test_design, expected_comparison, expected_gaps,
+        _override_input(gate),
+    )
+    _assert_equal_authoritative(gate, expected_gate, "Gate")
+    declared_refs = set(_unique_strings(evidence_refs, "packet evidence_refs"))
+    public_restore = _restore_public(restore_point)
+    sections = {
+        "contract_snapshot": _contract_snapshot(contract, draft),
+        "restore_point": public_restore,
+        "restore_verification": copy.deepcopy(restore_verification),
+        "impact": copy.deepcopy(impact),
+        "test_design": copy.deepcopy(test_design),
+        "before": copy.deepcopy(before),
+        "after": copy.deepcopy(after),
+        "comparison": copy.deepcopy(comparison),
+        "gaps": copy.deepcopy(gaps),
+        "gate": copy.deepcopy(gate),
+    }
+    used_refs = _collect_evidence_refs(sections)
+    if used_refs != declared_refs:
+        raise AssuranceError(
+            "packet Evidence reference closure failed: "
+            f"unresolved={sorted(used_refs - declared_refs)}, dangling={sorted(declared_refs - used_refs)}"
+        )
+    input_payload = {
+        "contract_id": contract["contract_id"],
+        "contract_fingerprint": contract["fingerprint"],
+        "sections": sections,
+        "evidence_refs": sorted(declared_refs),
+    }
+    input_fingerprint = fingerprint(input_payload)
+    packet = {
+        "packet_version": "1.0",
+        "packet_id": "assurance:" + input_fingerprint.removeprefix(HASH_PREFIX),
+        "contract_id": contract["contract_id"],
+        "contract_fingerprint": contract["fingerprint"],
+        "task": copy.deepcopy(contract["task"]),
+        "observed_at": _text(observed_at, "observed_at"),
+        "input_fingerprint": input_fingerprint,
+        **sections,
+        "evidence_refs": sorted(declared_refs),
+    }
+    packet["fingerprint"] = fingerprint(packet)
+    return validate_assurance_packet(packet)

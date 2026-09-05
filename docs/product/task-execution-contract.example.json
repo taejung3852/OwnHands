@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0",
+  "contract_version": "1.1",
   "contract_id": "contract:task-example",
   "task": {"project_id": "project-example", "worktree_id": "worktree-example", "environment_ref": "macos-arm64-python-3.12", "task_id": "task-example", "mode": "managed", "goal": "Review a synthetic profile"},
   "baseline_ref": "baseline:project-example:v1",
@@ -13,10 +13,32 @@
   "approval_triggers": ["external_effect"],
   "validation_criteria": ["python -m unittest -v"],
   "gate_criteria": ["tests_pass"],
+  "assurance_draft": {
+    "impact_hypotheses": [],
+    "tests": [
+      {
+        "test_id": "test:validation-1",
+        "subject_ref": "validation:1",
+        "command": "python -m unittest -v",
+        "selection_scope": "python -m unittest -v",
+        "classification": "regression",
+        "code_refs": []
+      }
+    ],
+    "mappings": [
+      {
+        "criterion_id": "tests_pass",
+        "test_ids": ["test:validation-1"],
+        "viewpoints": ["regression"],
+        "reason": "legacy validation mapping"
+      }
+    ],
+    "criteria": [{"criterion_id": "tests_pass", "block_level": "hard"}]
+  },
   "gate_status": "ready_for_preview",
   "unobserved": [],
   "event_refs": ["event-profile"],
   "evidence_refs": ["evidence-profile"],
   "realization": {"configured": {"result": "not_run", "basis": "unobserved"}, "loaded": {"result": "not_run", "basis": "unobserved"}, "enforced": {"result": "not_run", "basis": "unobserved"}},
-  "fingerprint": "sha256:5dedef46a14df7a5bbd3bf024d9ceda2bb2f536a9ce4fcdbfd7672c3068da5bc"
+  "fingerprint": "sha256:964388490ff324180b00ac93653f93fa0c7267298ae0504262e2c3e593d57428"
 }

@@ -1,0 +1,54 @@
+{
+  "catalog_version": "1.0",
+  "relations": [
+    {
+      "relation_id": "relation:widget-feature",
+      "changed_path_glob": "src/widget.py",
+      "relation_type": "feature",
+      "target_ref": "feature:widget-normalization",
+      "basis": "declared",
+      "evidence_refs": ["evidence:requirements"]
+    },
+    {
+      "relation_id": "relation:widget-contract",
+      "changed_path_glob": "src/widget.py",
+      "relation_type": "contract",
+      "target_ref": "criterion:tests_pass",
+      "basis": "declared",
+      "evidence_refs": ["evidence:requirements"]
+    },
+    {
+      "relation_id": "relation:widget-dependency",
+      "changed_path_glob": "src/widget.py",
+      "relation_type": "dependency",
+      "target_ref": "schema/widget.schema.json",
+      "basis": "declared",
+      "evidence_refs": ["evidence:dependency-map"]
+    },
+    {
+      "relation_id": "relation:widget-regression-test",
+      "changed_path_glob": "src/widget.py",
+      "relation_type": "test",
+      "target_ref": "test:widget-regression",
+      "required_classification": "regression",
+      "basis": "declared",
+      "evidence_refs": ["evidence:test-map"]
+    },
+    {
+      "relation_id": "relation:schema-error-test",
+      "changed_path_glob": "schema/*.json",
+      "relation_type": "test",
+      "target_ref": "test:schema-errors",
+      "required_classification": "new_feature",
+      "basis": "declared",
+      "evidence_refs": ["evidence:test-map"]
+    }
+  ],
+  "excluded": [
+    {"area": "external_services", "reason": "no external service execution is analyzed"},
+    {"area": "dynamic_runtime_relationships", "reason": "v1 joins declared relations only"}
+  ],
+  "unobserved": [
+    {"area": "python_dynamic_imports", "reason": "dynamic imports are not statically resolved"}
+  ]
+}

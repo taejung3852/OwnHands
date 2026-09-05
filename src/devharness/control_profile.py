@@ -315,8 +315,14 @@ def build_execution_contract(baseline: dict, overlay: dict, approvals: list[dict
         active_permissions.append({**expansion, "active": approved, "basis": "observed" if approved else "unobserved"})
         hard_block = hard_block or not approved
 
+    assurance_draft = overlay.get("assurance_draft")
+    if assurance_draft is not None:
+        from .assurance import validate_assurance_draft
+
+        assurance_draft = validate_assurance_draft(assurance_draft, overlay["gate_criteria"])
+
     contract = {
-        "contract_version": "1.0",
+        "contract_version": "1.1" if assurance_draft is not None else "1.0",
         "contract_id": f"contract:{task['task_id']}",
         "task": task,
         "baseline_ref": baseline["baseline_id"],
@@ -340,6 +346,8 @@ def build_execution_contract(baseline: dict, overlay: dict, approvals: list[dict
             "enforced": {"result": "not_run", "basis": "unobserved"},
         },
     }
+    if assurance_draft is not None:
+        contract["assurance_draft"] = assurance_draft
     contract["fingerprint"] = _hash(contract)
     return contract
 

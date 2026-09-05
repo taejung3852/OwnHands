@@ -1,0 +1,404 @@
+{
+  "after": {
+    "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+    "contract_id": "contract:m4-synthetic-review",
+    "evidence_refs": [
+      "evidence:m4:after-test"
+    ],
+    "fingerprint": "sha256:f4e1927b1796d2cdb38d55a4b874ca8bf907b24a992befa142500c588f26c3d0",
+    "observed_at": "2026-09-06T12:00:00+00:00",
+    "receipts": [
+      {
+        "basis": "observed",
+        "classification": "regression",
+        "code_refs": [
+          "tests/test_widget.py"
+        ],
+        "command_fingerprint": "sha256:1d3c4b05d4d05785cea1f36a09a05beff639701251163d242ec23c0d90fd48e3",
+        "conflict_refs": [],
+        "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+        "criterion_id": "tests_pass",
+        "environment_fingerprint": "sha256:1b50abff1d9c63dce89ad51fd127acf6c6e2651945e5d2b4c73584119b1bf4d0",
+        "evidence_refs": [
+          "evidence:m4:after-test"
+        ],
+        "result": "pass",
+        "selection_scope": "tests/test_widget.py",
+        "start_patch_hash": "sha256:b393525b59216600b0cdc05a6b06ae3bafdce84f969d88ef9f82f9dce161079e",
+        "subject_ref": "subject:widget-runtime",
+        "target_patch_hash": "sha256:48df565c244f901a74092afec72b5f666f4972cd0c051fbc06186b2d3d36a223",
+        "test_id": "test:widget-regression",
+        "validation_command": "python -m unittest discover -s tests -v"
+      }
+    ],
+    "selection_fingerprint": "sha256:f0bd5536d49229c034bc78d7afd4e5b502af85ff5a518062fdab072aff500695",
+    "task_id": "task:m4-fixture",
+    "test_run_version": "1.0"
+  },
+  "before": {
+    "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+    "contract_id": "contract:m4-synthetic-review",
+    "evidence_refs": [
+      "evidence:m4:before-test"
+    ],
+    "fingerprint": "sha256:33b31dfb8b3e186fc94ca675f0847d8be5072884890c486377930f0708d09acd",
+    "observed_at": "2026-09-06T12:00:00+00:00",
+    "receipts": [
+      {
+        "basis": "observed",
+        "classification": "regression",
+        "code_refs": [
+          "tests/test_widget.py"
+        ],
+        "command_fingerprint": "sha256:1d3c4b05d4d05785cea1f36a09a05beff639701251163d242ec23c0d90fd48e3",
+        "conflict_refs": [],
+        "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+        "criterion_id": "tests_pass",
+        "environment_fingerprint": "sha256:1b50abff1d9c63dce89ad51fd127acf6c6e2651945e5d2b4c73584119b1bf4d0",
+        "evidence_refs": [
+          "evidence:m4:before-test"
+        ],
+        "result": "pass",
+        "selection_scope": "tests/test_widget.py",
+        "start_patch_hash": "sha256:b393525b59216600b0cdc05a6b06ae3bafdce84f969d88ef9f82f9dce161079e",
+        "subject_ref": "subject:widget-runtime",
+        "target_patch_hash": "sha256:48df565c244f901a74092afec72b5f666f4972cd0c051fbc06186b2d3d36a223",
+        "test_id": "test:widget-regression",
+        "validation_command": "python -m unittest discover -s tests -v"
+      }
+    ],
+    "selection_fingerprint": "sha256:f0bd5536d49229c034bc78d7afd4e5b502af85ff5a518062fdab072aff500695",
+    "task_id": "task:m4-fixture",
+    "test_run_version": "1.0"
+  },
+  "comparison": {
+    "after_ref": "sha256:f4e1927b1796d2cdb38d55a4b874ca8bf907b24a992befa142500c588f26c3d0",
+    "before_ref": "sha256:33b31dfb8b3e186fc94ca675f0847d8be5072884890c486377930f0708d09acd",
+    "comparison_version": "1.0",
+    "comparisons": [
+      {
+        "classification": "regression",
+        "criterion_id": "tests_pass",
+        "evidence_refs": [
+          "evidence:m4:after-test",
+          "evidence:m4:before-test"
+        ],
+        "status": "comparable_pass",
+        "test_id": "test:widget-regression"
+      }
+    ],
+    "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+    "contract_id": "contract:m4-synthetic-review",
+    "fingerprint": "sha256:d4db158282355007d1e573b96fcf3a32134bf50d226f3cc76a017fd9eca8f6c3"
+  },
+  "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+  "contract_id": "contract:m4-synthetic-review",
+  "contract_snapshot": {
+    "assurance_draft": {
+      "criteria": [
+        {
+          "block_level": "hard",
+          "criterion_id": "tests_pass"
+        }
+      ],
+      "impact_hypotheses": [
+        {
+          "basis": "declared",
+          "hypothesis_id": "impact:widget",
+          "path_globs": [
+            "widget.py"
+          ],
+          "relation_refs": [
+            "relation:widget-test"
+          ]
+        }
+      ],
+      "mappings": [
+        {
+          "criterion_id": "tests_pass",
+          "reason": "the existing normalization behavior must remain stable",
+          "test_ids": [
+            "test:widget-regression"
+          ],
+          "viewpoints": [
+            "regression",
+            "recovery"
+          ]
+        }
+      ],
+      "tests": [
+        {
+          "classification": "regression",
+          "code_refs": [
+            "tests/test_widget.py"
+          ],
+          "command": "python -m unittest discover -s tests -v",
+          "selection_scope": "tests/test_widget.py",
+          "subject_ref": "subject:widget-runtime",
+          "test_id": "test:widget-regression"
+        }
+      ]
+    },
+    "contract_id": "contract:m4-synthetic-review",
+    "contract_version": "1.1",
+    "fingerprint": "sha256:60556ae82c7eca4b0f7e1ae5ab0b8b9b53ba609aea85a1223b89cd7ce10b9884",
+    "gate_criteria": [
+      "tests_pass"
+    ],
+    "gate_status": null,
+    "protected_targets": [
+      ".git/**"
+    ],
+    "snapshot_version": "1.0",
+    "source_contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+    "task": {
+      "environment_ref": "python-3.12-local-fixture",
+      "goal": "Exercise the local M4 assurance review slice",
+      "mode": "managed",
+      "project_id": "project:ownhands-fixture",
+      "task_id": "task:m4-fixture",
+      "worktree_id": "worktree:m4-fixture"
+    },
+    "validation_criteria": [
+      "python -m unittest discover -s tests -v"
+    ]
+  },
+  "evidence_refs": [
+    "evidence:m4:after-test",
+    "evidence:m4:before-test",
+    "evidence:m4:requirements",
+    "evidence:m4:test-map"
+  ],
+  "fingerprint": "sha256:f4555c435d5fd95e2f2415e656c5e6b3317454b66fbe29a3ecc4b5cbb2d83db9",
+  "gaps": {
+    "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+    "contract_id": "contract:m4-synthetic-review",
+    "fingerprint": "sha256:c34f2d77d78da01059227cd78fe620355555fd149cfdf6a6f4333585731cd0bd",
+    "gap_report_version": "1.0",
+    "gaps": []
+  },
+  "gate": {
+    "basis": "unobserved",
+    "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+    "contract_id": "contract:m4-synthetic-review",
+    "decision": "soft_block",
+    "evidence_refs": [
+      "evidence:m4:after-test",
+      "evidence:m4:before-test"
+    ],
+    "fingerprint": "sha256:0fd4fce6b4b9aab51526edc85f89c2b6e9ecaa02bd01e775d29efa213e73c38c",
+    "gate_version": "1.0",
+    "hard_reasons": [],
+    "initial_decision": "soft_block",
+    "override": {
+      "status": "not_requested"
+    },
+    "soft_reasons": [
+      "Unobserved dynamic_runtime_relationships: the fixture does not claim complete dependency discovery"
+    ]
+  },
+  "impact": {
+    "analysis_scope": "actual tracked Git diff joined to declared relations",
+    "changed_paths": [
+      {
+        "basis": "observed",
+        "path": "widget.py",
+        "status": "M"
+      }
+    ],
+    "claims_complete_dependency_analysis": false,
+    "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+    "contract_id": "contract:m4-synthetic-review",
+    "exclusions": [
+      {
+        "area": "dynamic_runtime_relationships",
+        "basis": "unobserved",
+        "reason": "v1 joins declared relations only"
+      },
+      {
+        "area": "external_services",
+        "basis": "unobserved",
+        "reason": "the fixture invokes no external service"
+      },
+      {
+        "area": "submodules",
+        "basis": "unobserved",
+        "reason": "submodule working trees are not reconstructed"
+      },
+      {
+        "area": "symbolic_links",
+        "basis": "unobserved",
+        "reason": "link targets are not captured or followed"
+      },
+      {
+        "area": "untracked_content",
+        "basis": "unobserved",
+        "reason": "Git tracked patch excludes untracked files"
+      }
+    ],
+    "fingerprint": "sha256:b9d3199c5963707eb275f6b8aec09933d559118c880e8546aee2365060d619f9",
+    "impact_version": "1.0",
+    "observed_at": "2026-09-06T12:00:00+00:00",
+    "protected_target_changes": [],
+    "relations": [
+      {
+        "basis": "declared",
+        "changed_paths": [
+          "widget.py"
+        ],
+        "evidence_refs": [
+          "evidence:m4:requirements"
+        ],
+        "relation_id": "relation:widget-feature",
+        "relation_type": "feature",
+        "target_ref": "feature:string-validation"
+      },
+      {
+        "basis": "declared",
+        "changed_paths": [
+          "widget.py"
+        ],
+        "evidence_refs": [
+          "evidence:m4:test-map"
+        ],
+        "relation_id": "relation:widget-test",
+        "relation_type": "test",
+        "required_classification": "regression",
+        "target_ref": "test:widget-regression"
+      }
+    ],
+    "restore_point_ref": "restore:b40279bb58f721a361addbb81d5972adad60d9b6672600ed5cdde9f058c5cd3f",
+    "unobserved": [
+      {
+        "area": "dynamic_runtime_relationships",
+        "basis": "unobserved",
+        "reason": "the fixture does not claim complete dependency discovery"
+      }
+    ]
+  },
+  "input_fingerprint": "sha256:0ab552c0570af6bc4a7c351c49827f98b330222cf8e90fc3cef879c9cbcb1845",
+  "observed_at": "2026-09-06T12:00:00+00:00",
+  "packet_id": "assurance:0ab552c0570af6bc4a7c351c49827f98b330222cf8e90fc3cef879c9cbcb1845",
+  "packet_version": "1.0",
+  "restore_point": {
+    "exclusions": [
+      {
+        "area": "untracked_content",
+        "basis": "unobserved",
+        "reason": "Git tracked patch excludes untracked files"
+      },
+      {
+        "area": "submodules",
+        "basis": "unobserved",
+        "reason": "submodule working trees are not reconstructed"
+      },
+      {
+        "area": "symbolic_links",
+        "basis": "unobserved",
+        "reason": "link targets are not captured or followed"
+      }
+    ],
+    "observed_at": "2026-09-06T12:00:00+00:00",
+    "restore_point_id": "restore:b40279bb58f721a361addbb81d5972adad60d9b6672600ed5cdde9f058c5cd3f",
+    "restore_point_version": "1.0",
+    "scope": "local_tracked_git_workspace",
+    "start_commit": "55d7dedb31c61b2b963dfe9de7d782a4d39562ea",
+    "start_patch_hash": "sha256:b393525b59216600b0cdc05a6b06ae3bafdce84f969d88ef9f82f9dce161079e",
+    "task": {
+      "environment_ref": "python-3.12-local-fixture",
+      "project_id": "project:ownhands-fixture",
+      "task_id": "task:m4-fixture",
+      "worktree_id": "worktree:m4-fixture"
+    },
+    "tracked_patch_hash": "sha256:48df565c244f901a74092afec72b5f666f4972cd0c051fbc06186b2d3d36a223",
+    "tracked_patch_size": 257
+  },
+  "restore_verification": {
+    "basis": "observed",
+    "evidence_refs": [],
+    "exclusions": [
+      {
+        "area": "untracked_content",
+        "basis": "unobserved",
+        "reason": "Git tracked patch excludes untracked files"
+      },
+      {
+        "area": "submodules",
+        "basis": "unobserved",
+        "reason": "submodule working trees are not reconstructed"
+      },
+      {
+        "area": "symbolic_links",
+        "basis": "unobserved",
+        "reason": "link targets are not captured or followed"
+      }
+    ],
+    "method": "disposable_local_clone_reconstruction",
+    "reconstructed_patch_hash": "sha256:48df565c244f901a74092afec72b5f666f4972cd0c051fbc06186b2d3d36a223",
+    "restore_point_ref": "restore:b40279bb58f721a361addbb81d5972adad60d9b6672600ed5cdde9f058c5cd3f",
+    "result": "pass",
+    "source_worktree_unchanged": true,
+    "task": {
+      "environment_ref": "python-3.12-local-fixture",
+      "project_id": "project:ownhands-fixture",
+      "task_id": "task:m4-fixture",
+      "worktree_id": "worktree:m4-fixture"
+    },
+    "verification_version": "1.0"
+  },
+  "task": {
+    "environment_ref": "python-3.12-local-fixture",
+    "goal": "Exercise the local M4 assurance review slice",
+    "mode": "managed",
+    "project_id": "project:ownhands-fixture",
+    "task_id": "task:m4-fixture",
+    "worktree_id": "worktree:m4-fixture"
+  },
+  "test_design": {
+    "contract_fingerprint": "sha256:0dd79b95325dc693e345f584aa8035876ca0e9b5766401429e59dca3f142107f",
+    "contract_id": "contract:m4-synthetic-review",
+    "design_version": "1.0",
+    "fingerprint": "sha256:13fea535652b9e65562b996a9cc188fbf31dcb7b321a69133285f1d496dd2dc3",
+    "impact_fingerprint": "sha256:b9d3199c5963707eb275f6b8aec09933d559118c880e8546aee2365060d619f9",
+    "mappings": [
+      {
+        "block_level": "hard",
+        "criterion_id": "tests_pass",
+        "omitted_viewpoints": [],
+        "reason": "the existing normalization behavior must remain stable",
+        "required_viewpoints": [
+          "regression",
+          "recovery"
+        ],
+        "selected_viewpoints": [
+          "regression",
+          "recovery"
+        ],
+        "tests": [
+          {
+            "classification": "regression",
+            "code_refs": [
+              "tests/test_widget.py"
+            ],
+            "command": "python -m unittest discover -s tests -v",
+            "selection_scope": "tests/test_widget.py",
+            "subject_ref": "subject:widget-runtime",
+            "test_id": "test:widget-regression"
+          }
+        ]
+      }
+    ],
+    "selected_tests": [
+      {
+        "classification": "regression",
+        "code_refs": [
+          "tests/test_widget.py"
+        ],
+        "command": "python -m unittest discover -s tests -v",
+        "selection_scope": "tests/test_widget.py",
+        "subject_ref": "subject:widget-runtime",
+        "test_id": "test:widget-regression"
+      }
+    ]
+  }
+}
