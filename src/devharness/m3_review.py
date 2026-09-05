@@ -36,6 +36,35 @@ _BASES = {"observed", "inferred", "unobserved"}
 _EXPECTED_VERSION = "0.153.3"
 _ISSUE_38 = "https://github.com/taejung3852/own-hands/issues/38"
 _REFERENCE = re.compile(r"[A-Za-z0-9:._-]+\Z")
+_LIVE_SOURCE_SPECS = (
+    ("AGENTS.md", "agents_instruction"),
+    (".codex/config.toml", "codex_config"),
+    (".codex/rules/ownhands.rules", "rule"),
+    (".codex/hooks.json", "hook"),
+)
+_PROGRESS_METHODS = {
+    "initialize",
+    "thread/start",
+    "thread/started",
+    "turn/start",
+    "turn/started",
+    "item/started",
+    "item/completed",
+    "serverRequest/resolved",
+    "turn/completed",
+    "item/commandExecution/requestApproval",
+    "item/fileChange/requestApproval",
+    "item/permissions/requestApproval",
+}
+_PROGRESS_STATUSES = {
+    "ok",
+    "inProgress",
+    "completed",
+    "interrupted",
+    "failed",
+    "declined",
+    "resolved",
+}
 
 
 class M3ReviewError(ValueError):
@@ -332,6 +361,13 @@ def _git_root(path: Path) -> Path | None:
     return Path(output).resolve()
 
 
+def _validate_live_sources(repository: Path) -> None:
+    for relative, _source_type in _LIVE_SOURCE_SPECS:
+        path = repository / relative
+        if not path.is_file() or path.is_symlink():
+            raise M3ReviewError(f"live fixture source is missing or unsafe: {relative}")
+
+
 def validate_live_preflight(
     repository: Path | str,
     data_root: Path | str,
@@ -349,8 +385,11 @@ def validate_live_preflight(
     output = Path(output).resolve()
     if not repository.is_dir() or not (repository / ".ownhands-disposable").is_file() or (repository / ".ownhands-disposable").is_symlink():
         raise M3ReviewError("live target requires a disposable marker")
+    if repository.is_relative_to(Path("/tmp").resolve()):
+        raise M3ReviewError("live repository must be outside /tmp")
     if _git_root(repository) != repository:
         raise M3ReviewError("live target must be the exact Git repository root")
+    _validate_live_sources(repository)
     if _git_root(data_root) is not None:
         raise M3ReviewError("raw data-root must be outside Git")
     if not data_root.is_relative_to(Path("/tmp").resolve()):
@@ -424,6 +463,50 @@ def _write_text(path: Path, content: str) -> None:
             temporary.unlink()
 
 
+class _LiveProgress:
+    def __init__(self, data_root: Path) -> None:
+        if not data_root.is_relative_to(Path("/tmp").resolve()):
+            raise M3ReviewError("runtime progress must be under /tmp")
+        self.path = data_root / "runtime-progress.json"
+        self.stage = "version_check"
+        self.records: list[dict[str, str | None]] = []
+        self._write("running")
+
+    def set_stage(self, stage: str) -> None:
+        self.stage = stage
+        self._write("running")
+
+    def record(self, record: AppServerRecord) -> None:
+        self.records.append(
+            {
+                "kind": record.kind if record.kind in {"response", "notification", "approval_request", "approval_decision"} else "other",
+                "method": record.method if record.method in _PROGRESS_METHODS else "other",
+                "status": record.status if record.status in _PROGRESS_STATUSES else None,
+            }
+        )
+        self._write("running")
+
+    def finish(self) -> None:
+        self._write("completed")
+
+    def fail(self) -> None:
+        self._write("failed")
+
+    def _write(self, status: str) -> None:
+        _write_text(
+            self.path,
+            _canonical_json(
+                {
+                    "schema_version": "1.0",
+                    "status": status,
+                    "stage": self.stage,
+                    "records": self.records,
+                }
+            )
+            + "\n",
+        )
+
+
 def record_attempt_outcome(path: Path, status: str, detail: str) -> None:
     if status not in {"completed", "failed"}:
         raise M3ReviewError("attempt outcome is invalid")
@@ -483,17 +566,10 @@ def _managed_request(
     observed_at: str,
     runtime_observations: dict,
 ) -> dict:
-    source_specs = (
-        ("AGENTS.md", "agents_instruction"),
-        (".codex/config.toml", "codex_config"),
-        (".codex/rules/ownhands.rules", "rule"),
-        (".codex/hooks.json", "hook"),
-    )
+    _validate_live_sources(repository)
     sources = []
-    for relative, source_type in source_specs:
+    for relative, source_type in _LIVE_SOURCE_SPECS:
         path = repository / relative
-        if not path.is_file() or path.is_symlink():
-            raise M3ReviewError(f"live fixture source is missing: {relative}")
         sources.append(
             {
                 "source_id": f"source:{relative}",
@@ -641,13 +717,26 @@ def _import_current_task(repository: Path, data_root: Path, observed_at: str) ->
 
 def execute_live_probe(preflight: dict) -> dict:
     """Execute exactly one managed App Server run after the caller claims the attempt."""
+    progress = _LiveProgress(Path(preflight["data_root"]).resolve())
+    try:
+        packet = _execute_live_probe(preflight, progress)
+    except Exception:
+        progress.fail()
+        raise
+    progress.finish()
+    return packet
+
+
+def _execute_live_probe(preflight: dict, progress: _LiveProgress) -> dict:
     repository = preflight["repository"]
     data_root = preflight["data_root"]
     output = preflight["output"]
     version = str(_command(repository, preflight["codex_bin"], "--version")).strip()
     if version not in {f"codex-cli {_EXPECTED_VERSION}", f"codex {_EXPECTED_VERSION}"}:
         raise M3ReviewError(f"Codex version must be exactly {_EXPECTED_VERSION}")
+    progress.set_stage("protocol_schema")
     protocol = _protocol_fingerprint(preflight["codex_bin"], data_root)
+    progress.set_stage("repository_snapshot")
     observed_at = datetime.now(timezone.utc).isoformat()
     start_commit = str(_command(repository, "git", "rev-parse", "HEAD")).strip()
     branch = str(_command(repository, "git", "branch", "--show-current")).strip() or "detached"
@@ -655,6 +744,7 @@ def execute_live_probe(preflight: dict) -> dict:
     patch_hash = _content_hash(patch)
     environment = f"codex-cli-{_EXPECTED_VERSION}"
 
+    progress.set_stage("managed_setup")
     with Catalog.open(DataPaths.resolve(data_root / "managed")) as catalog:
         identities = IdentityRegistry(catalog)
         project = identities.register_project(str(repository))
@@ -676,6 +766,12 @@ def execute_live_probe(preflight: dict) -> dict:
         request = _managed_request(repository, task, start_commit, patch_hash, observed_at, {})
         prepare_managed_task(request, now=observed_at)
         raw_records: list[AppServerRecord] = []
+        progress.set_stage("app_server")
+
+        def observe_record(record: AppServerRecord) -> None:
+            raw_records.append(record)
+            progress.record(record)
+
         run = run_app_server(
             AppServerConfig(
                 executable=preflight["codex_bin"],
@@ -693,14 +789,16 @@ def execute_live_probe(preflight: dict) -> dict:
                 reasoning_effort="low",
             ),
             StdioJsonRpcTransport,
-            raw_records.append,
+            observe_record,
             lambda _record: "decline",
         )
+        progress.set_stage("managed_recording")
         observations = _runtime_observations(run.records)
         request = _managed_request(repository, task, start_commit, patch_hash, observed_at, observations)
         prepared = prepare_managed_task(request, now=observed_at)
         managed = record_managed_run(catalog, prepared, run)
 
+    progress.set_stage("imported_recording")
     imported = _import_current_task(repository, data_root, observed_at)
     approval_requests = [record for record in raw_records if record.kind == "approval_request"]
     approval_item = approval_requests[0].item_id if approval_requests else None
@@ -743,6 +841,7 @@ def execute_live_probe(preflight: dict) -> dict:
         ],
     }
     _write_text(data_root / "runtime-receipt.json", json.dumps(raw_document, ensure_ascii=False, indent=2) + "\n")
+    progress.set_stage("review_packet")
     packet = build_review_packet(managed, imported, receipt, generated_at=observed_at)
     _write_text(output, json.dumps(packet, ensure_ascii=False, indent=2) + "\n")
     _write_text(output.with_suffix(".html"), render_review(packet))

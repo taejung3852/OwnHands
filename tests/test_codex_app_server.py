@@ -65,6 +65,17 @@ class FakeTransport:
         self.closed = True
 
 
+class ApprovalGatedTransport(FakeTransport):
+    def __init__(self, before_decision: list[dict], after_decision: list[dict]) -> None:
+        super().__init__(before_decision)
+        self.after_decision = list(after_decision)
+
+    def send(self, message: dict) -> None:
+        super().send(message)
+        if message.get("result", {}).get("decision") == "decline":
+            self.lines.extend(self.after_decision)
+
+
 def success_messages() -> list[dict]:
     return [json.loads(line) for line in SUCCESS_JSONL]
 
@@ -132,12 +143,37 @@ class AppServerAdapterTests(unittest.TestCase):
         )
         self.assertEqual("decline", transport.sent[-1]["result"]["decision"])
 
+    def test_interleaved_approval_is_answered_before_turn_start_response(self) -> None:
+        messages = success_messages()
+        before_decision = messages[:2] + messages[3:6]
+        after_decision = [messages[2]] + messages[6:]
+        transport = ApprovalGatedTransport(before_decision, after_decision)
+
+        run = run_app_server(CONFIG, transport_factory(transport), lambda _record: None, decline)
+
+        self.assertEqual("completed", run.terminal_status)
+        decisions = [message for message in transport.sent if "result" in message]
+        self.assertEqual("decline", decisions[0]["result"]["decision"])
+        self.assertEqual(
+            ["turn/started", "item/started", "item/commandExecution/requestApproval", "item/commandExecution/requestApproval", "turn/start"],
+            [record.method for record in run.records[2:7]],
+        )
+
+    def test_provisional_turn_identity_must_match_turn_start_response(self) -> None:
+        messages = success_messages()
+        turn_started = messages.pop(3)
+        messages.insert(2, turn_started)
+        messages[3]["result"]["turn"]["id"] = "turn-response-mismatch"
+
+        with self.assertRaisesRegex(AppServerError, "turn/start identity mismatch"):
+            run_app_server(CONFIG, transport_factory(FakeTransport(messages)), lambda _record: None, decline)
+
     def test_queued_thread_started_requires_exact_scope_and_is_not_duplicated(self) -> None:
         base = success_messages()
         valid = {"method": "thread/started", "params": {"thread": copy.deepcopy(base[1]["result"]["thread"])}}
         foreign = copy.deepcopy(valid)
         foreign["params"]["thread"]["id"] = "thread-foreign"
-        attacks = (([foreign], "scope mismatch"), ([valid, copy.deepcopy(valid)], "duplicate"))
+        attacks = (([foreign], "identity mismatch"), ([valid, copy.deepcopy(valid)], "duplicate"))
 
         for queued, expected in attacks:
             with self.subTest(expected=expected), self.assertRaisesRegex(AppServerError, expected):
@@ -155,7 +191,7 @@ class AppServerAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(AppServerError, "response id mismatch"):
             run_app_server(CONFIG, transport_factory(FakeTransport(messages)), records.append, decline)
 
-        self.assertNotIn("thread/started", [record.method for record in records])
+        self.assertIn("thread/started", [record.method for record in records])
 
     def test_pending_message_timeout_and_overflow_fail_closed(self) -> None:
         thread = copy.deepcopy(success_messages()[1]["result"]["thread"])

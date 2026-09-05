@@ -211,7 +211,6 @@ def run_app_server(
     instruction_sources: list[str] = []
     active_items: set[str] = set()
     approvals: dict[int | str, dict[str, object]] = {}
-    pending_messages: list[dict] = []
     thread_started_seen = False
     turn_started_seen = False
     failed = True
@@ -242,6 +241,8 @@ def run_app_server(
         nonlocal next_request_id
         request_id = next_request_id
         next_request_id += 1
+        interleaved_count = 0
+        terminal_status: str | None = None
         transport.send(
             {
                 "jsonrpc": "2.0",
@@ -253,9 +254,13 @@ def run_app_server(
         while True:
             message = receive_message()
             if "method" in message:
-                if len(pending_messages) >= _MAX_PENDING_MESSAGES:
+                if interleaved_count >= _MAX_PENDING_MESSAGES:
                     raise AppServerError("App Server pending message overflow")
-                pending_messages.append(message)
+                if terminal_status is not None:
+                    raise AppServerError("message received after terminal turn")
+                interleaved_count += 1
+                establish_provisional_identity(method, message)
+                terminal_status = dispatch(message)
                 continue
             response_id = message.get("id")
             if response_id in seen_response_ids:
@@ -268,7 +273,8 @@ def run_app_server(
             if "error" in message:
                 raise AppServerError(f"App Server response error for {method}")
             return _required_dict(message.get("result"), f"{method} result") | {
-                "_message": message
+                "_message": message,
+                "_terminal_status": terminal_status,
             }
 
     def response_record(
@@ -291,6 +297,24 @@ def run_app_server(
                 payload_hash=_payload_hash(message),
             )
         )
+
+    def establish_provisional_identity(request_method: str, message: dict) -> None:
+        nonlocal thread_id, turn_id
+        message_method = message.get("method")
+        if request_method == "thread/start" and message_method == "thread/started":
+            params = _required_dict(message.get("params"), "thread/started params")
+            thread = _required_dict(params.get("thread"), "thread/started thread")
+            started_thread_id = _required_text(thread.get("id"), "thread/started thread id")
+            if thread_id is not None and thread_id != started_thread_id:
+                raise AppServerError("thread/started thread scope mismatch")
+            thread_id = started_thread_id
+        if request_method == "turn/start" and message_method == "turn/started":
+            params = _required_dict(message.get("params"), "turn/started params")
+            turn = _required_dict(params.get("turn"), "turn/started turn")
+            started_turn_id = _required_text(turn.get("id"), "turn/started turn id")
+            if turn_id is not None and turn_id != started_turn_id:
+                raise AppServerError("turn/started turn scope mismatch")
+            turn_id = started_turn_id
 
     def dispatch(message: dict) -> str | None:
         nonlocal thread_started_seen, turn_started_seen
@@ -511,15 +535,6 @@ def run_app_server(
         )
         return None
 
-    def drain_pending() -> str | None:
-        while pending_messages:
-            terminal_status = dispatch(pending_messages.pop(0))
-            if terminal_status is not None:
-                if pending_messages:
-                    raise AppServerError("message received after terminal turn")
-                return terminal_status
-        return None
-
     def completed_run(terminal_status: str) -> AppServerRun:
         nonlocal failed
         if thread_id is None or turn_id is None:
@@ -544,8 +559,8 @@ def run_app_server(
             },
         )
         _required_text(initialize.get("userAgent"), "initialize userAgent")
-        terminal_status = drain_pending()
         response_record("initialize", initialize)
+        terminal_status = initialize["_terminal_status"]
         if terminal_status is not None:
             return completed_run(terminal_status)
         transport.send({"jsonrpc": "2.0", "method": "initialized", "params": {}})
@@ -561,15 +576,18 @@ def run_app_server(
             },
         )
         thread = _required_dict(thread_start.get("thread"), "thread/start thread")
-        thread_id = _required_text(thread.get("id"), "thread/start thread id")
+        response_thread_id = _required_text(thread.get("id"), "thread/start thread id")
+        if thread_id is not None and thread_id != response_thread_id:
+            raise AppServerError("thread/start identity mismatch")
+        thread_id = response_thread_id
         raw_sources = thread_start.get("instructionSources", [])
         if not isinstance(raw_sources, list) or not all(
             isinstance(source, str) and source for source in raw_sources
         ):
             raise AppServerError("instructionSources must be a string array")
         instruction_sources = list(raw_sources)
-        terminal_status = drain_pending()
         response_record("thread/start", thread_start, scoped_thread_id=thread_id)
+        terminal_status = thread_start["_terminal_status"]
         if terminal_status is not None:
             return completed_run(terminal_status)
 
@@ -582,9 +600,11 @@ def run_app_server(
             },
         )
         turn = _required_dict(turn_start.get("turn"), "turn/start turn")
-        turn_id = _required_text(turn.get("id"), "turn/start turn id")
+        response_turn_id = _required_text(turn.get("id"), "turn/start turn id")
+        if turn_id is not None and turn_id != response_turn_id:
+            raise AppServerError("turn/start identity mismatch")
+        turn_id = response_turn_id
         turn_status = _required_text(turn.get("status"), "turn/start turn status")
-        terminal_status = drain_pending()
         response_record(
             "turn/start",
             turn_start,
@@ -592,6 +612,7 @@ def run_app_server(
             scoped_turn_id=turn_id,
             status=turn_status,
         )
+        terminal_status = turn_start["_terminal_status"]
         if terminal_status is not None:
             return completed_run(terminal_status)
 

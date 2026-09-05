@@ -5,11 +5,14 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from devharness.codex_app_server import AppServerRecord
 from devharness.m3_review import (
     M3ReviewError,
     build_review_packet,
     claim_live_attempt,
+    execute_live_probe,
     render_review,
     validate_live_preflight,
 )
@@ -35,6 +38,11 @@ def repository(root: Path) -> Path:
     path.mkdir()
     git(path, "init", "-q")
     (path / ".ownhands-disposable").write_text("fixture\n")
+    (path / "AGENTS.md").write_text("fixture\n")
+    (path / ".codex" / "rules").mkdir(parents=True)
+    (path / ".codex" / "config.toml").write_text("fixture = true\n")
+    (path / ".codex" / "rules" / "ownhands.rules").write_text("fixture\n")
+    (path / ".codex" / "hooks.json").write_text("{}\n")
     return path
 
 
@@ -218,12 +226,13 @@ class M3ReviewTests(unittest.TestCase):
                 claim_live_attempt(root / "raw-two", {"repository_fingerprint": HASH, "model": "gpt-5.6-luna"}, repository=repo)
 
     def test_live_preflight_accepts_only_absolute_executable_and_tmp_raw_root(self) -> None:
-        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+        with tempfile.TemporaryDirectory() as temporary, tempfile.TemporaryDirectory(dir="/tmp") as raw_temporary:
             root = Path(temporary)
+            raw_root = Path(raw_temporary)
             repo = repository(root)
             accepted = validate_live_preflight(
                 repo,
-                root / "raw",
+                raw_root / "raw",
                 root / "packet.json",
                 "/usr/bin/true",
                 "gpt-5.6-luna",
@@ -232,7 +241,73 @@ class M3ReviewTests(unittest.TestCase):
             )
             self.assertEqual(Path("/usr/bin/true"), Path(accepted["codex_bin"]))
             with self.assertRaisesRegex(M3ReviewError, "absolute executable"):
-                validate_live_preflight(repo, root / "other-raw", root / "packet.json", "codex", "gpt-5.6-luna", 30, live=True)
+                validate_live_preflight(repo, raw_root / "other-raw", root / "packet.json", "codex", "gpt-5.6-luna", 30, live=True)
+
+    def test_live_preflight_rejects_tmp_repository_and_missing_or_symlinked_sources(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            root = Path(temporary)
+            repo = repository(root)
+            with self.assertRaisesRegex(M3ReviewError, "repository must be outside /tmp"):
+                validate_live_preflight(repo, root / "raw", root / "packet.json", "/usr/bin/true", "gpt-5.6-luna", 30, live=True)
+
+        sources = ("AGENTS.md", ".codex/config.toml", ".codex/rules/ownhands.rules", ".codex/hooks.json")
+        for relative in sources:
+            with self.subTest(relative=relative), tempfile.TemporaryDirectory() as temporary, tempfile.TemporaryDirectory(dir="/tmp") as raw_temporary:
+                root = Path(temporary)
+                repo = repository(root)
+                source = repo / relative
+                source.unlink()
+                with self.assertRaisesRegex(M3ReviewError, "fixture source"):
+                    validate_live_preflight(repo, Path(raw_temporary) / "raw", root / "packet.json", "/usr/bin/true", "gpt-5.6-luna", 30, live=True)
+                source.symlink_to(repo / ".ownhands-disposable")
+                with self.assertRaisesRegex(M3ReviewError, "fixture source"):
+                    validate_live_preflight(repo, Path(raw_temporary) / "raw-two", root / "packet.json", "/usr/bin/true", "gpt-5.6-luna", 30, live=True)
+
+    def test_failed_live_execution_atomically_records_allowlisted_progress_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary, tempfile.TemporaryDirectory(dir="/tmp") as raw_temporary:
+            root = Path(temporary)
+            data_root = Path(raw_temporary) / "raw"
+            preflight = {
+                "repository": repository(root),
+                "data_root": data_root,
+                "output": root / "packet.json",
+                "codex_bin": "/usr/bin/true",
+                "model": "gpt-5.6-luna",
+                "timeout": 1.0,
+            }
+            def fail_with_partial_progress(_preflight, progress):
+                progress.set_stage("app_server")
+                progress.record(
+                    AppServerRecord(
+                        kind="notification",
+                        method="item/started",
+                        payload_hash="sha256:private-payload",
+                        request_id="private-request",
+                        thread_id="private-thread",
+                        turn_id="private-turn",
+                        item_id="private-item",
+                        item_type="private-output",
+                        status="inProgress",
+                    )
+                )
+                raise TimeoutError("private prompt and output")
+
+            with patch("devharness.m3_review._execute_live_probe", side_effect=fail_with_partial_progress):
+                with self.assertRaisesRegex(TimeoutError, "private prompt"):
+                    execute_live_probe(preflight)
+
+            progress_path = data_root / "runtime-progress.json"
+            progress = json.loads(progress_path.read_text())
+            self.assertEqual("failed", progress["status"])
+            self.assertEqual("app_server", progress["stage"])
+            self.assertEqual(
+                [{"kind": "notification", "method": "item/started", "status": "inProgress"}],
+                progress["records"],
+            )
+            self.assertEqual({"schema_version", "status", "stage", "records"}, set(progress))
+            rendered = progress_path.read_text()
+            for forbidden in ("private prompt", "private-request", "private-thread", "private-turn", "private-item", "private-output", "private-payload"):
+                self.assertNotIn(forbidden, rendered)
 
 
 if __name__ == "__main__":
