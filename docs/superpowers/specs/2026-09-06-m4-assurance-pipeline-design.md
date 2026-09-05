@@ -8,7 +8,7 @@ It does not promise complete dependency analysis, arbitrary command execution, e
 
 ## Design choice
 
-Use one standard-library module, `devharness.assurance`, plus one packet schema and one review runner. The evaluator receives explicit documents and Git references; it does not hide model inference or silently execute commands. This is preferred over a plugin graph or general workflow engine because M4 needs deterministic, auditable decisions more than extensibility.
+Use one standard-library module, `devharness.assurance`, plus one packet schema, one small Task Contract extension, and one review runner. The evaluator receives explicit documents and Git references; it does not hide model inference or silently execute commands. This is preferred over a plugin graph or general workflow engine because M4 needs deterministic, auditable decisions more than extensibility.
 
 The public operations are:
 
@@ -26,8 +26,9 @@ The public operations are:
 
 The current Task Execution Contract is authoritative:
 
-- `contract_id`, `fingerprint`, Task identity, `validation_criteria`, `gate_criteria`, protected targets, and external-effect declarations are copied by reference and checked.
-- Every `gate_criteria` item must have a design mapping and adequate Evidence. Unknown or duplicate criteria fail closed.
+- Contract v1.1 adds one `assurance_draft` object containing bounded impact hypotheses, selected tests, requirement/test mappings, and task-specific criteria with `soft_block` or `hard_block` levels. Existing v1.0 contracts remain readable but cannot produce an M4 Pass until the missing draft is explicitly recorded.
+- `contract_id`, `fingerprint`, Task identity, `validation_criteria`, protected targets, external-effect declarations, and `assurance_draft` are copied by reference and checked.
+- Every `assurance_draft.criteria` item must have a unique ID, a supported check, an explicit block level, and adequate Evidence. Unknown, duplicate, or omitted criteria fail closed.
 - Test receipts identify which Contract criterion and validation command they cover. A new-feature test cannot satisfy a required regression relation.
 - The user's delegation to develop OwnHands is not a product override record. Only `decision_source: explicit_product_approval` scoped to the exact Contract and `soft_block_override` is accepted.
 
@@ -77,4 +78,3 @@ Tests are written first and must fail because `devharness.assurance` is absent. 
 ## Review artifact
 
 `docs/reviews/m4/run_fixture.py` creates an Assurance packet from a disposable local Git fixture and renders a compact HTML review. Raw test output stays under the supplied local data root; committed examples contain only synthetic allowlisted data and hashes. This artifact is not the M5 production UI.
-

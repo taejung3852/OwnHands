@@ -25,6 +25,7 @@ Steps:
 Files:
 
 - Create `src/devharness/assurance.py`
+- Modify `src/devharness/control_profile.py` to validate and fingerprint the bounded Contract v1.1 `assurance_draft`.
 - Modify `src/devharness/evidence.py` only if a missing M4 Evidence type is required.
 
 Steps:
@@ -41,6 +42,8 @@ Steps:
 
 Files:
 
+- Modify `docs/product/task-execution-contract.schema.json`
+- Modify `docs/product/task-execution-contract.example.json`
 - Create `docs/product/assurance-packet.schema.json`
 - Create `docs/product/assurance-packet.example.json`
 - Create `src/devharness/m4_review.py`
@@ -87,4 +90,3 @@ Steps:
 - Escalate the same mandatory verification to GPT-6 Astra only after two Sol failures.
 - If the same mandatory verification fails twice under Astra, stop retrying and diagnose whether the root cause is the test design, environment, product contract, or implementation architecture before further changes.
 - Sandbox/tool-launch failures before product execution do not count as product verification failures; they are recorded separately.
-
