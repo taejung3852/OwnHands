@@ -398,6 +398,22 @@ class AssuranceTests(unittest.TestCase):
         self.assertEqual("hard_block", gate["decision"])
         self.assertEqual("rejected", gate["override"]["status"])
 
+    def test_gate_independently_blocks_omitted_or_swapped_contract_criteria(self) -> None:
+        impact = {"unobserved": [], "protected_target_changes": []}
+        design = build_test_design(contract(), {"relations": [], "unobserved": []}, requirement_catalog())
+        only_one = {
+            "comparisons": [
+                {"test_id": "test:widget-regression", "criterion_id": "tests_pass", "classification": "regression", "status": "comparable_pass", "evidence_refs": []}
+            ]
+        }
+        omitted = evaluate_regression_gate(contract(), impact, design, only_one, {"gaps": []})
+        self.assertEqual("hard_block", omitted["decision"])
+        self.assertTrue(any("schema_compatible" in reason for reason in omitted["hard_reasons"]))
+        swapped = copy.deepcopy(only_one)
+        swapped["comparisons"][0]["criterion_id"] = "schema_compatible"
+        result = evaluate_regression_gate(contract(), impact, design, swapped, {"gaps": []})
+        self.assertEqual("hard_block", result["decision"])
+
     def test_soft_block_override_requires_exact_product_authority_and_audit_fields(self) -> None:
         impact = {"unobserved": [{"area": "dynamic_runtime_relationships", "reason": "bounded v1"}], "protected_target_changes": []}
         design = build_test_design(contract(), {"relations": [], "unobserved": []}, requirement_catalog())
@@ -459,6 +475,14 @@ class AssuranceTests(unittest.TestCase):
             broken["evidence_refs"] = []
             with self.assertRaisesRegex(AssuranceError, "reference closure"):
                 build_assurance_packet(**broken)
+            dangling = copy.deepcopy(arguments)
+            dangling["evidence_refs"] = evidence_refs + ["evidence:unused"]
+            with self.assertRaisesRegex(AssuranceError, "reference closure"):
+                build_assurance_packet(**dangling)
+            failed_restore = copy.deepcopy(arguments)
+            failed_restore["restore_verification"]["result"] = "fail"
+            with self.assertRaisesRegex(AssuranceError, "Restore verification"):
+                build_assurance_packet(**failed_restore)
 
 
 if __name__ == "__main__":

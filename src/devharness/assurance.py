@@ -675,6 +675,36 @@ def evaluate_regression_gate(
     if impact.get("protected_target_changes"):
         hard_reasons.append("protected target changed")
     criterion_levels = {item["criterion_id"]: item["block_level"] for item in draft["criteria"]}
+    design_mappings = {}
+    for mapping in design.get("mappings", []):
+        criterion_id = mapping.get("criterion_id")
+        if criterion_id in design_mappings or criterion_id not in criterion_levels:
+            hard_reasons.append("test design contains duplicate or unknown Contract criterion")
+            continue
+        design_mappings[criterion_id] = mapping
+    comparison_by_test = {}
+    for item in comparison.get("comparisons", []):
+        test_id = item.get("test_id")
+        if test_id in comparison_by_test:
+            hard_reasons.append("comparison contains a duplicate test_id")
+            continue
+        comparison_by_test[test_id] = item
+    expected_test_ids = set()
+    for criterion_id in contract["gate_criteria"]:
+        mapping = design_mappings.get(criterion_id)
+        mapped_tests = [] if mapping is None else mapping.get("tests", [])
+        mapped_test_ids = [item.get("test_id") for item in mapped_tests if isinstance(item, dict)]
+        expected_test_ids.update(mapped_test_ids)
+        adequate = bool(mapped_test_ids) and all(
+            comparison_by_test.get(test_id, {}).get("criterion_id") == criterion_id
+            and comparison_by_test.get(test_id, {}).get("status") == "comparable_pass"
+            for test_id in mapped_test_ids
+        )
+        if not adequate:
+            reason = f"Contract criterion {criterion_id} lacks an adequate observed comparison"
+            (hard_reasons if criterion_levels[criterion_id] == "hard" else soft_reasons).append(reason)
+    if set(comparison_by_test) - expected_test_ids:
+        hard_reasons.append("comparison contains a test outside the Contract design mappings")
     for item in comparison.get("comparisons", []):
         if item.get("status") == "comparable_pass":
             continue
@@ -745,6 +775,15 @@ def build_assurance_packet(
     contract, _ = _validate_contract(contract)
     if restore_point.get("task") != _validate_task(contract["task"]):
         raise AssuranceError("packet restore identity mismatch")
+    if (
+        restore_verification.get("restore_point_ref") != restore_point.get("restore_point_id")
+        or restore_verification.get("task") != restore_point.get("task")
+        or restore_verification.get("result") != "pass"
+        or restore_verification.get("basis") != "observed"
+        or not restore_verification.get("source_worktree_unchanged")
+        or restore_verification.get("reconstructed_patch_hash") != restore_point.get("tracked_patch_hash")
+    ):
+        raise AssuranceError("Restore verification is not an observed successful reconstruction")
     for artifact_name, artifact in (
         ("impact", impact), ("test design", test_design), ("before", before),
         ("after", after), ("comparison", comparison), ("gaps", gaps), ("gate", gate),
@@ -765,8 +804,11 @@ def build_assurance_packet(
         "gate": copy.deepcopy(gate),
     }
     used_refs = _collect_evidence_refs(sections)
-    if not used_refs <= declared_refs:
-        raise AssuranceError(f"packet Evidence reference closure failed: {sorted(used_refs - declared_refs)}")
+    if used_refs != declared_refs:
+        raise AssuranceError(
+            "packet Evidence reference closure failed: "
+            f"unresolved={sorted(used_refs - declared_refs)}, dangling={sorted(declared_refs - used_refs)}"
+        )
     input_payload = {
         "contract_id": contract["contract_id"],
         "contract_fingerprint": contract["fingerprint"],
