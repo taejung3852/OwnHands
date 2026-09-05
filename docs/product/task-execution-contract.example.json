@@ -13,10 +13,31 @@
   "approval_triggers": ["external_effect"],
   "validation_criteria": ["python -m unittest -v"],
   "gate_criteria": ["tests_pass"],
+  "assurance_draft": {
+    "impact_hypotheses": [],
+    "tests": [
+      {
+        "test_id": "test:validation-1",
+        "command": "python -m unittest -v",
+        "selection_scope": "python -m unittest -v",
+        "classification": "regression",
+        "code_refs": []
+      }
+    ],
+    "mappings": [
+      {
+        "criterion_id": "tests_pass",
+        "test_ids": ["test:validation-1"],
+        "viewpoints": ["regression"],
+        "reason": "legacy validation mapping"
+      }
+    ],
+    "criteria": [{"criterion_id": "tests_pass", "block_level": "hard"}]
+  },
   "gate_status": "ready_for_preview",
   "unobserved": [],
   "event_refs": ["event-profile"],
   "evidence_refs": ["evidence-profile"],
   "realization": {"configured": {"result": "not_run", "basis": "unobserved"}, "loaded": {"result": "not_run", "basis": "unobserved"}, "enforced": {"result": "not_run", "basis": "unobserved"}},
-  "fingerprint": "sha256:5dedef46a14df7a5bbd3bf024d9ceda2bb2f536a9ce4fcdbfd7672c3068da5bc"
+  "fingerprint": "sha256:c251415bf95df88ab6191249bfc448369f9462aeab72833174c0091c1e73fa09"
 }

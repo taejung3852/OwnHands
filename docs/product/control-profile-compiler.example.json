@@ -1,7 +1,7 @@
 {
   "compiler_version": "1.0",
   "contract_ref": "contract:task-example",
-  "contract_fingerprint": "sha256:5dedef46a14df7a5bbd3bf024d9ceda2bb2f536a9ce4fcdbfd7672c3068da5bc",
+  "contract_fingerprint": "sha256:c251415bf95df88ab6191249bfc448369f9462aeab72833174c0091c1e73fa09",
   "codex_version": "0.153.3",
   "dry_run": true,
   "artifacts": [

@@ -4,7 +4,7 @@
   "title": "ownhands Task Execution Contract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["contract_version", "contract_id", "task", "baseline_ref", "baseline_fingerprint", "overlay_ref", "instruction_overlay", "control_overlay", "writable_paths", "protected_targets", "permissions", "approval_triggers", "validation_criteria", "gate_criteria", "gate_status", "unobserved", "event_refs", "evidence_refs", "realization", "fingerprint"],
+  "required": ["contract_version", "contract_id", "task", "baseline_ref", "baseline_fingerprint", "overlay_ref", "instruction_overlay", "control_overlay", "writable_paths", "protected_targets", "permissions", "approval_triggers", "validation_criteria", "gate_criteria", "assurance_draft", "gate_status", "unobserved", "event_refs", "evidence_refs", "realization", "fingerprint"],
   "properties": {
     "contract_version": {"const": "1.0"}, "contract_id": {"type": "string", "minLength": 1},
     "task": {"type": "object", "additionalProperties": false, "required": ["project_id", "worktree_id", "environment_ref", "task_id", "mode", "goal"], "properties": {"project_id": {"type": "string"}, "worktree_id": {"type": "string"}, "environment_ref": {"type": "string"}, "task_id": {"type": "string"}, "mode": {"enum": ["managed", "imported"]}, "goal": {"type": "string"}}},
@@ -12,12 +12,32 @@
     "instruction_overlay": {"$ref": "#/$defs/overlay"}, "control_overlay": {"$ref": "#/$defs/overlay"},
     "writable_paths": {"$ref": "#/$defs/strings"}, "protected_targets": {"$ref": "#/$defs/strings"},
     "permissions": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["permission", "scope", "reason", "duration", "approval_ref", "active", "basis"], "properties": {"permission": {"type": "string"}, "scope": {"type": "string"}, "reason": {"type": "string"}, "duration": {"const": "task"}, "approval_ref": {"type": "string"}, "active": {"type": "boolean"}, "basis": {"enum": ["observed", "unobserved"]}}}},
-    "approval_triggers": {"$ref": "#/$defs/strings"}, "validation_criteria": {"$ref": "#/$defs/strings"}, "gate_criteria": {"$ref": "#/$defs/strings"},
+    "approval_triggers": {"$ref": "#/$defs/strings"}, "validation_criteria": {"$ref": "#/$defs/strings"}, "gate_criteria": {"$ref": "#/$defs/strings"}, "assurance_draft": {"$ref": "#/$defs/assuranceDraft"},
     "gate_status": {"enum": ["ready_for_preview", "hard_block"]},
     "unobserved": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["path", "basis", "reason"], "properties": {"path": {"type": "string"}, "basis": {"const": "unobserved"}, "reason": {"type": "string"}}}},
     "event_refs": {"$ref": "#/$defs/strings"}, "evidence_refs": {"$ref": "#/$defs/strings"},
     "realization": {"type": "object", "additionalProperties": false, "required": ["configured", "loaded", "enforced"], "properties": {"configured": {"$ref": "#/$defs/check"}, "loaded": {"$ref": "#/$defs/check"}, "enforced": {"$ref": "#/$defs/check"}}},
     "fingerprint": {"$ref": "#/$defs/hash"}
   },
-  "$defs": {"hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "overlay": {"type": "object", "additionalProperties": false, "required": ["source_refs"], "properties": {"source_refs": {"$ref": "#/$defs/strings"}}}, "check": {"type": "object", "additionalProperties": false, "required": ["result", "basis"], "properties": {"result": {"const": "not_run"}, "basis": {"const": "unobserved"}}}}
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "overlay": {"type": "object", "additionalProperties": false, "required": ["source_refs"], "properties": {"source_refs": {"$ref": "#/$defs/strings"}}},
+    "check": {"type": "object", "additionalProperties": false, "required": ["result", "basis"], "properties": {"result": {"const": "not_run"}, "basis": {"const": "unobserved"}}},
+    "assuranceDraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["impact_hypotheses", "tests", "mappings", "criteria"],
+      "properties": {
+        "impact_hypotheses": {"type": "array", "items": {"$ref": "#/$defs/impactHypothesis"}},
+        "tests": {"type": "array", "items": {"$ref": "#/$defs/assuranceTest"}},
+        "mappings": {"type": "array", "items": {"$ref": "#/$defs/assuranceMapping"}},
+        "criteria": {"type": "array", "items": {"$ref": "#/$defs/assuranceCriterion"}}
+      }
+    },
+    "impactHypothesis": {"type": "object", "additionalProperties": false, "required": ["hypothesis_id", "path_globs", "relation_refs", "basis"], "properties": {"hypothesis_id": {"type": "string", "minLength": 1}, "path_globs": {"$ref": "#/$defs/strings"}, "relation_refs": {"$ref": "#/$defs/strings"}, "basis": {"enum": ["declared", "static_observed"]}}},
+    "assuranceTest": {"type": "object", "additionalProperties": false, "required": ["test_id", "command", "selection_scope", "classification", "code_refs"], "properties": {"test_id": {"type": "string", "minLength": 1}, "command": {"type": "string", "minLength": 1}, "selection_scope": {"type": "string", "minLength": 1}, "classification": {"enum": ["new_feature", "regression"]}, "code_refs": {"$ref": "#/$defs/strings"}}},
+    "assuranceMapping": {"type": "object", "additionalProperties": false, "required": ["criterion_id", "test_ids", "viewpoints", "reason"], "properties": {"criterion_id": {"type": "string", "minLength": 1}, "test_ids": {"$ref": "#/$defs/strings"}, "viewpoints": {"$ref": "#/$defs/strings"}, "reason": {"type": "string", "minLength": 1}}},
+    "assuranceCriterion": {"type": "object", "additionalProperties": false, "required": ["criterion_id", "block_level"], "properties": {"criterion_id": {"type": "string", "minLength": 1}, "block_level": {"enum": ["hard", "soft"]}}}
+  }
 }

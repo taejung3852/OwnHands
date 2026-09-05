@@ -48,7 +48,7 @@ class M4ReviewTests(unittest.TestCase):
     def test_example_is_a_valid_synthetic_packet(self) -> None:
         example = json.loads(EXAMPLE.read_text(encoding="utf-8"))
         validate_packet_document(example)
-        self.assertEqual("fixture", example["task"]["mode"])
+        self.assertEqual("managed", example["task"]["mode"])
         self.assertNotIn("/Users/", json.dumps(example))
 
     def test_review_escapes_values_orders_sections_and_omits_raw_output(self) -> None:
