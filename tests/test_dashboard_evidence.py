@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from devharness.catalog import Catalog
@@ -130,6 +131,65 @@ class DashboardEvidenceTests(unittest.TestCase):
                     evidence_id=evidence_id, assurance_packet=packet,
                     disclose_raw=True,
                 )
+
+    def test_metadata_masks_embedded_private_values_and_preserves_public_context(self) -> None:
+        draft = EvidenceDraft(
+            evidence_id="evidence:metadata:values",
+            task_id=self.task.task_id,
+            requirement_id="M5-04",
+            evidence_type="test_execution",
+            subject_ref="subject:dashboard",
+            exact_scope="raw command and arbitrary user input",
+            result="pass",
+            basis="observed",
+            fields={},
+            content=b"explicit raw disclosure only",
+            collection_method="dashboard-test",
+            redaction_status="redacted",
+        )
+        cases = (
+            ("run /Users/private/worktree/bin/python", "run [redacted-local-path]"),
+            ("path=/private/data/root", "path=[redacted-local-path]"),
+            ("cwd:/Users/private/worktree", "cwd:[redacted-local-path]"),
+            (r"run C:\Users\private\python.exe", "run [redacted-local-path]"),
+            ("file:///private/data/root", "[redacted-local-path]"),
+            ('--token "quoted-private-value"', "[redacted-sensitive-value]"),
+            ("Authorization: Bearer private-value", "[redacted-sensitive-value]"),
+            ('{"api_key": "private-value"}', "[redacted-sensitive-value]"),
+            ("raw=<script>private-value</script>", "[redacted-sensitive-value]"),
+            (
+                "tests/dashboard.py; 3/4 pass; https://example.com/docs",
+                "tests/dashboard.py; 3/4 pass; https://example.com/docs",
+            ),
+            (
+                {
+                    "draw_count": 4,
+                    "raw_payload": "private-value",
+                    "command_output": "private-value",
+                    "selection": "tests.dashboard",
+                },
+                {"draw_count": 4, "selection": "tests.dashboard"},
+            ),
+        )
+        for index, (value, expected) in enumerate(cases):
+            with self.subTest(value=value):
+                record = self.store.put(
+                    replace(
+                        draft,
+                        evidence_id=f"evidence:metadata:values:{index}",
+                        fields={"selection_scope": value, "tool": "python", "unknown": "omit-me"},
+                    ),
+                    bytes,
+                )
+                view, content = resolve_evidence(
+                    self.store, task_id=self.task.task_id,
+                    evidence_id=record.evidence_id, assurance_packet=None,
+                )
+                self.assertEqual(expected, view.metadata["selection_scope"])
+                self.assertEqual("python", view.metadata["tool"])
+                self.assertNotIn("exact_scope", view.metadata)
+                self.assertNotIn("unknown", view.metadata)
+                self.assertIsNone(content)
 
     def test_hash_size_and_symlink_objects_fail_closed(self) -> None:
         for attack in ("hash", "size", "symlink"):

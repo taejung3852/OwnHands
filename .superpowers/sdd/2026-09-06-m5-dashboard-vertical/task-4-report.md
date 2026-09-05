@@ -122,3 +122,34 @@ remain Task 5 rather than being claimed here.
   route was added.
 - No remote asset, client framework, new package, private route token, local
   packet path, raw Event payload, or command output is emitted.
+
+## P1 privacy follow-up: Astra diagnosis and fix
+
+The independent review found a real default Evidence metadata leak through
+feature-validation `input_summary` → `exact_scope`. The inherited Sol fix omitted
+that uncontrolled field, but its repeated failing assertion also classified the
+required `?raw=1` disclosure link as raw-content leakage. The test now inspects
+the metadata definition list independently, retains whole-page checks for the
+actual private values, and positively checks both the explicit Raw link and
+escaped Raw disclosure.
+
+Additional real Store → resolver RED cases exposed quoted-token, multiword
+Authorization, JSON API-key, and raw-assignment leaks, plus over-removal of
+`draw_count`. The final source projection uses the field allowlist, embedded
+path masking, complete masking of recognized sensitive values, and bounded
+nested sensitive-key removal. A colon-prefixed path regression is included;
+normal tool names, relative scopes, fractions, and public HTTPS references are
+preserved. Canonical Evidence and the explicitly disclosed raw object are not
+modified.
+
+The corrected route test was also run with the original committed source
+boundary injected in memory and still caught the original P1. Final follow-up
+verification is **38 focused tests passed**, **326 full repository tests passed**,
+all nine public signatures matched, changed Python modules compiled, and
+`git diff --check` passed. Existing sandbox socket/bytecode limitations were
+resolved through narrowly scoped execution permissions; no repeated Astra
+implementation-verification failure reached the stop threshold.
+
+Full evidence and limitations are recorded in `task-4-astra-diagnosis.md`.
+Independent gate re-review remains required. No push, PR, merge, or M6 work was
+performed in this follow-up.

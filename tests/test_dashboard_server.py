@@ -21,9 +21,12 @@ from devharness.dashboard_server import (
     route_request,
     serve_dashboard,
 )
-from devharness.dashboard_sources import EvidenceView
+from devharness.dashboard_actions import ValidationRequest, run_feature_validation
+from devharness.dashboard_sources import EvidenceView, resolve_evidence
 from devharness.__main__ import main
 from devharness.catalog import Catalog
+from devharness.evidence import EvidenceStore
+from devharness.events import EventDraft, EventLog
 from devharness.identity import IdentityRegistry
 from devharness.paths import DataPaths
 from tests.test_dashboard_render import review_view
@@ -165,6 +168,121 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertNotIn(b"<script>", metadata.body)
         self.assertNotIn(b"<script>alert(1)</script>", raw.body)
         self.assertIn(b"&lt;script&gt;alert(1)&lt;/script&gt;", raw.body)
+
+    def test_real_evidence_route_masks_sensitive_input_scope_until_explicit_raw_disclosure(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            catalog = Catalog.open(DataPaths.resolve(Path(temporary) / "data"))
+            try:
+                registry = IdentityRegistry(catalog)
+                project = registry.register_project("file:///metadata-repo")
+                worktree = registry.register_worktree(
+                    project.project_id, "file:///metadata-repo/main"
+                )
+                task = registry.create_task(
+                    worktree.worktree_id,
+                    mode="managed",
+                    commit="metadata123",
+                    branch="main",
+                    cwd="/metadata-repo/main",
+                    environment_ref="local-test",
+                )
+                events = EventLog(catalog)
+                events.append(
+                    EventDraft(
+                        event_id="event:metadata:task",
+                        task_id=task.task_id,
+                        event_type="task.created",
+                        event_version=1,
+                        occurred_at="2026-09-06T12:00:00+00:00",
+                        payload={"mode": "managed"},
+                        collection_method="test",
+                        redaction_status="not_needed",
+                    ),
+                    lambda payload: payload,
+                )
+                store = EvidenceStore(catalog, events)
+                record = run_feature_validation(
+                    adapter=None,
+                    request=ValidationRequest(
+                        task_id=task.task_id,
+                        subject_ref="subject:hwpx:bold",
+                        expected="Bold stays visible",
+                        input_summary=(
+                            "run /Users/private/worktree/.venv/bin/python "
+                            "--token sk-secret raw=<script>alert(7)</script>"
+                        ),
+                    ),
+                    evidence_store=store,
+                    evidence_id="evidence:metadata:private",
+                    occurred_at="2026-09-06T12:01:00+00:00",
+                )
+                view = review_view()
+                view.task["task_id"] = task.task_id
+                services = DashboardServices(
+                    load_view=lambda task_id: view,
+                    resolve_evidence=lambda task_id, evidence_id, disclose_raw: resolve_evidence(
+                        store,
+                        task_id=task_id,
+                        evidence_id=evidence_id,
+                        assurance_packet=None,
+                        disclose_raw=disclose_raw,
+                    ),
+                    validate_feature=lambda *_args: object(),
+                    decide=lambda *_args: object(),
+                    export_history=lambda *_args: b"{}",
+                )
+                config = DashboardConfig(
+                    host="127.0.0.1",
+                    port=8765,
+                    session_token="session-token",
+                    data_root=Path(temporary) / "data",
+                )
+                headers = {
+                    "Host": "127.0.0.1:8765",
+                    "Cookie": "devharness_session=session-token",
+                }
+                metadata = route_request(
+                    method="GET",
+                    path=f"/tasks/{task.task_id}/evidence/{record.evidence_id}",
+                    query={},
+                    headers=headers,
+                    body=b"",
+                    config=config,
+                    services=services,
+                )
+                raw = route_request(
+                    method="GET",
+                    path=f"/tasks/{task.task_id}/evidence/{record.evidence_id}",
+                    query={"raw": ("1",)},
+                    headers=headers,
+                    body=b"",
+                    config=config,
+                    services=services,
+                )
+            finally:
+                catalog.close()
+
+        self.assertEqual((200, 200), (metadata.status, raw.status))
+        metadata_region = metadata.body.split(b'<dl class="field-grid">', 1)[1].split(
+            b"</dl>", 1
+        )[0]
+        for forbidden in (
+            b"/Users/private",
+            b"sk-secret",
+            b"--token",
+            b"raw=",
+            b"object_path",
+            b"input_summary",
+        ):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, metadata_region)
+        for forbidden in (b"/Users/private", b"sk-secret", b"--token", b"alert(7)"):
+            self.assertNotIn(forbidden, metadata.body)
+        self.assertIn(f'/evidence/{record.evidence_id}?raw=1"'.encode(), metadata.body)
+        self.assertNotIn(b'<pre class="raw-evidence"', metadata.body)
+        self.assertIn(b'<pre class="raw-evidence"', raw.body)
+        self.assertNotIn(b"<script>alert(7)</script>", raw.body)
+        self.assertIn(b"&lt;script&gt;alert(7)&lt;/script&gt;", raw.body)
 
     def test_task_post_reloads_current_view_before_decision(self) -> None:
         headers = {

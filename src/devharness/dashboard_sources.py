@@ -38,6 +38,25 @@ _SAFE_METADATA_FIELDS = {
     "target_commit",
     "tool",
 }
+_EMBEDDED_FILE_URI = re.compile(r"(?i)\bfile://[^\s,;\"'<>]+")
+_EMBEDDED_UNIX_PATH = re.compile(
+    r"(?<![/A-Za-z0-9._-])/(?!/)(?:[^\s,;\"'<>]+/)*[^\s,;\"'<>]+"
+)
+_EMBEDDED_WINDOWS_PATH = re.compile(
+    r"(?i)(?<![A-Za-z0-9._-])(?:[A-Z]:[\\/]|\\\\)[^\s,;\"'<>]+"
+)
+_SENSITIVE_METADATA_NAME = (
+    r"(?:api[_-]?key|access[_-]?(?:key|token)|private[_-]?key|raw|secret|"
+    r"password|passwd|token|credential|cookie|authorization|prompt|transcript|"
+    r"object[_-]?(?:rel)?path|data[_-]?root|input[_-]?summary|command(?:[_-]?output)?)"
+)
+_SENSITIVE_METADATA_KEY = re.compile(
+    rf"(?i)(?:^|[_\W]){_SENSITIVE_METADATA_NAME}(?:$|[_\W])"
+)
+_SENSITIVE_METADATA_TEXT = re.compile(
+    rf"(?i)(?<![A-Za-z0-9_])(?:--{_SENSITIVE_METADATA_NAME}(?:\s+|=)|"
+    rf"{_SENSITIVE_METADATA_NAME}[\"']?\s*[:=])"
+)
 
 
 @dataclass(frozen=True)
@@ -383,7 +402,6 @@ def _store_view(record: EvidenceRecord) -> EvidenceView:
         "requirement_id": record.requirement_id,
         "evidence_type": record.evidence_type,
         "subject_ref": record.subject_ref,
-        "exact_scope": record.exact_scope,
         "collection_method": record.collection_method,
         "created_at": record.created_at,
         "inference_from": record.inference_from,
@@ -413,15 +431,25 @@ def _store_view(record: EvidenceRecord) -> EvidenceView:
 
 def _public_metadata_value(value: object) -> object:
     if isinstance(value, str):
-        if value.startswith(("/", "\\\\")) or re.match(r"^[A-Za-z]:[\\/]", value):
-            return "[redacted-local-path]"
-        return value
+        # Do not guess where an arbitrary quoted or multiword secret ends.
+        if _SENSITIVE_METADATA_TEXT.search(value):
+            return "[redacted-sensitive-value]"
+        public = _EMBEDDED_FILE_URI.sub("[redacted-local-path]", value)
+        public = _EMBEDDED_WINDOWS_PATH.sub("[redacted-local-path]", public)
+        return _EMBEDDED_UNIX_PATH.sub("[redacted-local-path]", public)
     if isinstance(value, tuple):
         return tuple(_public_metadata_value(item) for item in value)
     if isinstance(value, list):
         return [_public_metadata_value(item) for item in value]
     if isinstance(value, dict):
-        return {key: _public_metadata_value(item) for key, item in value.items()}
+        return {
+            key: _public_metadata_value(item)
+            for key, item in value.items()
+            if isinstance(key, str)
+            and _SENSITIVE_METADATA_KEY.search(
+                re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", key)
+            ) is None
+        }
     return value
 
 
