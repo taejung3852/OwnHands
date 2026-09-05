@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from .codex_app_server import AppServerRecord, AppServerRun
 
 
@@ -106,7 +108,16 @@ def evaluate_runtime_controls(prepared: dict, run: AppServerRun) -> dict:
         }
 
     agents_scope = configured["agents"]["exact_scope"]
-    if agents_scope in run.instruction_sources:
+    expected_agents = (Path(prepared["repository"]) / agents_scope).resolve()
+    agents_loaded = any(
+        (
+            Path(source).resolve() == expected_agents
+            if Path(source).is_absolute()
+            else Path(source).as_posix() == agents_scope
+        )
+        for source in run.instruction_sources
+    )
+    if agents_loaded:
         packet["agents"]["loaded"] = _observed(
             "pass",
             _evidence_id(task_id, "agents", "loaded"),

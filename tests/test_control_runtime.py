@@ -48,6 +48,7 @@ def run(records: list[AppServerRecord], sources: list[str] | None = None) -> App
 
 def prepared() -> dict:
     return {
+        "repository": "/fixture",
         "task": {
             "project_id": "project-runtime",
             "worktree_id": "worktree-runtime",
@@ -101,13 +102,17 @@ class RuntimeControlTests(unittest.TestCase):
 
     def test_instruction_source_is_loaded_only_for_an_exact_run_source(self) -> None:
         exact = evaluate_runtime_controls(prepared(), run([], ["AGENTS.md"]))
+        absolute = evaluate_runtime_controls(prepared(), run([], ["/fixture/AGENTS.md"]))
         foreign = evaluate_runtime_controls(prepared(), run([], ["nested/AGENTS.md"]))
+        foreign_absolute = evaluate_runtime_controls(prepared(), run([], ["/other/AGENTS.md"]))
 
         self.assertEqual("pass", exact["agents"]["loaded"]["result"])
+        self.assertEqual("pass", absolute["agents"]["loaded"]["result"])
         self.assertEqual("observed", exact["agents"]["loaded"]["basis"])
         self.assertEqual("instruction-source", exact["agents"]["control_id"])
         self.assertEqual("AGENTS.md", exact["agents"]["loaded"]["exact_scope"])
         self.assertEqual("not_run", foreign["agents"]["loaded"]["result"])
+        self.assertEqual("not_run", foreign_absolute["agents"]["loaded"]["result"])
         self.assertEqual([], foreign["agents"]["loaded"]["evidence_refs"])
 
     def test_sandbox_enforcement_needs_the_exact_failed_probe_item(self) -> None:
