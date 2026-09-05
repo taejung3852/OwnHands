@@ -184,7 +184,7 @@ class DashboardRouteTests(unittest.TestCase):
                     commit="metadata123",
                     branch="main",
                     cwd="/metadata-repo/main",
-                    environment_ref="local-test",
+                    environment_ref="Bearer private-value",
                 )
                 events = EventLog(catalog)
                 events.append(
@@ -269,6 +269,7 @@ class DashboardRouteTests(unittest.TestCase):
         for forbidden in (
             b"/Users/private",
             b"sk-secret",
+            b"private-value",
             b"--token",
             b"raw=",
             b"object_path",
@@ -276,7 +277,7 @@ class DashboardRouteTests(unittest.TestCase):
         ):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, metadata_region)
-        for forbidden in (b"/Users/private", b"sk-secret", b"--token", b"alert(7)"):
+        for forbidden in (b"/Users/private", b"sk-secret", b"private-value", b"--token", b"alert(7)"):
             self.assertNotIn(forbidden, metadata.body)
         self.assertIn(f'/evidence/{record.evidence_id}?raw=1"'.encode(), metadata.body)
         self.assertNotIn(b'<pre class="raw-evidence"', metadata.body)

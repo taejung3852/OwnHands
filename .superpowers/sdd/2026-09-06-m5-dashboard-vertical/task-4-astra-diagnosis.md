@@ -85,3 +85,38 @@ prevents its bytes from executing. No Raw-sharing claim is made. Browser and
 human-observation checks remain Task 5. Independent final gate re-review is
 still required; this implementation report does not supersede the earlier
 reviewer's gate decision by itself.
+
+## Re-review follow-up: bare Bearer credential
+
+Independent review of `b7dbe81` found one remaining P1:
+`Bearer private-value` lacked a sensitive field name or assignment delimiter,
+so the value classifier returned it unchanged. This is recorded as **Astra
+mandatory privacy verification failure #1**, superseding any implication that
+the preceding GREEN tests closed the independent gate.
+
+Before the next fix, the resolver test reproduced the exact value and a mixed
+case/tab variant. The real Evidence route test persisted the bare credential
+as the Task environment, which feature validation projects into the allowlisted
+Evidence environment metadata. Both metadata-region and whole-page assertions
+reproduced its disclosure. These are reproductions of review failure #1, not
+new post-fix verification attempts.
+
+The sole production change adds case-insensitive Bearer credential syntax to
+the existing value classifier, using a word boundary and space/tab separation
+before credential characters. Matching values are masked in full. A lone
+`bearer`, the prose `bearer-token policy`, and the nonmatching word
+`wheelbearer` survive. A phrase that actually has Bearer-plus-credential syntax
+is conservatively masked even when intended as prose; the metadata contract
+does not require disclosure of such ambiguous credential-shaped text.
+
+Existing public HTTPS links, relative selections, `draw_count`, field filtering,
+and explicit escaped Raw disclosure remain covered. No Raw or canonical
+Evidence writer, renderer, route signature, or authority behavior changed.
+
+Final post-fix verification: **2 affected tests passed**, **38 focused tests
+passed**, **326 full repository tests passed**, all nine public signatures
+matched, the changed modules compiled, and `git diff --check` passed. The full
+suite emitted only the same existing warnings/negative-fixture diagnostics.
+No post-fix mandatory privacy verification failed, so failure #2 was not
+reached. Independent gate re-review is still required. No push, PR, or merge
+was performed.

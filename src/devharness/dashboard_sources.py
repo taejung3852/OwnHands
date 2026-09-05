@@ -54,7 +54,8 @@ _SENSITIVE_METADATA_KEY = re.compile(
     rf"(?i)(?:^|[_\W]){_SENSITIVE_METADATA_NAME}(?:$|[_\W])"
 )
 _SENSITIVE_METADATA_TEXT = re.compile(
-    rf"(?i)(?<![A-Za-z0-9_])(?:--{_SENSITIVE_METADATA_NAME}(?:\s+|=)|"
+    rf"(?i)(?<!\w)(?:bearer[ \t]+[A-Za-z0-9._~+/-]+=*|"
+    rf"--{_SENSITIVE_METADATA_NAME}(?:\s+|=)|"
     rf"{_SENSITIVE_METADATA_NAME}[\"']?\s*[:=])"
 )
 

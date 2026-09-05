@@ -155,6 +155,10 @@ class DashboardEvidenceTests(unittest.TestCase):
             ("file:///private/data/root", "[redacted-local-path]"),
             ('--token "quoted-private-value"', "[redacted-sensitive-value]"),
             ("Authorization: Bearer private-value", "[redacted-sensitive-value]"),
+            ("Bearer private-value", "[redacted-sensitive-value]"),
+            ("bEaReR\tprivate-value", "[redacted-sensitive-value]"),
+            ("bearer", "bearer"),
+            ("bearer-token policy; wheelbearer value", "bearer-token policy; wheelbearer value"),
             ('{"api_key": "private-value"}', "[redacted-sensitive-value]"),
             ("raw=<script>private-value</script>", "[redacted-sensitive-value]"),
             (

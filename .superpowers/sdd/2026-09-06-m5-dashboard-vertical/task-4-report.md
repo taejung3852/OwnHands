@@ -153,3 +153,24 @@ implementation-verification failure reached the stop threshold.
 Full evidence and limitations are recorded in `task-4-astra-diagnosis.md`.
 Independent gate re-review remains required. No push, PR, merge, or M6 work was
 performed in this follow-up.
+
+### Re-review correction: bare Bearer syntax
+
+Independent re-review of `b7dbe81` identified the remaining bare
+`Bearer private-value` case as Astra privacy verification failure #1. The prior
+classifier covered field assignments and options but omitted credential scheme
+syntax. The focused correction recognizes Bearer credentials with token
+boundaries and case handling, without modifying the route or Raw disclosure.
+
+Resolver regression cases now cover bare and mixed-case/tab Bearer values,
+ordinary noncredential uses, and the previously preserved public metadata.
+The real Evidence route persists the bare value through environment metadata
+and verifies that it is absent from both default metadata and the whole page.
+The explicit `?raw=1` link and escaped Raw response checks remain intact.
+
+Fresh verification: **2 affected tests**, **38 focused tests**, and **326 full
+repository tests** passed; nine public signatures, compilation, and diff checks
+passed. There was no second post-fix mandatory privacy failure. The diagnosis
+report records the root cause and conservative treatment of text with credential
+syntax. Independent gate re-review remains pending; no push, PR, or merge was
+performed.
