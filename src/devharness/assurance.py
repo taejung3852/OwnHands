@@ -664,7 +664,10 @@ def _validate_test_run(run: object, contract: dict, draft: dict, name: str) -> d
 
 
 def _adequate_status(test: dict, comparison: dict) -> bool:
-    return comparison.get("status") in {"comparable_pass", "fixed_failure"}
+    status = comparison.get("status")
+    return status == "comparable_pass" or (
+        test.get("classification") == "new_feature" and status == "fixed_failure"
+    )
 
 
 def _validate_design_binding(contract: dict, draft: dict, design: dict) -> None:
@@ -792,8 +795,9 @@ def _evaluate_regression_gate(
     comparison: dict,
     gaps: dict,
     override: dict | None = None,
+    boundary_errors: tuple[str, ...] = (),
 ) -> dict:
-    hard_reasons = []
+    hard_reasons = list(boundary_errors)
     soft_reasons = []
     for artifact_name, artifact in (("impact", impact), ("test design", design), ("comparison", comparison), ("gap report", gaps)):
         if _identity_mismatch(contract, artifact):
@@ -892,7 +896,21 @@ def evaluate_regression_gate(
     override: dict | None = None,
 ) -> dict:
     contract, draft = _validate_contract(contract)
-    return _evaluate_regression_gate(contract, draft, impact, design, comparison, gaps, override)
+    boundary_errors = []
+    try:
+        _validate_design_binding(contract, draft, design)
+    except AssuranceError as error:
+        boundary_errors.append(f"test design Contract binding invalid: {error}")
+    return _evaluate_regression_gate(
+        contract,
+        draft,
+        impact,
+        design,
+        comparison,
+        gaps,
+        override,
+        tuple(boundary_errors),
+    )
 
 
 def _collect_evidence_refs(value: object) -> set[str]:

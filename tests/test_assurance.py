@@ -465,6 +465,71 @@ class AssuranceTests(unittest.TestCase):
         result = evaluate_regression_gate(contract(), impact, design, swapped, {"gaps": []})
         self.assertEqual("hard_block", result["decision"])
 
+    def test_public_gate_hard_blocks_coordinated_contract_mapping_swap_and_rejects_override(self) -> None:
+        current = contract()
+        impact = {"unobserved": [], "protected_target_changes": []}
+        design = build_test_design(current, {"relations": [], "unobserved": []}, requirement_catalog())
+        design["mappings"][0]["tests"], design["mappings"][1]["tests"] = (
+            design["mappings"][1]["tests"],
+            design["mappings"][0]["tests"],
+        )
+        design["fingerprint"] = fingerprint({key: value for key, value in design.items() if key != "fingerprint"})
+        comparison = {
+            "comparisons": [
+                {"test_id": "test:widget-regression", "criterion_id": "schema_compatible", "classification": "regression", "status": "comparable_pass", "evidence_refs": []},
+                {"test_id": "test:schema-errors", "criterion_id": "tests_pass", "classification": "new_feature", "status": "comparable_pass", "evidence_refs": []},
+            ]
+        }
+        approval = copy.deepcopy(ATTACKS["wrong_scope_override"])
+        approval["decision_scope"] = {
+            "contract_id": current["contract_id"],
+            "contract_fingerprint": current["fingerprint"],
+            "decision": "soft_block_override",
+        }
+        gate = evaluate_regression_gate(current, impact, design, comparison, {"gaps": []}, approval)
+        self.assertEqual("hard_block", gate["decision"])
+        self.assertEqual("rejected", gate["override"]["status"])
+
+    def test_fixed_failure_is_adequate_only_for_new_feature_classification(self) -> None:
+        for classification, expected_gap, expected_gate in (
+            ("regression", True, "hard_block"),
+            ("new_feature", False, "pass"),
+        ):
+            with self.subTest(classification=classification):
+                current = contract()
+                test = copy.deepcopy(current["assurance_draft"]["tests"][0])
+                test["classification"] = classification
+                current["assurance_draft"]["tests"] = [test]
+                current["assurance_draft"]["mappings"] = [{
+                    "criterion_id": "tests_pass", "test_ids": [test["test_id"]],
+                    "viewpoints": [classification], "reason": "single exact transition",
+                }]
+                current["assurance_draft"]["criteria"] = [{"criterion_id": "tests_pass", "block_level": "hard"}]
+                current["gate_criteria"] = ["tests_pass"]
+                current["validation_criteria"] = [test["command"]]
+                current["fingerprint"] = fingerprint({key: value for key, value in current.items() if key != "fingerprint"})
+                before_receipt = receipt(
+                    test["test_id"], criterion_id="tests_pass", classification=classification,
+                    result="fail", contract_fingerprint=current["fingerprint"],
+                )
+                after_receipt = receipt(
+                    test["test_id"], criterion_id="tests_pass", classification=classification,
+                    result="pass", contract_fingerprint=current["fingerprint"],
+                )
+                before = record_test_baseline(current, [test], [before_receipt], NOW)
+                after = record_test_baseline(current, [test], [after_receipt], NOW)
+                comparison = compare_test_runs(before, after)
+                self.assertEqual("fixed_failure", comparison["comparisons"][0]["status"])
+                impact = {"relations": [], "unobserved": [], "protected_target_changes": []}
+                design = build_test_design(
+                    current,
+                    impact,
+                    [{"criterion_id": "tests_pass", "required_viewpoints": [classification], "test_ids": [test["test_id"]]}],
+                )
+                gaps = detect_test_gaps(current, impact, design, comparison)
+                self.assertEqual(expected_gap, any(item["kind"] == "no_adequate_test" for item in gaps["gaps"]))
+                self.assertEqual(expected_gate, evaluate_regression_gate(current, impact, design, comparison, gaps)["decision"])
+
     def test_soft_block_override_requires_exact_product_authority_and_audit_fields(self) -> None:
         impact = {"unobserved": [{"area": "dynamic_runtime_relationships", "reason": "bounded v1"}], "protected_target_changes": []}
         design = build_test_design(contract(), {"relations": [], "unobserved": []}, requirement_catalog())
@@ -490,6 +555,37 @@ class AssuranceTests(unittest.TestCase):
         self.assertEqual("pass", accepted["decision"])
         self.assertEqual("accepted", accepted["override"]["status"])
         self.assertEqual("explicit_product_approval", accepted["override"]["decision_source"])
+
+    def test_execution_contract_keeps_missing_draft_as_legacy_v10_and_explicit_draft_as_v11(self) -> None:
+        baseline = {
+            "baseline_id": "baseline:p:v1", "fingerprint": HASH_A,
+            "project_id": "p", "worktree_id": "w", "environment_ref": "e",
+            "sources": [], "event_refs": [], "evidence_refs": [],
+        }
+        overlay = {
+            "overlay_id": "overlay", "baseline_ref": "baseline:p:v1", "baseline_fingerprint": HASH_A,
+            "task": {"project_id": "p", "worktree_id": "w", "environment_ref": "e", "task_id": "t", "mode": "managed", "goal": "g"},
+            "instruction_overlay": {"source_refs": []}, "control_overlay": {"source_refs": []},
+            "writable_paths": ["src/**"], "protected_targets": [".git/**"],
+            "permission_expansions": [], "approval_triggers": [],
+            "validation_criteria": ["python -m unittest"], "gate_criteria": ["tests_pass"],
+            "unobserved_paths": [],
+        }
+        legacy = build_execution_contract(baseline, overlay, [], now=NOW)
+        self.assertEqual("1.0", legacy["contract_version"])
+        self.assertNotIn("assurance_draft", legacy)
+        with self.assertRaisesRegex(AssuranceError, "v1.0.*M4"):
+            build_test_design(legacy, {"relations": []}, [])
+        explicit = copy.deepcopy(overlay)
+        explicit["assurance_draft"] = {
+            "impact_hypotheses": [],
+            "tests": [{"test_id": "test:all", "subject_ref": "subject:all", "command": "python -m unittest", "selection_scope": "tests", "classification": "regression", "code_refs": ["tests/"]}],
+            "mappings": [{"criterion_id": "tests_pass", "test_ids": ["test:all"], "viewpoints": ["regression"], "reason": "explicit suite"}],
+            "criteria": [{"criterion_id": "tests_pass", "block_level": "hard"}],
+        }
+        current = build_execution_contract(baseline, explicit, [], now=NOW)
+        self.assertEqual("1.1", current["contract_version"])
+        self.assertIn("assurance_draft", current)
 
     def test_packet_reference_closure_and_deterministic_reuse(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
