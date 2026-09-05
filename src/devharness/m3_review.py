@@ -375,11 +375,58 @@ def _git_root(path: Path) -> Path | None:
     return Path(output).resolve()
 
 
+def live_fixture_sources() -> dict[str, str]:
+    """Canonical synthetic sources; generate a fresh fixture from this bundle."""
+    return {
+        "AGENTS.md": "# Synthetic M3 runtime instructions\n\n" + _live_probe_prompt() + "\n",
+        ".codex/config.toml": (
+            'sandbox_mode = "workspace-write"\napproval_policy = "on-request"\n\n'
+            '[sandbox_workspace_write]\nnetwork_access = false\n'
+        ),
+        # Keep a Rules source for Configured/Loaded evidence, with no command
+        # policy that could preempt the default-sandbox attempt or its retry.
+        ".codex/rules/ownhands.rules": (
+            "# Synthetic M3 Rules source: no command policy overrides.\n"
+            "# Approval is triggered only by the elevated sibling-write retry.\n"
+        ),
+        ".codex/hooks.json": json.dumps({
+            "description": "Synthetic M3 hook lifecycle probe",
+            "hooks": {"PostToolUse": [{
+                "matcher": "Bash",
+                "hooks": [{
+                    "type": "command", "command": "/usr/bin/true", "timeout": 3,
+                    "statusMessage": "Synthetic M3 hook",
+                }],
+            }]},
+        }, indent=2) + "\n",
+    }
+
+
 def _validate_live_sources(repository: Path) -> None:
-    for relative, _source_type in _LIVE_SOURCE_SPECS:
+    expected = live_fixture_sources()
+    for relative, content in expected.items():
         path = repository / relative
-        if not path.is_file() or path.is_symlink():
+        parents = path.relative_to(repository).parents
+        if not path.is_file() or path.is_symlink() or any((repository / parent).is_symlink() for parent in parents):
             raise M3ReviewError(f"live fixture source is missing or unsafe: {relative}")
+        if path.read_bytes() != content.encode("utf-8"):
+            raise M3ReviewError(f"live fixture content drift: {relative}")
+    # This is a fixed synthetic repository, not an arbitrary project. Close its
+    # file inventory so alternate instructions, skills, and rules cannot sneak
+    # in alongside otherwise canonical sources. Never traverse Git internals.
+    allowed_files = set(expected) | {"README.md", ".ownhands-disposable", ".ownhands-m3-live-attempt"}
+    allowed_directories = {".codex", ".codex/rules"}
+    for root, directories, files in os.walk(repository, followlinks=False):
+        if Path(root) == repository and ".git" in directories:
+            directories.remove(".git")
+        for name in directories + files:
+            path = Path(root) / name
+            relative = path.relative_to(repository).as_posix()
+            if relative == ".git" and Path(root) == repository:
+                continue
+            allowed = allowed_directories if name in directories else allowed_files
+            if path.is_symlink() or relative not in allowed:
+                raise M3ReviewError("live fixture inventory drift or unsafe source")
 
 
 def validate_live_preflight(
@@ -431,23 +478,27 @@ def claim_live_attempt(
     data_root: Path | str,
     request: dict,
     *,
-    repository: Path | str | None = None,
+    repository: Path | str,
 ) -> Path:
     data_root = Path(data_root).resolve()
     if not data_root.is_relative_to(Path("/tmp").resolve()):
         raise M3ReviewError("live attempt ledger must be under /tmp")
     payload = _canonical_json({"attempt_fingerprint": _fingerprint(request), "status": "claimed"}) + "\n"
-    if repository is not None:
-        repository_path = Path(repository).resolve()
-        repository_claim = repository_path / ".ownhands-m3-live-attempt"
-        try:
-            descriptor = os.open(repository_claim, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        except FileExistsError as error:
-            raise M3ReviewError("this disposable repository has already been attempted; retries are forbidden") from error
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
+    if repository is None:
+        raise M3ReviewError("a canonical fixture repository is required to claim a live attempt")
+    repository_path = Path(repository).resolve()
+    # Revalidate immediately before creating either one-shot ledger: an
+    # operator can edit a fixture after preflight without consuming a run.
+    _validate_live_sources(repository_path)
+    repository_claim = repository_path / ".ownhands-m3-live-attempt"
+    try:
+        descriptor = os.open(repository_claim, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as error:
+        raise M3ReviewError("this disposable repository has already been attempted; retries are forbidden") from error
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(payload)
+        handle.flush()
+        os.fsync(handle.fileno())
     data_root.mkdir(parents=True, exist_ok=True)
     path = data_root / "m3-live-attempt.json"
     try:

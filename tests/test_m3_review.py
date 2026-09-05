@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import tempfile
@@ -39,11 +40,10 @@ def repository(root: Path) -> Path:
     path.mkdir()
     git(path, "init", "-q")
     (path / ".ownhands-disposable").write_text("fixture\n")
-    (path / "AGENTS.md").write_text("fixture\n")
-    (path / ".codex" / "rules").mkdir(parents=True)
-    (path / ".codex" / "config.toml").write_text("fixture = true\n")
-    (path / ".codex" / "rules" / "ownhands.rules").write_text("fixture\n")
-    (path / ".codex" / "hooks.json").write_text("{}\n")
+    for relative, content in m3_review.live_fixture_sources().items():
+        source = path / relative
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(content.encode("utf-8"))
     return path
 
 
@@ -141,6 +141,100 @@ def raw_receipt(managed: dict, *, probe_kind: str = "fixture") -> dict:
 
 
 class M3ReviewTests(unittest.TestCase):
+    def test_stale_ninth_fixture_is_refused_before_attempt_claim(self) -> None:
+        # The ninth live fixture passed preflight despite contradicting the prompt.
+        stale_agents = (
+            "# Synthetic M3 runtime instructions\n\n"
+            "This repository is only for one additional authorized ownhands M3 live probe.\n"
+            "Use the default sandbox for the sibling write and do not retry or escalate that denied write.\n"
+            "Request approval exactly once for the separate harmless printf command.\n"
+            "Do not access the network, Desktop tasks, user files, or any unrelated path.\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary, tempfile.TemporaryDirectory(dir="/tmp") as raw_temporary:
+            root = Path(temporary)
+            repo = repository(root)
+            (repo / "AGENTS.md").write_text(stale_agents)
+            (repo / ".codex/config.toml").write_text(
+                'sandbox_mode = "workspace-write"\napproval_policy = "on-request"\n\n'
+                '[sandbox_workspace_write]\nnetwork_access = false\n'
+            )
+            (repo / ".codex/rules/ownhands.rules").write_text(
+                'prefix_rule(\n    pattern = ["printf", "ownhands-m3"],\n'
+                '    decision = "prompt",\n    justification = "Synthetic M3 approval probe",\n'
+                '    match = ["printf ownhands-m3"],\n)\n'
+            )
+            (repo / ".codex/hooks.json").write_text(
+                '{\n  "description": "Synthetic M3 hook lifecycle probe",\n  "hooks": {\n'
+                '    "PostToolUse": [\n      {\n        "matcher": "Bash",\n        "hooks": [\n'
+                '          {\n            "type": "command",\n            "command": "/usr/bin/true",\n'
+                '            "timeout": 3,\n            "statusMessage": "Synthetic M3 hook"\n'
+                '          }\n        ]\n      }\n    ]\n  }\n}\n'
+            )
+            data_root = Path(raw_temporary) / "raw"
+            with self.assertRaisesRegex(M3ReviewError, "fixture.*drift"):
+                validate_live_preflight(repo, data_root, root / "packet.json", "/usr/bin/true", "gpt-5.6-luna", 30, live=True)
+
+            spec = importlib.util.spec_from_file_location(
+                "m3_live_cli", Path(__file__).resolve().parents[1] / "docs/reviews/m3/run_live_probe.py"
+            )
+            cli = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cli)
+            with patch.object(cli, "execute_live_probe", side_effect=AssertionError("must not execute")):
+                result = cli.main([
+                    "--repository", str(repo), "--data-root", str(data_root),
+                    "--output", str(root / "packet.json"), "--codex-bin", "/usr/bin/true",
+                    "--model", "gpt-5.6-luna", "--timeout", "30", "--live",
+                ])
+            self.assertEqual(2, result)
+            self.assertFalse((repo / ".ownhands-m3-live-attempt").exists())
+            self.assertFalse(data_root.exists())
+
+    def test_fixture_drift_cannot_consume_a_claim_even_after_preflight(self) -> None:
+        for relative in ("AGENTS.md", ".codex/config.toml", ".codex/rules/ownhands.rules", ".codex/hooks.json"):
+            with self.subTest(relative=relative), tempfile.TemporaryDirectory() as temporary, tempfile.TemporaryDirectory(dir="/tmp") as raw_temporary:
+                root = Path(temporary)
+                repo = repository(root)
+                data_root = Path(raw_temporary) / "raw"
+                validate_live_preflight(repo, data_root, root / "packet.json", "/usr/bin/true", "gpt-5.6-luna", 30, live=True)
+                source = repo / relative
+                source.write_bytes(source.read_bytes() + b"\n")
+                with self.assertRaisesRegex(M3ReviewError, "fixture.*drift"):
+                    claim_live_attempt(data_root, {"model": "gpt-5.6-luna"}, repository=repo)
+                self.assertFalse((repo / ".ownhands-m3-live-attempt").exists())
+                self.assertFalse(data_root.exists())
+
+    def test_claim_requires_a_fixture_repository(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            data_root = Path(temporary) / "raw"
+            with self.assertRaisesRegex(M3ReviewError, "fixture repository"):
+                claim_live_attempt(data_root, {}, repository=None)
+            self.assertFalse(data_root.exists())
+
+    def test_preflight_rejects_unexpected_fixture_sources_and_linked_parents(self) -> None:
+        for relative in ("AGENTS.override.md", ".codex/rules/extra.rules", ".codex/AGENTS.md", ".agents/skills/extra/SKILL.md"):
+            with self.subTest(relative=relative), tempfile.TemporaryDirectory() as temporary, tempfile.TemporaryDirectory(dir="/tmp") as raw_temporary:
+                root = Path(temporary)
+                repo = repository(root)
+                extra = repo / relative
+                extra.parent.mkdir(parents=True, exist_ok=True)
+                extra.write_text("conflicting instructions\n")
+                with self.assertRaisesRegex(M3ReviewError, "fixture.*drift"):
+                    validate_live_preflight(repo, Path(raw_temporary) / "raw", root / "packet.json", "/usr/bin/true", "gpt-5.6-luna", 30, live=True)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = repository(root)
+            (repo / ".codex").rename(root / "controls")
+            (repo / ".codex").symlink_to(root / "controls", target_is_directory=True)
+            with self.assertRaisesRegex(M3ReviewError, "fixture source"):
+                m3_review._validate_live_sources(repo)
+
+    def test_changed_prompt_invalidates_previously_generated_fixture(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = repository(Path(temporary))
+            with patch.object(m3_review, "_live_probe_prompt", return_value="different probe"):
+                with self.assertRaisesRegex(M3ReviewError, "fixture.*drift"):
+                    m3_review._validate_live_sources(repo)
+
     def test_fake_packet_is_sanitized_and_cannot_satisfy_live_gate(self) -> None:
         managed = managed_packet()
         packet = build_review_packet(
