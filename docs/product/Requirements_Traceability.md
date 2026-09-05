@@ -5,17 +5,17 @@
 | 요구사항 범주 | 기준 문서 | M0 Evidence/Decision | 구현 Milestone | 현재 상태 |
 |---|---|---|---|---|
 | 사람의 이해·검토·판단 병목 감소 | Design Rationale, Dashboard | M0-01 기준선 | M5, M6 | Blocked by Evidence |
-| Dashboard와 Control 동등성 | 전체 | M0-01, ADR-0006 | M1~M5 | ADR Accepted · PR Gate |
+| Dashboard와 Control 동등성 | 전체 | M0-01, ADR-0006 | M1~M5 | M0 Verified · M1 #10~#15 In Progress |
 | Managed / Imported Task | Control, Dashboard | M0-04 machine-readable Claim applicability, ADR-0001/0003 | M1~M3 | ADR Accepted · M3 runtime Probe |
 | Project Baseline / Task Overlay / Contract | Control | M0-03 validation semantics | M2 | Blocked by Evidence |
 | Config·AGENTS·Rules·Hooks·Sandbox·Approval | Control | M0-02, M0-03, ADR-0001/0002 | M2, M3 | ADR Accepted · M3 runtime Probe |
 | Configured / Loaded / Enforced 및 Evidence 근거 | 전체 | M0-03, M0-04, ADR-0002/0003 | M1, M3, M5 | ADR Accepted · PR Gate |
-| Canonical Event Log / Projection | Control, Dashboard | M0-02, M0-06, ADR-0004 | M1 | ADR Accepted · PR Gate |
-| Raw Evidence / Redaction / Local-only | 전체 | M0-06, ADR-0004 | M1, M5 | ADR Accepted · 세부 정책 대기 |
-| Guarantee Matrix / Task Guarantee Report | 전체 | M0-04, ADR-0003 | M1, M5 | ADR Accepted · PR Gate |
+| Canonical Event Log / Projection | Control, Dashboard | M0-02, M0-06, ADR-0004 | M1 | M0 Verified · M1 #11/#13 In Progress |
+| Raw Evidence / Redaction / Local-only | 전체 | M0-06, ADR-0004 | M1, M5 | M0 Verified · M1 #12 In Progress |
+| Guarantee Matrix / Task Guarantee Report | 전체 | M0-04, ADR-0003 | M1, M5 | M0 Verified · M1 #14 In Progress |
 | Impact / Test Design / Regression Gate | 전체 | ADR-0006, M0-04 | M2, M4 | ADR Accepted · PR Gate |
 | Workspace Restore Point / Worktree 분리 | Control | M0-06 storage boundary | M1, M4 | Blocked by Evidence |
-| Task Review / Feature Validation / Harness Status | Dashboard | ADR-0006 review artifact contract | M1~M5 | ADR Accepted · M5 UI/UX Gate |
+| Task Review / Feature Validation / Harness Status | Dashboard | ADR-0006 review artifact contract | M1~M5 | M1 최소 review artifact 구현 · M5 UI/UX Gate 유지 |
 | Brand 색상 방향 | Dashboard, Design Rationale | M0-07 3안·Probe, ADR-0007 Accepted(색상 범위) | M5 | B 색상 방향 승인 |
 | 정보 위계·글쓰기·상호작용·접근성 기반 | Dashboard, Design Rationale | M0-07 참고 시안·Probe | M5 | M5 UI/UX Gate Review |
 | Audit & History | Dashboard | Event/Evidence contracts | M5 | Blocked by Evidence |

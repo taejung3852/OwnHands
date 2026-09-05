@@ -24,7 +24,27 @@
     },
     "claims": {
       "type": "array",
-      "items": {"$ref": "#/$defs/claim"}
+      "minItems": 16,
+      "maxItems": 16,
+      "items": {"$ref": "#/$defs/claim"},
+      "allOf": [
+        {"contains": {"type": "object", "properties": {"category": {"const": "control_profile_created"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "config_loaded"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "agents_instruction_loaded"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "rule_blocked_probe"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "hook_invoked_event"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "sandbox_blocked_boundary"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "approval_applied_action"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "config_conflict_identified"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "mcp_tool_callable"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "workspace_restore_point_created"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "actual_changes_identified"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "related_features_analyzed"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "related_tests_executed"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "defined_regression_scope_passed"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "feature_directly_validated"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1},
+        {"contains": {"type": "object", "properties": {"category": {"const": "dashboard_fresh"}}, "required": ["category"]}, "minContains": 1, "maxContains": 1}
+      ]
     }
   },
   "additionalProperties": false,
@@ -109,7 +129,26 @@
             "required": ["requirement_id", "type", "required_fields"],
             "properties": {
               "requirement_id": {"type": "string", "minLength": 1},
-              "type": {"type": "string", "minLength": 1},
+              "type": {
+                "enum": [
+                  "active_configuration",
+                  "approval_lifecycle",
+                  "configuration_conflict",
+                  "direct_feature_probe",
+                  "event_projection_sequence",
+                  "feature_impact",
+                  "file_creation",
+                  "hook_execution",
+                  "instruction_loading",
+                  "mcp_capability",
+                  "regression_gate",
+                  "rule_probe",
+                  "sandbox_probe",
+                  "test_execution",
+                  "workspace_diff",
+                  "workspace_restore_point"
+                ]
+              },
               "required_fields": {
                 "type": "array",
                 "minItems": 1,

@@ -1,0 +1,10 @@
+[project]
+name = "devharness"
+version = "0.1.0"
+description = "Evidence-first local control and review core for agentic development"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.devharness]
+runtime = "stdlib-only"
+sqlite_journal_mode = "DELETE"

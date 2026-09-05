@@ -1,0 +1,79 @@
+# M1 Evidence Core Review Artifact
+
+## 확인 대상
+
+M1의 비민감 HWPX 합성 fixture는 다음 실제 저장 흐름을 실행한다.
+
+```text
+Task identity
+→ task.created Event
+→ redacted Raw Evidence object와 metadata
+→ evidence.recorded Event
+→ GM-013 Guarantee 평가
+→ guarantee.evaluated Event
+→ Projection replay와 freshness
+→ 최소 HTML 및 Task Guarantee Report JSON
+```
+
+실행:
+
+```bash
+PYTHONPATH=src uv run --python 3.12 python -m devharness m1-demo \
+  --data-root /tmp/devharness-m1-evidence \
+  --output /tmp/devharness-m1-review.html
+```
+
+출력:
+
+- `/tmp/devharness-m1-review.html`: 판정·Evidence metadata·freshness·남은 위험
+- `/tmp/devharness-m1-review.report.json`: Matrix가 생성한 Task Guarantee Report
+- `/tmp/devharness-m1-evidence/`: local SQLite catalog와 redacted Raw Evidence object
+
+## 표현 경계
+
+- `supported`는 GM-013의 합성 test selection과 synthetic environment 범위에만 적용된다.
+- Projection freshness는 Event head 반영 여부이며 Event 수집 완전성을 뜻하지 않는다.
+- 수집 완전성은 `Unobserved`다.
+- Raw bytes는 HTML·JSON·Git에 포함하지 않는다.
+- 화면은 데이터 흐름을 사람이 검토하기 위한 최소 M1 산출물이며 M5 UI/UX 계약이 아니다.
+
+## 2026-09-04 사전 검증 기록
+
+- 최초 Python 3.12 전체 테스트: 실행 사례 40개 통과
+- M1 Guarantee 공격 fixture: 파일에서 계산한 25개 경계
+- 기존 M0-04 Probe: 필수 공격 경계 23개, schema-valid integration mutation 8개, schema adversarial mutation 2개 통과
+- 생성된 Task Guarantee Report: strict draft 2020-12 schema 검증 통과
+- HTML/Report secret marker 검사: 노출 0개
+- Git 추적 Raw Evidence/object/catalog: 0개
+
+이 수치는 GitHub 자동 Check가 아니라 로컬 재현 결과다. 독립 리뷰와 병합된 `main` 재검증 전까지 M1 완료 근거로 사용하지 않는다.
+
+## 독립 리뷰 후 보강 상태
+
+독립 리뷰는 최초 구현에서 병합 차단 결함 14개를 재현했다. 주요 경로는 process crash orphan, purge 재시도, canonical metadata 변조, 빈/의미 불일치 Evidence, explicit conflict, Control Evidence closure, schema-invalid Matrix, forbidden scope wording, 손상 Projection freshness, Git worktree 내부 Raw root, 민감 metadata key, Imported Task 표시, locator 동시 등록, 기존 object 권한이었다.
+
+보강 구현과 회귀 테스트는 위 경로를 각각 다룬다. 후속 독립 검토에서 purge staging 충돌, 감사 Event 없는 purge 표시, Evidence 행 직접 삭제, Project/Worktree 직접 삭제, cross-project Task 삽입, 동시 migration, 합성 Projection freshness, mode-inapplicable scope의 금지 문구, unknown Evidence type, 존재하지 않는 inference source라는 10개 추가 차단 경로도 RED로 재현했다. 각 경로는 독립 회귀 테스트가 수정 전 실패하고 수정 후 통과한다.
+
+두 번째 독립 최종 리뷰는 실제 v1 Evidence schema migration, hash가 없던 v1 Projection, Event payload·metadata 변조, 필수 Guarantee category 누락이라는 4개 차단 결함을 추가로 찾았다. 수정 전 독립 회귀 테스트 8개는 `7 failures, 1 error`였고, missing-category Matrix가 schema에 유효한 것도 별도 Probe에서 재현됐다. 수정 후 v1→v2 migration은 lineage column을 같은 transaction에서 추가·backfill하고 legacy fingerprint를 검증한 뒤 v2 fingerprint를 재계산한다. 무결성을 증명할 수 없는 v1 Projection은 폐기하며, Event read·head·replay는 저장 행에서 fingerprint와 sequence 연속성을 다시 검증한다. Event 무결성 실패는 Projection을 `failed`로 남기고, Matrix schema와 runtime은 16개 category가 정확히 한 번씩 존재하도록 강제한다. 이 문서는 이 수정의 최종 독립 재검토 전 상태이므로 병합 가능 또는 M1 완료를 주장하지 않는다.
+
+세 번째 독립 리뷰는 Event fingerprint가 sequence를 포함하지 않아, 같은 Task의 Event 두 개를 raw SQLite에서 `99` 임시 sequence로 맞바꾸면 연속성 검사만으로 순서 변조를 알 수 없는 P1을 재현했다. 수정 후 회귀 fixture는 중복 `task.created`에 last-write-wins를 기대하지 않고 `task.created`와 실제 Task에 귀속된 `control.validation.recorded` lifecycle Event를 사용하며, sequence 교환 시 sequence-bound fingerprint 검증이 replay 전에 거부하는지를 확인한다. schema version은 3이며 새 Event fingerprint는 sequence를 envelope에 결합한다. v1과 기존 v2 catalog는 Task별 Event가 없거나 정확히 하나일 때만 legacy fingerprint와 `sequence=1`을 검증한 뒤 같은 transaction에서 sequence-bound fingerprint로 이행하고, 기존 Projection은 폐기해 canonical replay를 요구한다. 한 Task에 legacy Event가 둘 이상이면 현재 sequence가 연속이고 교환 흔적이 없어 보여도 외부 anchor 없이 원래 순서를 증명할 수 없으므로 `legacy Event order is unverifiable`로 자동 migration을 거부한다. v2 거부 transaction은 schema version 2, legacy fingerprints와 Projection을 그대로 보존하며 어떤 Event도 재서명하지 않는다. v1의 bootstrap과 v1→v2→v3 변환은 하나의 transaction에서 실행되어 다중 Event, 잘못된 Event/Evidence fingerprint, malformed metadata 중 어느 검증이 실패해도 schema version 1, `sqlite_schema`, Event/Evidence 전체 row와 fingerprint, legacy columns 및 Projection row를 원상태로 보존한다. 이 RED/GREEN도 구현 담당자의 로컬 결과이며 독립 재검토를 대체하지 않는다.
+
+같은 리뷰의 후속 P2는 저장 Projection의 bytes가 변조된 뒤 `project()`를 호출하면 state와 error만 `failed`로 바뀌고 hash는 이전 `ready` envelope에 남아 self-inconsistent row가 되며, 다음 freshness가 다시 hash mismatch를 내면서 sequence가 1에서 0으로 뒤늦게 바뀌는 경로를 재현했다. 수정 후 `project()`와 freshness의 저장 Projection 무결성 실패는 하나의 원자적 failure 기록 경로를 사용한다. 손상된 Projection bytes와 그 sequence는 신뢰하지 않고 첫 감지 시 `sequence=0`, initial projection, `failed` 상태와 이에 맞는 hash를 한 번 저장하며, 이후 호출은 timestamp를 포함해 같은 실패 행을 안정적으로 유지한다.
+
+네 번째 후속 검토는 migration 실패 atomicity, Event tail 삭제 세탁, `task.created` snapshot 모순을 재현했다. 기존 catalog의 schema version row와 allowlist는 DDL 전에 검사하며, 완전히 빈 database만 fresh schema v3 bootstrap 대상이다. 따라서 version 999, version row 누락, schema metadata 누락은 schema object와 row를 전혀 추가하지 않고 거부된다. 유효한 단일 legacy Event까지 통과한 v1 catalog도 이후 Evidence 검증이 실패하면 bootstrap을 포함한 전체 transaction이 rollback된다. Projection rebuild는 저장 Projection hash를 먼저 검증하고, 검증된 projected sequence보다 현재 Event head가 작으면 기존 projection bytes와 sequence를 보존한 self-consistent `failed` row를 원자적으로 기록한다. 정상적으로 Event head가 앞선 stale Projection은 계속 rebuild할 수 있다.
+
+`task.created`는 sequence 1에서 한 번만 허용하며 payload mode가 immutable `tasks.mode`와 일치해야 한다. public append와 raw SQLite에서 fingerprint까지 다시 만든 replay 공격을 모두 거부한다. Projection은 `evidence.recorded`/`evidence.purged`의 Evidence 존재·Task binding·purge 전이, `control.validation.recorded`의 Control record 존재·Task binding, `guarantee.evaluated`의 non-empty report reference를 확인한다. Guarantee report는 M1 catalog에 별도 authoritative registry가 없으므로 이 단계에서는 report ID 존재 여부까지 검증하지 않으며, 그 범위 확장은 후속 schema 결정으로 남긴다.
+
+다섯 번째 후속 검토는 schema v3의 공통 `CREATE IF NOT EXISTS`가 삭제된 Event table을 빈 table로 복원해 `ready sequence 0, fresh=true`로 세탁하는 경로와, 첫 non-`task.created` Event가 append 및 legacy migration을 통과해 log를 영구 poison하는 경로를 재현했다. 기존 v3는 DDL 전에 핵심 table의 normalized 생성 SQL과 column signature, index/trigger exact contract를 검사하여 CHECK를 비롯한 제약 변조도 원본 schema와 row를 변경하지 않은 채 거부한다. public append는 첫 Event를 `task.created`로 강제하며, v1/v2 단일 Event migration도 type/version/sequence/payload mode를 Task snapshot에 대조한 후에만 sequence-bound fingerprint로 이행한다.
+
+현재 보강 구현의 로컬 결과:
+
+- Python 3.12 실행 테스트 107개 통과. 강제 종료 orphan 회수, purge 삭제 실패 재시도와 staging 충돌, 감사 없는 삭제 거부, Project/Worktree 동시 등록·불변성, 실제 v1 Evidence schema migration, 0~1개 Event의 v1/v2 Event fingerprint와 lifecycle migration, 다중 legacy Event 자동 이관 거부와 bootstrap 포함 v1/v2 전체 rollback, unknown/missing schema version 및 손상·제약 변조 schema v3의 DDL-free 거부, 동시 schema migration, catalog와 Event payload·metadata·sequence gap/reorder/tail 삭제 변조, 첫 `task.created`와 snapshot 불변식, Projection reference/sequence/JSON·runtime freshness 변조와 안정적인 failed persistence, Matrix category 완전성을 포함한다.
+- Guarantee 공격 manifest 41개. 각 항목은 실행되는 test method 이름과 연결되며 Report의 project/worktree/task/environment, 문장, scope, timestamp, residual risk를 한 번에 한 필드씩 바꾼다. unknown Evidence type, 출처 없는 inferred Evidence, nested forbidden scope, runtime state 없는 freshness도 포함한다.
+- M0-01, M0-02/03, M0-04, M0-06, M0-07 static/browser Probe 재통과.
+- 생성 Report의 strict draft 2020-12 검증, SQLite `integrity_check=ok`, rollback journal `delete`, schema version 3, data/catalog/object 0700/0600/0600 확인.
+- Git 추적 Raw Evidence/object/catalog 0개. GitHub 자동 Check는 0개다.
+
+남은 위험: freshness와 Event head 무결성 검증은 현재 Task의 Event 전체를 순회하므로 Event 수에 선형 비용이 든다. 또한 fingerprint는 비밀키 기반 서명이 아니므로 DB 행과 fingerprint를 함께 다시 쓸 수 있는 권한을 가진 공격자는 별도 신뢰 저장소 없이는 탐지할 수 없다. schema 3에서 payload·metadata·sequence를 단독 변조하거나 sequence gap/reorder를 만들면 read·replay·freshness가 fail-closed로 처리한다. Projection checkpoint 뒤의 tail 삭제는 `projected_sequence > Event head`로 막지만, 첫 checkpoint 전에 tail이 삭제되면 외부 monotonic Event-head/chain anchor 없이 탐지할 수 없다. DB와 그런 anchor를 함께 변조할 권한이 있는 공격자도 이 로컬 계층의 범위를 벗어난다. 다중 legacy Event는 외부 순서 anchor 없이는 안전하게 자동 migration할 수 없으므로 운영자가 별도 신뢰 근거로 순서를 확정하거나 새 catalog로 이관해야 한다. 저장 Projection 자체가 무결성 검증에 실패하면 신뢰할 수 있는 외부 checkpoint가 없으므로 직전 sequence나 projection 의미를 보존할 수 없으며, 안전한 sequence 0/initial 실패 상태에서 verified Event 전체 rebuild가 필요하다.
+
+위 결과는 구현 담당자의 로컬 GREEN이며 독립 재검토를 대체하지 않는다.
