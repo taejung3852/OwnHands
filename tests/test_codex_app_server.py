@@ -78,6 +78,37 @@ def decline(_record) -> str:
 
 
 class AppServerAdapterTests(unittest.TestCase):
+    def test_schema_shaped_messages_without_legacy_jsonrpc_are_accepted(self) -> None:
+        messages = success_messages()
+        for message in messages:
+            message.pop("jsonrpc", None)
+        transport = FakeTransport(messages)
+
+        run = run_app_server(
+            CONFIG, transport_factory(transport), lambda _record: None, decline
+        )
+
+        self.assertEqual("completed", run.terminal_status)
+
+    def test_malformed_or_ambiguous_wire_envelopes_are_rejected(self) -> None:
+        attacks = (
+            ({"id": 1, "result": {}, "error": {"code": -1}}, "response envelope"),
+            ({"id": 1}, "response envelope"),
+            ({"id": 1, "method": "initialize", "result": {}}, "request envelope"),
+            ({"method": "turn/started", "result": {}}, "notification envelope"),
+            ({"jsonrpc": "1.0", "id": 1, "result": {}}, "jsonrpc"),
+        )
+        for attack, expected in attacks:
+            with self.subTest(attack=attack), self.assertRaisesRegex(
+                AppServerError, expected
+            ):
+                run_app_server(
+                    CONFIG,
+                    transport_factory(FakeTransport([attack])),
+                    lambda _record: None,
+                    decline,
+                )
+
     def test_handshake_thread_turn_and_terminal_chain_is_scope_checked(self) -> None:
         transport = FakeTransport(SUCCESS_JSONL)
         records = []

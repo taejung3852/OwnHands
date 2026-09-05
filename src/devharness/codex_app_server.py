@@ -150,6 +150,27 @@ def _required_text(value: object, name: str) -> str:
     return value
 
 
+def _validate_wire_envelope(message: object) -> dict:
+    if not isinstance(message, dict):
+        raise AppServerError("App Server returned a non-object wire message")
+    if "jsonrpc" in message and message["jsonrpc"] != "2.0":
+        raise AppServerError("App Server returned an invalid legacy jsonrpc value")
+    has_id = "id" in message
+    has_method = "method" in message
+    has_result = "result" in message
+    has_error = "error" in message
+    if has_method:
+        kind = "request" if has_id else "notification"
+        if has_result or has_error:
+            raise AppServerError(f"App Server returned an ambiguous {kind} envelope")
+        return message
+    if has_id:
+        if has_result == has_error:
+            raise AppServerError("App Server returned an invalid response envelope")
+        return message
+    raise AppServerError("App Server returned an invalid notification envelope")
+
+
 def _validate_config(config: AppServerConfig) -> None:
     for name in (
         "executable",
@@ -211,9 +232,7 @@ def run_app_server(
             message = json.loads(line)
         except (json.JSONDecodeError, TypeError) as error:
             raise AppServerError("App Server returned malformed JSON") from error
-        if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
-            raise AppServerError("App Server returned malformed JSON-RPC")
-        return message
+        return _validate_wire_envelope(message)
 
     def request(method: str, params: dict) -> dict:
         nonlocal next_request_id
