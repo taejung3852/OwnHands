@@ -1,4 +1,5 @@
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ownhands",
   "version": "0.1.0",
   "description": "Evidence-first agent harness and assurance plugin",
@@ -6,17 +7,11 @@
     "name": "박태정",
     "email": "taejung3852@gmail.com"
   },
-  "skills": {
-    "directory": "skills"
-  },
-  "mcp_servers": {
-    "ownhands": {
-      "command": "python3",
-      "args": [
-        "-m",
-        "devharness",
-        "mcp-server"
-      ]
-    }
-  }
+  "license": "Apache-2.0",
+  "keywords": [
+    "agent-harness",
+    "assurance",
+    "context-validation",
+    "mcp"
+  ]
 }

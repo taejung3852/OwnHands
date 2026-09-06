@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OwnHands 모듈형 스킬 & 라우터 아키텍처 · Diagram Design</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #2d3142;
+      --color-paper-2: #393e53;
+      --color-ink:     #f5f5f5;
+      --color-muted:   #bfc0c0;
+      --color-soft:    #8e98ac;
+      --color-accent:  #f08a59;
+      --color-link:    #6a95d8;
+      --font-sans:     'Geist', 'Noto Sans KR', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.6rem, 2.5vw + 0.8rem, 2.2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: var(--color-ink);
+      margin-bottom: 0.75rem;
+    }
+
+    .subtitle {
+      font-size: 0.95rem;
+      color: var(--color-soft);
+      margin-bottom: 1.75rem;
+      line-height: 1.5;
+    }
+
+    svg { width: 100%; min-width: 900px; display: block; }
+
+    .legend-card {
+      margin-top: 1.75rem;
+      padding: 1rem 1.25rem;
+      background: rgba(245, 245, 245, 0.03);
+      border: 1px solid rgba(245, 245, 245, 0.08);
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      font-size: 0.82rem;
+      color: var(--color-muted);
+    }
+
+    .legend-item { display: flex; align-items: flex-start; gap: 0.5rem; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · Diagram Design (Dark Theme)</p>
+    <h1>OwnHands 모듈형 스킬 & 라우터 아키텍처</h1>
+    <p class="subtitle">Superpowers 패턴 기반 4-Tier 분리: 최상위 라우터(using-ownhands) ➔ 독립 서브 스킬 ➔ Option C MCP 게이트웨이 ➔ Core 무변형 불변 증적</p>
+
+    <svg viewBox="0 0 1140 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="diagram-title diagram-desc">
+      <title id="diagram-title">OwnHands 모듈형 스킬 & 라우터 아키텍처</title>
+      <desc id="diagram-desc">다양한 호스트 플랫폼(Codex, Antigravity, Claude Code, Grok)에서 using-ownhands를 통해 4개의 독립 서브 스킬과 MCP Gateway, Core Engine으로 연결되는 아키텍처 다이어그램</desc>
+      
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="rgba(245,245,245,0.08)"/>
+        </pattern>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6a95d8"/></marker>
+      </defs>
+
+      <!-- Background Paper -->
+      <rect width="100%" height="100%" fill="#2d3142"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- ZONES (Painted before arrows and nodes) -->
+      <!-- Zone 1: Platform Ingress -->
+      <rect x="35" y="190" width="150" height="210" rx="8"
+            fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.08)" stroke-width="0.8"/>
+      <rect x="55" y="194" width="110" height="12" rx="2" fill="#2d3142"/>
+      <text x="110" y="203" fill="rgba(245,245,245,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">PLATFORM ADAPTERS</text>
+
+      <!-- Zone 2: Sub-Skill Layer -->
+      <rect x="445" y="55" width="205" height="425" rx="8"
+            fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.08)" stroke-width="0.8"/>
+      <rect x="475" y="59" width="145" height="12" rx="2" fill="#2d3142"/>
+      <text x="547" y="68" fill="rgba(245,245,245,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">INDEPENDENT SUB-SKILLS</text>
+
+      <!-- Zone 3: Core & Persistence -->
+      <rect x="905" y="125" width="200" height="295" rx="8"
+            fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.08)" stroke-width="0.8"/>
+      <rect x="930" y="129" width="150" height="12" rx="2" fill="#2d3142"/>
+      <text x="1005" y="138" fill="rgba(245,245,245,0.40)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">CORE &amp; PERSISTENCE (v3)</text>
+
+      <!-- CONNECTORS (Painted before nodes) -->
+      <!-- Host Clients -> Router Skill -->
+      <line x1="165" y1="295" x2="245" y2="295" stroke="#6a95d8" stroke-width="1.4" marker-end="url(#arrow-link)"/>
+      <rect x="175" y="278" width="60" height="12" rx="2" fill="#2d3142"/>
+      <text x="205" y="287" fill="#6a95d8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">USER PROMPT</text>
+
+      <!-- Router Skill -> Sub-Skills (Orthogonal Fan-Out) -->
+      <!-- 1. to context-validation (right + up) -->
+      <path d="M 405,265 H 425 Q 433,265 433,257 V 113 Q 433,105 441,105 H 465"
+            fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+      <!-- 2. to harness-profiler (right + up) -->
+      <path d="M 405,285 H 438 Q 446,285 446,277 V 213 Q 446,205 454,205 H 465"
+            fill="none" stroke="#bfc0c0" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+      <!-- 3. to execution-control (straight horizontal) -->
+      <line x1="405" y1="305" x2="465" y2="305" stroke="#bfc0c0" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+      <!-- 4. to test-assurance (right + down) -->
+      <path d="M 405,325 H 425 Q 433,325 433,333 V 397 Q 433,405 441,405 H 465"
+            fill="none" stroke="#bfc0c0" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+      <!-- Sub-Skills -> MCP Gateway (Orthogonal Fan-In) -->
+      <!-- 1. from context-validation (M4.5 Primary slice) -->
+      <path d="M 625,105 H 660 Q 668,105 668,113 V 257 Q 668,265 676,265 H 705"
+            fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+      <rect x="635" y="88" width="62" height="12" rx="2" fill="#2d3142"/>
+      <text x="666" y="97" fill="#f08a59" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">context.lint</text>
+
+      <!-- 2. from harness-profiler -->
+      <path d="M 625,205 H 678 Q 686,205 686,213 V 277 Q 686,285 694,285 H 705"
+            fill="none" stroke="#bfc0c0" stroke-width="1.1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+      <!-- 3. from execution-control -->
+      <line x1="625" y1="305" x2="705" y2="305" stroke="#bfc0c0" stroke-width="1.1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+      <!-- 4. from test-assurance -->
+      <path d="M 625,405 H 660 Q 668,405 668,397 V 333 Q 668,325 676,325 H 705"
+            fill="none" stroke="#bfc0c0" stroke-width="1.1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+      <!-- MCP Gateway -> Core Engine & Evidence Store -->
+      <!-- to Core Engines -->
+      <path d="M 855,275 H 885 Q 893,275 893,267 V 203 Q 893,195 901,195 H 925"
+            fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="862" y="178" width="58" height="12" rx="2" fill="#2d3142"/>
+      <text x="891" y="187" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">RUN CORE</text>
+
+      <!-- to Evidence Store -->
+      <path d="M 855,315 H 885 Q 893,315 893,323 V 367 Q 893,375 901,375 H 925"
+            fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+      <rect x="860" y="382" width="62" height="12" rx="2" fill="#2d3142"/>
+      <text x="891" y="391" fill="#f08a59" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">CAS EVIDENCE</text>
+
+
+      <!-- NODES (Paper mask + Box + Content) -->
+
+      <!-- Node 1: Host Clients -->
+      <g>
+        <rect x="45" y="235" width="120" height="120" rx="6" fill="#2d3142"/>
+        <rect x="45" y="235" width="120" height="120" rx="6" fill="rgba(191,192,192,0.08)" stroke="#8e98ac" stroke-width="1"/>
+        <rect x="53" y="243" width="36" height="12" rx="2" fill="transparent" stroke="rgba(142,152,172,0.40)" stroke-width="0.8"/>
+        <text x="71" y="252" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CLIENT</text>
+        <text x="105" y="274" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">Host Platforms</text>
+        <text x="105" y="295" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Antigravity · Codex</text>
+        <text x="105" y="310" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Claude Code · Grok</text>
+        <text x="105" y="335" fill="#6a95d8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">references/*-tools.md</text>
+      </g>
+
+      <!-- Node 2: FOCAL ROUTER (using-ownhands) -->
+      <g>
+        <rect x="245" y="240" width="160" height="110" rx="6" fill="#2d3142"/>
+        <rect x="245" y="240" width="160" height="110" rx="6" fill="rgba(240,138,89,0.08)" stroke="#f08a59" stroke-width="1.5"/>
+        <text x="395" y="338" fill="rgba(240,138,89,0.12)" font-size="44" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="end">01</text>
+        <rect x="253" y="248" width="40" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.50)" stroke-width="0.8"/>
+        <text x="273" y="257" fill="#f08a59" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">ROUTER</text>
+        <text x="325" y="280" fill="#f5f5f5" font-size="14" font-weight="600" font-family="'Geist Mono', sans-serif" text-anchor="middle">using-ownhands</text>
+        <text x="325" y="298" fill="#bfc0c0" font-size="9" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">Tier 1 Root Router</text>
+        <text x="325" y="318" fill="#f08a59" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">&lt;SUBAGENT-STOP&gt;</text>
+        <text x="325" y="332" fill="#8e98ac" font-size="8" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">Red Flags · Priority Gate</text>
+      </g>
+
+      <!-- Node 3: Sub-Skill context-validation -->
+      <g>
+        <rect x="465" y="75" width="160" height="60" rx="6" fill="#2d3142"/>
+        <rect x="465" y="75" width="160" height="60" rx="6" fill="rgba(245,245,245,0.05)" stroke="#f08a59" stroke-width="1"/>
+        <rect x="473" y="83" width="30" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.40)" stroke-width="0.8"/>
+        <text x="488" y="92" fill="#f08a59" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SKILL</text>
+        <text x="545" y="103" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist Mono', sans-serif" text-anchor="middle">context-validation</text>
+        <text x="545" y="120" fill="#bfc0c0" font-size="8.5" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">지침 위생 &amp; 규칙 린트</text>
+      </g>
+
+      <!-- Node 4: Sub-Skill harness-profiler -->
+      <g>
+        <rect x="465" y="175" width="160" height="60" rx="6" fill="#2d3142"/>
+        <rect x="465" y="175" width="160" height="60" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="0.8"/>
+        <rect x="473" y="183" width="30" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+        <text x="488" y="192" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SKILL</text>
+        <text x="545" y="203" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist Mono', sans-serif" text-anchor="middle">harness-profiler</text>
+        <text x="545" y="220" fill="#bfc0c0" font-size="8.5" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">스택 및 Task Contract</text>
+      </g>
+
+      <!-- Node 5: Sub-Skill execution-control -->
+      <g>
+        <rect x="465" y="275" width="160" height="60" rx="6" fill="#2d3142"/>
+        <rect x="465" y="275" width="160" height="60" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="0.8"/>
+        <rect x="473" y="283" width="30" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+        <text x="488" y="292" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SKILL</text>
+        <text x="545" y="303" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist Mono', sans-serif" text-anchor="middle">execution-control</text>
+        <text x="545" y="320" fill="#bfc0c0" font-size="8.5" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">샌드박스 &amp; 복구 스냅샷</text>
+      </g>
+
+      <!-- Node 6: Sub-Skill test-assurance -->
+      <g>
+        <rect x="465" y="375" width="160" height="60" rx="6" fill="#2d3142"/>
+        <rect x="465" y="375" width="160" height="60" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="0.8"/>
+        <rect x="473" y="383" width="30" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+        <text x="488" y="392" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SKILL</text>
+        <text x="545" y="403" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist Mono', sans-serif" text-anchor="middle">test-assurance</text>
+        <text x="545" y="420" fill="#bfc0c0" font-size="8.5" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">테스트 비교 &amp; 회귀 게이트</text>
+      </g>
+
+      <!-- Node 7: MCP Gateway -->
+      <g>
+        <rect x="705" y="240" width="150" height="110" rx="6" fill="#2d3142"/>
+        <rect x="705" y="240" width="150" height="110" rx="6" fill="rgba(245,245,245,0.04)" stroke="#6a95d8" stroke-width="1.2"/>
+        <rect x="713" y="248" width="46" height="12" rx="2" fill="transparent" stroke="rgba(106,149,216,0.40)" stroke-width="0.8"/>
+        <text x="736" y="257" fill="#6a95d8" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GATEWAY</text>
+        <text x="780" y="280" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">DevHarness MCP</text>
+        <text x="780" y="297" fill="#bfc0c0" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">Option C 2-Tier</text>
+        <text x="780" y="313" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">status · decision</text>
+        <text x="780" y="328" fill="#6a95d8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">stdio JSON-RPC</text>
+      </g>
+
+      <!-- Node 8: Core Engine -->
+      <g>
+        <rect x="925" y="160" width="160" height="70" rx="6" fill="#2d3142"/>
+        <rect x="925" y="160" width="160" height="70" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="0.8"/>
+        <rect x="933" y="168" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.30)" stroke-width="0.8"/>
+        <text x="949" y="177" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CORE</text>
+        <text x="1005" y="195" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">DevHarness Core</text>
+        <text x="1005" y="212" fill="#bfc0c0" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">0-Mutation stdlib</text>
+      </g>
+
+      <!-- Node 9: Evidence Store -->
+      <g>
+        <rect x="925" y="340" width="160" height="70" rx="6" fill="#2d3142"/>
+        <rect x="925" y="340" width="160" height="70" rx="6" fill="rgba(240,138,89,0.06)" stroke="#f08a59" stroke-width="1"/>
+        <rect x="933" y="348" width="38" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.40)" stroke-width="0.8"/>
+        <text x="952" y="357" fill="#f08a59" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">VAULT</text>
+        <text x="1005" y="375" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">Evidence Store</text>
+        <text x="1005" y="392" fill="#f08a59" font-size="8.5" font-family="'Geist Mono', monospace" text-anchor="middle">CAS SHA-256 · SQLite</text>
+      </g>
+
+    </svg>
+
+    <div class="legend-card">
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #f08a59;"></div>
+        <div><strong>Focal Router (using-ownhands)</strong>: 세션 진입 및 작업 변경 시 자동 호출되어 Red Flags 검사 및 올바른 전문 서브 스킬로 라우팅</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #6a95d8;"></div>
+        <div><strong>Platform Ingress</strong>: Antigravity, Codex, Claude Code, Grok 등 다양한 클라이언트 환경에 맞춘 references 어댑터 매핑</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #bfc0c0;"></div>
+        <div><strong>Independent Sub-Skills</strong>: 단일 모놀리식이 아닌 위생·프로파일·실행제어·테스트보증의 4대 독립 서브 스킬 세트</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #f08a59;"></div>
+        <div><strong>Option C 2-Tier Contract</strong>: MCP 실행 결과(status)와 비즈니스 판정(decision: pass/soft_block/hard_block) 및 CAS 증적 보증</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
