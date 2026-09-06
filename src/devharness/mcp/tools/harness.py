@@ -116,7 +116,26 @@ def handle_harness_contract_validate(arguments: dict[str, Any], data_paths: Data
     overlay = arguments.get("overlay")
     profile = arguments.get("profile")
     interview_responses = arguments.get("interview_responses")
-    approvals = arguments.get("approvals", [])
+    approvals = arguments.get("approvals")
+    if approvals is None:
+        approvals = []
+    elif not isinstance(approvals, list):
+        return make_error_envelope("InvalidArgument", "approvals must be an array")
+
+    event_refs = arguments.get("event_refs")
+    if event_refs is not None and not isinstance(event_refs, list):
+        return make_error_envelope("InvalidArgument", "event_refs must be an array")
+    event_refs = event_refs or []
+
+    evidence_refs = arguments.get("evidence_refs")
+    if evidence_refs is not None and not isinstance(evidence_refs, list):
+        return make_error_envelope("InvalidArgument", "evidence_refs must be an array")
+    evidence_refs = evidence_refs or []
+
+    available_refs = arguments.get("available_refs")
+    if available_refs is not None and not isinstance(available_refs, list):
+        return make_error_envelope("InvalidArgument", "available_refs must be an array")
+
     now = datetime.now(timezone.utc).isoformat()
 
     decision = "pass"
@@ -127,8 +146,6 @@ def handle_harness_contract_validate(arguments: dict[str, Any], data_paths: Data
             return make_error_envelope("InvalidArgument", "interview_responses must be a list")
         version = arguments.get("version", 1)
         predecessor_ref = arguments.get("predecessor_ref")
-        event_refs = arguments.get("event_refs") or []
-        evidence_refs = arguments.get("evidence_refs") or []
         try:
             interview = run_interview(profile, interview_responses)
             built_baseline = build_baseline(
@@ -147,8 +164,8 @@ def handle_harness_contract_validate(arguments: dict[str, Any], data_paths: Data
                 decision = "pass"
             trigger = arguments.get("trigger")
             if isinstance(trigger, str) and trigger.strip():
-                available_refs = set(arguments.get("available_refs") or [])
-                freshness = assess_baseline_freshness(built_baseline, profile, trigger, available_refs)
+                available_set = set(available_refs) if available_refs is not None else set()
+                freshness = assess_baseline_freshness(built_baseline, profile, trigger, available_set)
                 result_data["freshness"] = freshness
                 if freshness.get("status") != "fresh":
                     decision = "soft_block"
@@ -208,8 +225,17 @@ def handle_harness_compile_preview(arguments: dict[str, Any], data_paths: DataPa
     if not isinstance(contract, dict):
         return make_error_envelope("InvalidArgument", "contract must be an object")
 
-    existing = arguments.get("existing", {})
-    evidence_index = arguments.get("evidence_index", {})
+    existing = arguments.get("existing")
+    if existing is None:
+        existing = {}
+    elif not isinstance(existing, dict):
+        return make_error_envelope("InvalidArgument", "existing must be an object")
+
+    evidence_index = arguments.get("evidence_index")
+    if evidence_index is None:
+        evidence_index = {}
+    elif not isinstance(evidence_index, dict):
+        return make_error_envelope("InvalidArgument", "evidence_index must be an object")
 
     try:
         compiled = compile_control_profile(contract, existing)

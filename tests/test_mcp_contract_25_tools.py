@@ -1395,7 +1395,7 @@ class McpContract25ToolsTests(unittest.TestCase):
         finally:
             context_mod.evaluate_context_guarantees = orig_guar
 
-    def test_regression_compare_mixed_comparable_pass_and_missing_before_returns_soft_block(self) -> None:
+    def test_regression_compare_mixed_comparable_pass_and_missing_before_returns_unobserved(self) -> None:
         receipt_base = {
             "test_id": "t1",
             "subject_ref": "sub",
@@ -1424,7 +1424,7 @@ class McpContract25ToolsTests(unittest.TestCase):
             },
         )
         self.assertEqual(envelope["status"], "ok")
-        self.assertEqual(envelope["decision"], "soft_block")
+        self.assertEqual(envelope["decision"], "unobserved")
         comparisons = envelope["data"]["comparisons"]
         statuses = {c["test_id"]: c["status"] for c in comparisons}
         self.assertEqual(statuses["t1"], "comparable_pass")
@@ -1438,6 +1438,67 @@ class McpContract25ToolsTests(unittest.TestCase):
         self.assertEqual(envelope["status"], "error")
         self.assertNotEqual(envelope.get("decision"), "pass")
         self.assertEqual(envelope["error"]["code"], "InvalidArgument")
+
+    def test_regression_malformed_optional_structured_arguments_return_error_envelope(self) -> None:
+        # 1. compile_preview: existing must be object
+        e1 = self.call_tool(
+            "harness.compile_preview",
+            {"contract": {}, "existing": "invalid_string"},
+        )
+        self.assertEqual(e1["status"], "error")
+        self.assertIsNone(e1["decision"])
+        self.assertEqual(e1["error"]["code"], "InvalidArgument")
+        self.assertIn("existing must be an object", e1["error"]["message"])
+
+        # 2. compile_preview: evidence_index must be object
+        e2 = self.call_tool(
+            "harness.compile_preview",
+            {"contract": {}, "existing": {}, "evidence_index": [1, 2, 3]},
+        )
+        self.assertEqual(e2["status"], "error")
+        self.assertIsNone(e2["decision"])
+        self.assertEqual(e2["error"]["code"], "InvalidArgument")
+        self.assertIn("evidence_index must be an object", e2["error"]["message"])
+
+        # 3. contract_validate: approvals must be array
+        e3 = self.call_tool(
+            "harness.contract_validate",
+            {"baseline": {}, "overlay": {}, "approvals": "invalid_approvals"},
+        )
+        self.assertEqual(e3["status"], "error")
+        self.assertIsNone(e3["decision"])
+        self.assertEqual(e3["error"]["code"], "InvalidArgument")
+        self.assertIn("approvals must be an array", e3["error"]["message"])
+
+        # 4. contract_validate: event_refs must be array
+        e4 = self.call_tool(
+            "harness.contract_validate",
+            {"profile": {}, "interview_responses": [], "event_refs": "invalid"},
+        )
+        self.assertEqual(e4["status"], "error")
+        self.assertIsNone(e4["decision"])
+        self.assertEqual(e4["error"]["code"], "InvalidArgument")
+        self.assertIn("event_refs must be an array", e4["error"]["message"])
+
+        # 5. contract_validate: evidence_refs must be array
+        e5 = self.call_tool(
+            "harness.contract_validate",
+            {"profile": {}, "interview_responses": [], "evidence_refs": {"key": "val"}},
+        )
+        self.assertEqual(e5["status"], "error")
+        self.assertIsNone(e5["decision"])
+        self.assertEqual(e5["error"]["code"], "InvalidArgument")
+        self.assertIn("evidence_refs must be an array", e5["error"]["message"])
+
+        # 6. contract_validate: available_refs must be array
+        e6 = self.call_tool(
+            "harness.contract_validate",
+            {"profile": {}, "interview_responses": [], "available_refs": 123},
+        )
+        self.assertEqual(e6["status"], "error")
+        self.assertIsNone(e6["decision"])
+        self.assertEqual(e6["error"]["code"], "InvalidArgument")
+        self.assertIn("available_refs must be an array", e6["error"]["message"])
 
 
 if __name__ == "__main__":
