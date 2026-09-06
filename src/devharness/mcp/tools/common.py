@@ -40,7 +40,7 @@ def task_not_found_response(task_id: str) -> dict[str, Any]:
 def make_error_envelope(
     code: str,
     message: str,
-    decision: str | None = "hard_block",
+    decision: str | None = None,
 ) -> dict[str, Any]:
     return {
         "status": "error",
@@ -66,6 +66,16 @@ def record_tool_evidence(
         validate_task_exists(catalog, task_id)
         payload_bytes = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
         content_hash = hashlib.sha256(payload_bytes).hexdigest()
+
+        if result_decision == "pass":
+            ev_result, ev_basis = "pass", "observed"
+        elif result_decision == "soft_block":
+            ev_result, ev_basis = "inconclusive", "observed"
+        elif result_decision == "hard_block":
+            ev_result, ev_basis = "fail", "observed"
+        else:
+            ev_result, ev_basis = "not_run", "unobserved"
+
         draft = EvidenceDraft(
             evidence_id=f"sha256:{content_hash}",
             task_id=task_id,
@@ -73,8 +83,8 @@ def record_tool_evidence(
             evidence_type=evidence_type,
             subject_ref=subject_ref,
             exact_scope=scope,
-            result="pass" if result_decision == "pass" else "fail",
-            basis="observed",
+            result=ev_result,
+            basis=ev_basis,
             fields={"decision": result_decision},
             content=payload_bytes,
             collection_method=f"mcp:{subject_ref}",

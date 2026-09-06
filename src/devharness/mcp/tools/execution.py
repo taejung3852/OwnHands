@@ -505,7 +505,7 @@ def handle_task_record_run(arguments: dict[str, Any], data_paths: DataPaths | No
             protocol_fingerprint=run_dict.get("protocol_fingerprint", ""),
         )
         with Catalog.open(paths) as catalog:
-            result = record_managed_run(prepared, run_obj, catalog)
+            result = record_managed_run(catalog, prepared, run_obj)
     except Exception as error:
         return make_error_envelope(type(error).__name__, str(error))
 

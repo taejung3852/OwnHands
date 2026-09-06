@@ -12,6 +12,7 @@ from devharness.control_profile import (
     compile_control_profile,
     profile_project,
     render_control_preview,
+    run_interview,
 )
 from devharness.mcp.tools.common import (
     TaskNotFoundError,
@@ -52,6 +53,9 @@ HARNESS_CONTRACT_VALIDATE_TOOL = {
             "profile": {"type": "object", "description": "Project profile (when building baseline)"},
             "interview_responses": {"type": "array", "description": "Interview answer list"},
             "version": {"type": "integer", "default": 1, "description": "Baseline version"},
+            "predecessor_ref": {"type": ["string", "null"], "description": "Predecessor baseline reference"},
+            "event_refs": {"type": "array", "items": {"type": "string"}, "description": "Event references", "default": []},
+            "evidence_refs": {"type": "array", "items": {"type": "string"}, "description": "Evidence references", "default": []},
             "trigger": {"type": "string", "description": "Optional freshness check trigger"},
             "available_refs": {"type": "array", "items": {"type": "string"}, "description": "Available evidence refs for freshness check"},
             "approvals": {"type": "array", "description": "List of explicit approval records", "default": []},
@@ -120,15 +124,28 @@ def handle_harness_contract_validate(arguments: dict[str, Any], data_paths: Data
     result_data: dict[str, Any] = {}
 
     if isinstance(profile, dict) and interview_responses is not None:
+        if not isinstance(interview_responses, list):
+            return make_error_envelope("InvalidArgument", "interview_responses must be a list")
         version = arguments.get("version", 1)
+        predecessor_ref = arguments.get("predecessor_ref")
+        event_refs = arguments.get("event_refs") or []
+        evidence_refs = arguments.get("evidence_refs") or []
         try:
+            interview = run_interview(profile, interview_responses)
             built_baseline = build_baseline(
                 profile,
-                interview_responses,
+                interview,
                 version=version,
-                observed_at=now,
+                predecessor_ref=predecessor_ref,
+                event_refs=event_refs,
+                evidence_refs=evidence_refs,
             )
+            result_data["interview"] = interview
             result_data["baseline"] = built_baseline
+            if interview.get("unresolved_decisions"):
+                decision = "soft_block"
+            else:
+                decision = "pass"
             trigger = arguments.get("trigger")
             if isinstance(trigger, str) and trigger.strip():
                 available_refs = set(arguments.get("available_refs") or [])
@@ -136,7 +153,6 @@ def handle_harness_contract_validate(arguments: dict[str, Any], data_paths: Data
                 result_data["freshness"] = freshness
                 if freshness.get("status") != "fresh":
                     decision = "soft_block"
-            decision = "pass" if decision != "soft_block" else "soft_block"
         except (ControlProfileError, ValueError) as error:
             decision = "hard_block"
             result_data = {"validation_error": str(error), "error_type": type(error).__name__}
@@ -144,8 +160,9 @@ def handle_harness_contract_validate(arguments: dict[str, Any], data_paths: Data
         try:
             built = build_execution_contract(baseline=baseline, overlay=overlay, approvals=approvals, now=now)
             result_data = built
-            perms = built.get("active_permissions", [])
-            if any(p.get("active") is False for p in perms):
+            perms = built.get("permissions", [])
+            gate_status = built.get("gate_status")
+            if gate_status == "hard_block" or any(p.get("active") is False for p in perms):
                 decision = "hard_block"
             else:
                 decision = "pass"
@@ -170,11 +187,14 @@ def handle_harness_contract_validate(arguments: dict[str, Any], data_paths: Data
                         findings.append(f"writable path '{w}' overlaps protected target '{p}'")
                         decision = "hard_block"
 
-            active_perms = contract.get("active_permissions", [])
+            active_perms = contract.get("permissions") or contract.get("active_permissions", [])
             for perm in active_perms:
                 if perm.get("active") is False:
                     findings.append(f"permission '{perm.get('permission')}' is unapproved")
                     decision = "hard_block"
+            if contract.get("gate_status") == "hard_block":
+                findings.append("contract gate_status is hard_block")
+                decision = "hard_block"
 
         result_data = {
             "contract": contract,

@@ -153,7 +153,7 @@ class McpServer:
             tool_name = params.get("name")
             tool_entry = None
             if isinstance(tool_name, str):
-                tool_entry = self.tools.get(tool_name) or self.tools.get(tool_name.replace("_", "."))
+                tool_entry = self.tools.get(tool_name)
             if not tool_entry:
                 return error_response(req_id, METHOD_NOT_FOUND, f"tool not found: {tool_name}")
 

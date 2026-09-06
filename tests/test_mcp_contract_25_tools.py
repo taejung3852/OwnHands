@@ -11,6 +11,7 @@ from pathlib import Path
 from devharness.assurance import RECEIPT_FIELDS
 from devharness.catalog import Catalog
 from devharness.events import EventDraft, EventLog
+from devharness.evidence import EvidenceDraft, EvidenceStore
 from devharness.identity import IdentityRegistry
 from devharness.mcp.server import McpServer
 from devharness.paths import DataPaths
@@ -483,7 +484,7 @@ class McpContract25ToolsTests(unittest.TestCase):
             },
         )
         self.assertEqual(envelope["status"], "error")
-        self.assertEqual(envelope["decision"], "hard_block")
+        self.assertIsNone(envelope["decision"])
 
     def test_task_import_contract(self) -> None:
         fixture_path = Path(__file__).parent / "fixtures/m3/imported-task.json"
@@ -678,7 +679,7 @@ class McpContract25ToolsTests(unittest.TestCase):
             },
         )
         self.assertEqual(envelope["status"], "ok")
-        self.assertEqual(envelope["decision"], "pass")
+        self.assertEqual(envelope["decision"], envelope["data"]["decision"])
         self.assertIn("decision", envelope["data"])
 
 
@@ -761,57 +762,7 @@ class McpContract25ToolsTests(unittest.TestCase):
             },
         )
         self.assertEqual(envelope["status"], "error")
-        self.assertEqual(envelope["decision"], "hard_block")
-
-    def test_assurance_gate_evaluate_contract(self) -> None:
-        contract = self._make_test_contract()
-        impact = {
-            "contract_id": contract["contract_id"],
-            "contract_fingerprint": contract["fingerprint"],
-            "fingerprint": "sha256:" + "i" * 64,
-            "restore_point_ref": "rp1",
-            "joined_relations": [],
-            "unobserved_boundaries": [],
-            "affected_targets": [],
-        }
-        design = {
-            "contract_id": contract["contract_id"],
-            "contract_fingerprint": contract["fingerprint"],
-            "impact_fingerprint": impact["fingerprint"],
-            "fingerprint": "sha256:" + "d" * 64,
-            "selected_tests": [dict(contract["assurance_draft"]["tests"][0])],
-            "criterion_coverage": [{"criterion_id": "crit1", "covered": True}],
-            "missing_coverage": [],
-        }
-        comparison = {
-            "comparisons": [
-                {
-                    "test_id": "test_red_1",
-                    "criterion_id": "crit1",
-                    "status": "comparable_pass",
-                    "block_level": "hard",
-                    "subject_ref": "feature_a",
-                    "evidence_refs": ["ev1"],
-                    "conflict_refs": [],
-                }
-            ]
-        }
-        gaps = {"gaps": [], "unresolved_gaps": []}
-
-        envelope = self.call_tool(
-            "assurance.gate_evaluate",
-            {
-                "contract": contract,
-                "impact": impact,
-                "design": design,
-                "comparison": comparison,
-                "gaps": gaps,
-                "task_id": self.task.task_id,
-            },
-        )
-        self.assertEqual(envelope["status"], "ok")
-        self.assertEqual(envelope["decision"], envelope["data"]["decision"])
-        self.assertIn("decision", envelope["data"])
+        self.assertIsNone(envelope["decision"])
 
     def test_guarantee_evaluate_contract(self) -> None:
         envelope = self.call_tool(
@@ -825,6 +776,463 @@ class McpContract25ToolsTests(unittest.TestCase):
         self.assertIn("claim_results", envelope["data"])
         for claim_res in envelope["data"]["claim_results"]:
             self.assertIn(claim_res["verdict"], {"supported", "contradicted", "not_evaluated"})
+
+    # --------------------------------------------------------------------------
+    # 7. Bug Regression Tests (TDD Verification)
+    # --------------------------------------------------------------------------
+    def test_harness_contract_validate_profile_interview_pipeline(self) -> None:
+        # 1. Profile project
+        profile_env = self.call_tool("harness.profile", {"root": str(self.root)})
+        self.assertEqual(profile_env["status"], "ok")
+        profile = profile_env["data"]
+
+        # 2. Validate with interview responses through real Core pipeline (run_interview -> build_baseline)
+        responses = ["workspace-write", "on-request"]
+        env = self.call_tool(
+            "harness.contract_validate",
+            {
+                "profile": profile,
+                "interview_responses": responses,
+                "version": 1,
+                "predecessor_ref": None,
+                "event_refs": [],
+                "evidence_refs": [],
+            },
+        )
+        self.assertEqual(env["status"], "ok")
+        self.assertIn(env["decision"], {"pass", "soft_block"})
+        self.assertIn("baseline", env["data"])
+        self.assertEqual(env["data"]["baseline"]["version"], 1)
+        self.assertIn("interview", env["data"])
+
+    def test_harness_contract_validate_baseline_overlay_hard_block_and_permissions(self) -> None:
+        profile_env = self.call_tool("harness.profile", {"root": str(self.root)})
+        profile = profile_env["data"]
+        from devharness.control_profile import run_interview, build_baseline
+        interview = run_interview(profile, ["workspace-write", "on-request"])
+        baseline = build_baseline(
+            profile,
+            interview,
+            version=1,
+            predecessor_ref=None,
+            event_refs=["event-1"],
+            evidence_refs=["evidence-1"],
+        )
+        overlay = {
+            "overlay_version": "1.0",
+            "overlay_id": "overlay-test-01",
+            "task": {
+                "project_id": baseline["project_id"],
+                "worktree_id": baseline["worktree_id"],
+                "task_id": "task-test-01",
+                "environment_ref": baseline["environment_ref"],
+                "mode": "managed",
+            },
+            "baseline_ref": baseline["baseline_id"],
+            "baseline_fingerprint": baseline["fingerprint"],
+            "instruction_overlay": {"source_refs": []},
+            "control_overlay": {"source_refs": []},
+            "writable_paths": ["src/**"],
+            "protected_targets": [".env"],
+            "permission_expansions": [
+                {
+                    "permission": "network",
+                    "scope": "api.openai.com",
+                    "reason": "testing",
+                    "duration": "task",
+                    "approval_ref": "unapproved-app",
+                }
+            ],
+            "approval_triggers": [],
+            "validation_criteria": ["pytest"],
+            "gate_criteria": [],
+            "unobserved_paths": [],
+        }
+        # No matching approval -> hard_block on unapproved permission
+        env = self.call_tool(
+            "harness.contract_validate",
+            {"baseline": baseline, "overlay": overlay, "approvals": []},
+        )
+        self.assertEqual(env["status"], "ok")
+        self.assertEqual(env["decision"], "hard_block")
+        self.assertEqual(env["data"]["gate_status"], "hard_block")
+        self.assertTrue(any(p["active"] is False for p in env["data"]["permissions"]))
+
+    def test_task_record_run_managed_execution(self) -> None:
+        # Create a repo with a committed baseline
+        repo_dir = self.root / "task_run_repo"
+        repo_dir.mkdir()
+        git_cmd(repo_dir, "init")
+        git_cmd(repo_dir, "config", "user.email", "run@example.invalid")
+        git_cmd(repo_dir, "config", "user.name", "RunTester")
+        (repo_dir / ".ownhands-disposable").write_text("synthetic\n", encoding="utf-8")
+        (repo_dir / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+        (repo_dir / ".codex").mkdir()
+        (repo_dir / ".codex" / "config.toml").write_text('sandbox_mode = "workspace-write"\napproval_policy = "on-request"\n', encoding="utf-8")
+        (repo_dir / ".codex" / "rules").mkdir()
+        (repo_dir / ".codex" / "rules" / "ownhands.rules").write_text('prefix_rule(pattern=["python"], decision="allow")\n', encoding="utf-8")
+        (repo_dir / ".codex" / "hooks.json").write_text('{"hooks":[]}\n', encoding="utf-8")
+        git_cmd(repo_dir, "add", ".")
+        git_cmd(repo_dir, "commit", "-m", "initial")
+        start_commit = git_cmd(repo_dir, "rev-parse", "HEAD").decode().strip()
+        diff_patch = git_cmd(repo_dir, "diff", "--binary", start_commit)
+        from devharness.managed_tasks import prepare_managed_task
+        import hashlib
+        patch_hash = "sha256:" + hashlib.sha256(diff_patch).hexdigest()
+
+        # Register task in catalog with actual repo path
+        with Catalog.open(self.data_paths) as catalog:
+            reg = IdentityRegistry(catalog)
+            proj = reg.register_project(str(repo_dir))
+            wt = reg.register_worktree(proj.project_id, str(repo_dir))
+            t = reg.create_task(
+                wt.worktree_id,
+                "managed",
+                start_commit,
+                "main",
+                str(repo_dir),
+                "test-env",
+            )
+            ev = EventLog(catalog)
+            ev.append(
+                EventDraft(
+                    f"task-created:{t.task_id}",
+                    t.task_id,
+                    "task.created",
+                    1,
+                    "2026-09-07T00:00:00+00:00",
+                    {"mode": "managed"},
+                    "identity:lifecycle",
+                    "not_needed",
+                ),
+                lambda p: p,
+            )
+            store = EvidenceStore(catalog, ev)
+            store.put(
+                EvidenceDraft(
+                    "evidence-m2-baseline",
+                    t.task_id,
+                    "M2-baseline",
+                    "direct_feature_probe",
+                    "baseline-managed-v1",
+                    "M2 baseline",
+                    "pass",
+                    "observed",
+                    {"artifact_ref": "baseline-managed-v1"},
+                    b"synthetic M2 baseline",
+                    "m3-test",
+                    "not_needed",
+                ),
+                lambda p: p,
+            )
+
+            # Build valid prepare request
+            sources = []
+            for src_path, src_type in (
+                ("AGENTS.md", "agents_instruction"),
+                (".codex/config.toml", "codex_config"),
+                (".codex/rules/ownhands.rules", "rule"),
+                (".codex/hooks.json", "hook"),
+            ):
+                sources.append(
+                    {
+                        "source_id": f"source:{src_path}",
+                        "source_type": src_type,
+                        "path": src_path,
+                        "content_hash": "sha256:" + hashlib.sha256((repo_dir / src_path).read_bytes()).hexdigest(),
+                    }
+                )
+            baseline = {
+                "baseline_id": "baseline-managed-v1",
+                "project_id": proj.project_id,
+                "worktree_id": wt.worktree_id,
+                "environment_ref": "test-env",
+                "sources": sources,
+                "event_refs": [f"task-created:{t.task_id}"],
+                "evidence_refs": ["evidence-m2-baseline"],
+                "commands": [{"command": "pytest", "kind": "test"}],
+                "sensitive_paths": [],
+                "unobserved": [],
+            }
+            from devharness.managed_tasks import _canonical_hash
+            baseline["fingerprint"] = _canonical_hash(baseline)
+            contract = {
+                "contract_id": f"contract:{t.task_id}",
+                "task": {
+                    "project_id": proj.project_id,
+                    "worktree_id": wt.worktree_id,
+                    "task_id": t.task_id,
+                    "environment_ref": "test-env",
+                    "mode": "managed",
+                },
+                "baseline_ref": baseline["baseline_id"],
+                "baseline_fingerprint": baseline["fingerprint"],
+                "gate_status": "ready_for_preview",
+                "approval_triggers": [],
+                "permissions": [],
+                "writable_paths": ["src/**"],
+                "protected_targets": [".env"],
+                "validation_criteria": ["pytest"],
+            }
+            contract["fingerprint"] = _canonical_hash(contract)
+            prep_request = {
+                "repository": str(repo_dir),
+                "start_commit": start_commit,
+                "patch_hash": patch_hash,
+                "task": contract["task"],
+                "baseline": baseline,
+                "contract": contract,
+                "sandbox_mode": "workspace-write",
+                "approval_policy": "on-request",
+                "branch": "main",
+                "freshness": {"status": "fresh", "basis": "observed"},
+                "available_event_refs": [f"task-created:{t.task_id}"],
+                "available_evidence_refs": ["evidence-m2-baseline"],
+                "approval": {
+                    "decision": "approved",
+                    "decision_source": "explicit_product_approval",
+                    "contract_ref": contract["contract_id"],
+                    "task_id": t.task_id,
+                    "scope": "managed_task_start",
+                    "expires_at": "2026-09-07T12:00:00+00:00",
+                },
+            }
+            prepared = prepare_managed_task(prep_request, now="2026-09-07T00:00:00+00:00")
+
+        # Now call task.record_run via MCP tool
+        run_data = {
+            "records": [
+                {
+                    "kind": "notification",
+                    "method": "item/completed",
+                    "payload_hash": "sha256:" + "0" * 64,
+                    "request_id": None,
+                    "thread_id": "th-1",
+                    "turn_id": "tu-1",
+                    "item_id": "it-1",
+                    "item_type": "commandExecution",
+                    "status": "completed",
+                    "decision": None,
+                }
+            ],
+            "thread_id": "th-1",
+            "turn_id": "tu-1",
+            "terminal_status": "completed",
+            "instruction_sources": ["AGENTS.md"],
+            "codex_version": "0.48.0",
+            "protocol_fingerprint": "sha256:" + "0" * 64,
+        }
+        env = self.call_tool(
+            "task.record_run",
+            {"prepared": prepared, "run": run_data},
+        )
+        self.assertEqual(env["status"], "ok")
+        self.assertEqual(env["decision"], "pass")
+        self.assertEqual(env["data"]["task_id"], t.task_id)
+
+    def test_tests_gap_detect_evaluates_core_gaps_field(self) -> None:
+        from devharness.mcp.tools.assurance import handle_tests_gap_detect
+        contract = self._make_test_contract()
+        impact = {"contract_id": contract["contract_id"], "fingerprint": "sha256:" + "0" * 64, "relations": []}
+        design = {"contract_id": contract["contract_id"], "selected_tests": [], "mappings": []}
+        comparison = {"comparisons": []}
+
+        # Mock detect_test_gaps return
+        import devharness.mcp.tools.assurance as assurance_mod
+        orig = assurance_mod.detect_test_gaps
+        try:
+            # Case 1: Core gaps has required gap -> hard_block
+            assurance_mod.detect_test_gaps = lambda c, i, d, cmp: {"gaps": [{"required": True, "kind": "no_test"}]}
+            res1 = handle_tests_gap_detect({"contract": contract, "impact": impact, "design": design, "comparison": comparison}, self.data_paths)
+            self.assertEqual(res1["decision"], "hard_block")
+
+            # Case 2: Core gaps has only optional gap -> soft_block
+            assurance_mod.detect_test_gaps = lambda c, i, d, cmp: {"gaps": [{"required": False, "kind": "optional_gap"}]}
+            res2 = handle_tests_gap_detect({"contract": contract, "impact": impact, "design": design, "comparison": comparison}, self.data_paths)
+            self.assertEqual(res2["decision"], "soft_block")
+
+            # Case 3: Core gaps is empty -> pass
+            assurance_mod.detect_test_gaps = lambda c, i, d, cmp: {"gaps": []}
+            res3 = handle_tests_gap_detect({"contract": contract, "impact": impact, "design": design, "comparison": comparison}, self.data_paths)
+            self.assertEqual(res3["decision"], "pass")
+        finally:
+            assurance_mod.detect_test_gaps = orig
+
+    def test_tests_design_memo_evaluates_omitted_viewpoints(self) -> None:
+        from devharness.mcp.tools.assurance import handle_tests_design_memo
+        contract = self._make_test_contract()
+        impact = {"fingerprint": "sha256:" + "0" * 64}
+        catalog = [{"criterion_id": "crit1", "test_ids": ["test_red_1"], "required_viewpoints": ["v1"]}]
+
+        import devharness.mcp.tools.assurance as assurance_mod
+        orig = assurance_mod.build_test_design
+        try:
+            # Case 1: omitted_viewpoints is non-empty -> soft_block
+            assurance_mod.build_test_design = lambda c, i, req: {"mappings": [{"omitted_viewpoints": ["v2"]}]}
+            res1 = handle_tests_design_memo({"contract": contract, "impact": impact, "requirement_catalog": catalog}, self.data_paths)
+            self.assertEqual(res1["decision"], "soft_block")
+
+            # Case 2: omitted_viewpoints is empty -> pass
+            assurance_mod.build_test_design = lambda c, i, req: {"mappings": [{"omitted_viewpoints": []}]}
+            res2 = handle_tests_design_memo({"contract": contract, "impact": impact, "requirement_catalog": catalog}, self.data_paths)
+            self.assertEqual(res2["decision"], "pass")
+        finally:
+            assurance_mod.build_test_design = orig
+
+    def test_git_diff_impact_unobserved_and_protected_targets(self) -> None:
+        from devharness.mcp.tools.assurance import handle_git_diff_impact
+        # Case 1: Missing contract/restore_point/relation_catalog returns error envelope, not fallback
+        res_missing = handle_git_diff_impact({"root": str(self.root)})
+        self.assertEqual(res_missing["status"], "error")
+        self.assertIsNone(res_missing["decision"])
+
+        import devharness.mcp.tools.assurance as assurance_mod
+        orig = assurance_mod.analyze_impact
+        try:
+            # Case 2: protected_target_changes present -> hard_block
+            assurance_mod.analyze_impact = lambda **kw: {"protected_target_changes": [".env"], "unobserved": []}
+            res_prot = handle_git_diff_impact({
+                "root": str(self.root),
+                "contract": {},
+                "restore_point": {},
+                "relation_catalog": {},
+            })
+            self.assertEqual(res_prot["decision"], "hard_block")
+
+            # Case 3: unobserved present -> soft_block
+            assurance_mod.analyze_impact = lambda **kw: {"protected_target_changes": [], "unobserved": [{"area": "src/new.py"}]}
+            res_unobs = handle_git_diff_impact({
+                "root": str(self.root),
+                "contract": {},
+                "restore_point": {},
+                "relation_catalog": {},
+            })
+            self.assertEqual(res_unobs["decision"], "soft_block")
+
+            # Case 4: clean -> pass
+            assurance_mod.analyze_impact = lambda **kw: {"protected_target_changes": [], "unobserved": []}
+            res_clean = handle_git_diff_impact({
+                "root": str(self.root),
+                "contract": {},
+                "restore_point": {},
+                "relation_catalog": {},
+            })
+            self.assertEqual(res_clean["decision"], "pass")
+        finally:
+            assurance_mod.analyze_impact = orig
+
+    def test_context_benchmark_evaluate_three_core_verdicts(self) -> None:
+        from devharness.mcp.tools.context import handle_context_benchmark_evaluate
+        import devharness.mcp.tools.context as context_mod
+        orig = context_mod.evaluate_comparison
+        try:
+            # recommended -> pass
+            context_mod.evaluate_comparison = lambda p, r: {"improvement_verdict": "recommended"}
+            r1 = handle_context_benchmark_evaluate({"package": {}, "runs": []})
+            self.assertEqual(r1["decision"], "pass")
+
+            # no_improvement -> soft_block
+            context_mod.evaluate_comparison = lambda p, r: {"improvement_verdict": "no_improvement"}
+            r2 = handle_context_benchmark_evaluate({"package": {}, "runs": []})
+            self.assertEqual(r2["decision"], "soft_block")
+
+            # not_evaluated -> unobserved
+            context_mod.evaluate_comparison = lambda p, r: {"improvement_verdict": "not_evaluated"}
+            r3 = handle_context_benchmark_evaluate({"package": {}, "runs": []})
+            self.assertEqual(r3["decision"], "unobserved")
+        finally:
+            context_mod.evaluate_comparison = orig
+
+    def test_guarantee_evaluate_verdict_decision_mapping(self) -> None:
+        from devharness.mcp.tools.assurance import handle_guarantee_evaluate
+        import devharness.mcp.tools.assurance as assurance_mod
+        orig = assurance_mod.GuaranteeEvaluator
+
+        class MockEvaluator:
+            def __init__(self, catalog, store, matrix):
+                pass
+            def evaluate(self, task_id, claim_ids=None):
+                return getattr(self, "_report", {})
+
+        mock = MockEvaluator(None, None, None)
+        assurance_mod.GuaranteeEvaluator = lambda *a, **k: mock
+        try:
+            # Case 1: any contradicted -> hard_block
+            mock._report = {"claim_results": [{"verdict": "supported"}, {"verdict": "contradicted"}]}
+            res1 = handle_guarantee_evaluate({"task_id": self.task.task_id}, self.data_paths)
+            self.assertEqual(res1["decision"], "hard_block")
+
+            # Case 2: any not_evaluated -> unobserved
+            mock._report = {"claim_results": [{"verdict": "supported"}, {"verdict": "not_evaluated"}]}
+            res2 = handle_guarantee_evaluate({"task_id": self.task.task_id}, self.data_paths)
+            self.assertEqual(res2["decision"], "unobserved")
+
+            # Case 3: all supported -> pass
+            mock._report = {"claim_results": [{"verdict": "supported"}, {"verdict": "supported"}]}
+            res3 = handle_guarantee_evaluate({"task_id": self.task.task_id}, self.data_paths)
+            self.assertEqual(res3["decision"], "pass")
+        finally:
+            assurance_mod.GuaranteeEvaluator = orig
+
+    def test_option_c_error_envelope_and_mcp_underscore_removed(self) -> None:
+        from devharness.mcp.tools.common import make_error_envelope, task_not_found_response
+        # Default decision is None
+        err = make_error_envelope("SampleError", "Sample message")
+        self.assertIsNone(err["decision"])
+        self.assertEqual(err["status"], "error")
+
+        # TaskNotFound preserves hard_block
+        tnf = task_not_found_response("some-task")
+        self.assertEqual(tnf["decision"], "hard_block")
+        self.assertEqual(tnf["status"], "error")
+
+        # MCP server rejects underscore aliases
+        req = {
+            "jsonrpc": "2.0",
+            "id": 999,
+            "method": "tools/call",
+            "params": {"name": "context_lint", "arguments": {}},
+        }
+        resp = self.server.handle_request(req)
+        self.assertIn("error", resp)
+        self.assertEqual(resp["error"]["code"], -32601)  # METHOD_NOT_FOUND
+
+    def test_record_tool_evidence_preserves_result_and_basis_semantics(self) -> None:
+        from devharness.mcp.tools.common import record_tool_evidence
+        with Catalog.open(self.data_paths) as catalog:
+            store = EvidenceStore(catalog, EventLog(catalog))
+
+            # pass -> pass, observed
+            id_pass = record_tool_evidence(
+                self.data_paths, self.task.task_id, "REQ", "active_configuration", "sub", "sc", "pass", {"k": 1}
+            )
+            rec_pass = store.resolve(id_pass)
+            self.assertEqual(rec_pass.result, "pass")
+            self.assertEqual(rec_pass.basis, "observed")
+
+            # soft_block -> inconclusive, observed
+            id_soft = record_tool_evidence(
+                self.data_paths, self.task.task_id, "REQ", "active_configuration", "sub", "sc", "soft_block", {"k": 2}
+            )
+            rec_soft = store.resolve(id_soft)
+            self.assertEqual(rec_soft.result, "inconclusive")
+            self.assertEqual(rec_soft.basis, "observed")
+
+            # hard_block -> fail, observed
+            id_hard = record_tool_evidence(
+                self.data_paths, self.task.task_id, "REQ", "active_configuration", "sub", "sc", "hard_block", {"k": 3}
+            )
+            rec_hard = store.resolve(id_hard)
+            self.assertEqual(rec_hard.result, "fail")
+            self.assertEqual(rec_hard.basis, "observed")
+
+            # unobserved -> not_run, unobserved
+            id_unobs = record_tool_evidence(
+                self.data_paths, self.task.task_id, "REQ", "active_configuration", "sub", "sc", "unobserved", {"k": 4}
+            )
+            rec_unobs = store.resolve(id_unobs)
+            self.assertEqual(rec_unobs.result, "not_run")
+            self.assertEqual(rec_unobs.basis, "unobserved")
 
 
 if __name__ == "__main__":

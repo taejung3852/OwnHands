@@ -6,7 +6,6 @@ from typing import Any
 
 from devharness.assurance import (
     AssuranceError,
-    _changed_paths,
     analyze_impact,
     build_assurance_packet,
     build_test_design,
@@ -98,12 +97,12 @@ GIT_DIFF_IMPACT_TOOL = {
     "description": "Analyzes Git tracked changes against declared relations (feature, test, dependency, contract) to compute impact scope.",
     "inputSchema": {
         "type": "object",
-        "required": ["root"],
+        "required": ["root", "contract", "restore_point", "relation_catalog"],
         "properties": {
             "root": {"type": "string", "description": "Absolute path to repository root"},
-            "contract": {"type": "object", "description": "Optional Task Execution Contract"},
-            "restore_point": {"type": "object", "description": "Optional Git restore point"},
-            "relation_catalog": {"type": "object", "description": "Optional relation catalog mapping changes to targets"},
+            "contract": {"type": "object", "description": "Task Execution Contract"},
+            "restore_point": {"type": "object", "description": "Git restore point"},
+            "relation_catalog": {"type": "object", "description": "Relation catalog mapping changes to targets"},
             "task_id": {"type": "string", "description": "Optional task ID to bind and record evidence"},
         },
     },
@@ -254,10 +253,10 @@ def handle_tests_gap_detect(arguments: dict[str, Any], data_paths: DataPaths | N
     except (AssuranceError, ValueError) as error:
         return make_error_envelope(type(error).__name__, str(error))
 
-    unresolved = gaps_result.get("unresolved_gaps", [])
-    if any(g.get("required") for g in unresolved):
+    gaps = gaps_result.get("gaps", [])
+    if any(g.get("required") for g in gaps):
         decision = "hard_block"
-    elif unresolved:
+    elif gaps:
         decision = "soft_block"
     else:
         decision = "pass"
@@ -300,8 +299,9 @@ def handle_tests_design_memo(arguments: dict[str, Any], data_paths: DataPaths | 
     except (AssuranceError, ValueError) as error:
         return make_error_envelope(type(error).__name__, str(error))
 
-    missing = design.get("missing_coverage", [])
-    decision = "soft_block" if missing else "pass"
+    mappings = design.get("mappings", [])
+    has_omitted = any(bool(m.get("omitted_viewpoints")) for m in mappings if isinstance(m, dict))
+    decision = "soft_block" if has_omitted else "pass"
 
     evidence_id = None
     task_id = arguments.get("task_id") or contract.get("task", {}).get("task_id")
@@ -340,36 +340,29 @@ def handle_git_diff_impact(arguments: dict[str, Any], data_paths: DataPaths | No
     relation_catalog = arguments.get("relation_catalog")
     now = datetime.now(timezone.utc).isoformat()
 
-    if isinstance(contract, dict) and isinstance(restore_point, dict) and isinstance(relation_catalog, dict):
-        try:
-            raw_result = analyze_impact(
-                repository=root_path,
-                restore_point=restore_point,
-                contract=contract,
-                relation_catalog=relation_catalog,
-                observed_at=now,
-            )
-            unobserved = raw_result.get("unobserved_boundaries", [])
-            decision = "soft_block" if unobserved else "pass"
-            data = raw_result
-        except (AssuranceError, ValueError, OSError) as error:
-            return make_error_envelope(type(error).__name__, str(error))
-    else:
-        try:
-            changed = _changed_paths(root_path)
-            untracked = [c["path"] for c in changed if c.get("status") == "untracked"]
-            modified = [c["path"] for c in changed if c.get("status") != "untracked"]
+    if not (isinstance(contract, dict) and isinstance(restore_point, dict) and isinstance(relation_catalog, dict)):
+        return make_error_envelope(
+            "InvalidArgument",
+            "contract, restore_point, and relation_catalog are required objects",
+        )
 
-            decision = "soft_block" if untracked else "pass"
-            data = {
-                "repository": str(root_path),
-                "changed_count": len(changed),
-                "modified_paths": modified,
-                "untracked_paths": untracked,
-                "has_changes": len(changed) > 0,
-            }
-        except (AssuranceError, OSError) as error:
-            return make_error_envelope(type(error).__name__, str(error))
+    try:
+        raw_result = analyze_impact(
+            repository=root_path,
+            restore_point=restore_point,
+            contract=contract,
+            relation_catalog=relation_catalog,
+            observed_at=now,
+        )
+    except (AssuranceError, ValueError, OSError) as error:
+        return make_error_envelope(type(error).__name__, str(error))
+
+    if raw_result.get("protected_target_changes"):
+        decision = "hard_block"
+    elif raw_result.get("unobserved"):
+        decision = "soft_block"
+    else:
+        decision = "pass"
 
     evidence_id = None
     task_id = arguments.get("task_id")
@@ -383,7 +376,7 @@ def handle_git_diff_impact(arguments: dict[str, Any], data_paths: DataPaths | No
                 subject_ref="git.diff_impact",
                 scope=str(root_path),
                 result_decision=decision,
-                payload=data,
+                payload=raw_result,
             )
         except TaskNotFoundError:
             return task_not_found_response(task_id)
@@ -392,7 +385,7 @@ def handle_git_diff_impact(arguments: dict[str, Any], data_paths: DataPaths | No
         "status": "ok",
         "decision": decision,
         "evidence_id": evidence_id,
-        "data": data,
+        "data": raw_result,
         "error": None,
     }
 
@@ -510,7 +503,9 @@ def handle_guarantee_evaluate(arguments: dict[str, Any], data_paths: DataPaths |
     verdicts = {c.get("verdict") for c in claim_results}
     if "contradicted" in verdicts:
         decision = "hard_block"
-    elif "supported" in verdicts:
+    elif "not_evaluated" in verdicts or not verdicts:
+        decision = "unobserved"
+    elif all(v == "supported" for v in verdicts):
         decision = "pass"
     else:
         decision = "unobserved"

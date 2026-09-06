@@ -345,12 +345,14 @@ def handle_context_benchmark_evaluate(arguments: dict[str, Any], data_paths: Dat
         return make_error_envelope(type(error).__name__, str(error))
 
     verdict = raw_result.get("improvement_verdict")
-    if verdict == "supported":
+    if verdict == "recommended":
         decision = "pass"
-    elif verdict == "contradicted":
-        decision = "hard_block"
-    else:
+    elif verdict == "no_improvement":
         decision = "soft_block"
+    elif verdict == "not_evaluated":
+        decision = "unobserved"
+    else:
+        decision = "unobserved"
 
     evidence_id = None
     task_id = arguments.get("task_id")
