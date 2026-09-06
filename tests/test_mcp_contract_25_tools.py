@@ -348,7 +348,8 @@ class McpContract25ToolsTests(unittest.TestCase):
         self.assertIn("structure", envelope["data"])
 
     def test_harness_contract_validate_contract_and_overlay(self) -> None:
-        contract_valid = {
+        # Direct contract is rejected with error envelope
+        contract_direct = {
             "contract_id": "c-valid",
             "task": {
                 "project_id": self.task.project_id,
@@ -360,10 +361,59 @@ class McpContract25ToolsTests(unittest.TestCase):
             "protected_targets": ["AGENTS.md"],
             "active_permissions": [{"permission": "fs:write", "active": True}],
         }
+        envelope_err = self.call_tool(
+            "harness.contract_validate",
+            {
+                "contract": contract_direct,
+                "task_id": self.task.task_id,
+            },
+        )
+        self.assertEqual(envelope_err["status"], "error")
+        self.assertEqual(envelope_err["error"]["code"], "InvalidArgument")
+        self.assertIn("direct contract validation is unsupported", envelope_err["error"]["message"])
+
+        # Baseline + overlay succeeds
+        profile_env = self.call_tool("harness.profile", {"root": str(self.root)})
+        profile = profile_env["data"]
+        from devharness.control_profile import run_interview, build_baseline
+        interview = run_interview(profile, ["workspace-write", "on-request"])
+        baseline = build_baseline(
+            profile,
+            interview,
+            version=1,
+            predecessor_ref=None,
+            event_refs=["event-1"],
+            evidence_refs=["evidence-1"],
+        )
+        overlay_valid = {
+            "overlay_version": "1.0",
+            "overlay_id": "overlay-valid-01",
+            "task": {
+                "project_id": baseline["project_id"],
+                "worktree_id": baseline["worktree_id"],
+                "task_id": self.task.task_id,
+                "environment_ref": baseline["environment_ref"],
+                "mode": "managed",
+                "goal": "validate execution",
+            },
+            "baseline_ref": baseline["baseline_id"],
+            "baseline_fingerprint": baseline["fingerprint"],
+            "instruction_overlay": {"source_refs": []},
+            "control_overlay": {"source_refs": []},
+            "writable_paths": ["src/**"],
+            "protected_targets": ["AGENTS.md"],
+            "permission_expansions": [],
+            "approval_triggers": [],
+            "validation_criteria": ["pytest"],
+            "gate_criteria": [],
+            "unobserved_paths": [],
+        }
         envelope_pass = self.call_tool(
             "harness.contract_validate",
             {
-                "contract": contract_valid,
+                "baseline": baseline,
+                "overlay": overlay_valid,
+                "approvals": [],
                 "task_id": self.task.task_id,
             },
         )
@@ -371,44 +421,46 @@ class McpContract25ToolsTests(unittest.TestCase):
         self.assertEqual(envelope_pass["decision"], "pass")
         self.assertIsNotNone(envelope_pass["evidence_id"])
 
-        # Unapproved permission causes hard_block
-        contract_unapproved = {
-            "contract_id": "c-unapproved",
-            "task": {
-                "project_id": self.task.project_id,
-                "worktree_id": self.task.worktree_id,
-                "task_id": self.task.task_id,
-                "environment_ref": self.task.environment_ref,
-            },
-            "writable_paths": ["src/main.py"],
-            "protected_targets": ["AGENTS.md"],
-            "active_permissions": [{"permission": "fs:delete", "active": False}],
-        }
-        envelope_blocked = self.call_tool(
-            "harness.contract_validate",
-            {"contract": contract_unapproved},
-        )
-        self.assertEqual(envelope_blocked["status"], "ok")
-        self.assertEqual(envelope_blocked["decision"], "hard_block")
-
     def test_harness_compile_preview_contract(self) -> None:
-        contract = {
+        profile_env = self.call_tool("harness.profile", {"root": str(self.root)})
+        profile = profile_env["data"]
+        from devharness.control_profile import run_interview, build_baseline, build_execution_contract
+        interview = run_interview(profile, ["workspace-write", "on-request"])
+        baseline = build_baseline(
+            profile,
+            interview,
+            version=1,
+            predecessor_ref=None,
+            event_refs=[],
+            evidence_refs=[],
+        )
+        overlay = {
+            "overlay_version": "1.0",
+            "overlay_id": "overlay-preview",
             "task": {
-                "project_id": self.task.project_id,
-                "worktree_id": self.task.worktree_id,
+                "project_id": baseline["project_id"],
+                "worktree_id": baseline["worktree_id"],
                 "task_id": self.task.task_id,
-                "environment_ref": self.task.environment_ref,
+                "environment_ref": baseline["environment_ref"],
+                "mode": "managed",
+                "goal": "preview execution",
             },
-            "boundary": {"workspace_root": str(self.root)},
-            "active_permissions": [{"permission": "fs:write", "scope": "src", "active": True}],
-            "writable_paths": ["src/main.py"],
-            "allowed_commands": ["pytest"],
-            "hooks": [],
-            "risk_profile": {"risk_level": "low"},
+            "baseline_ref": baseline["baseline_id"],
+            "baseline_fingerprint": baseline["fingerprint"],
+            "instruction_overlay": {"source_refs": []},
+            "control_overlay": {"source_refs": []},
+            "writable_paths": ["src/**"],
+            "protected_targets": ["AGENTS.md"],
+            "permission_expansions": [],
+            "approval_triggers": [],
+            "validation_criteria": ["pytest"],
+            "gate_criteria": [],
+            "unobserved_paths": [],
         }
+        contract = build_execution_contract(baseline=baseline, overlay=overlay, approvals=[], now="2026-09-07T00:00:00+00:00")
         envelope = self.call_tool(
             "harness.compile_preview",
-            {"contract": contract, "existing": {}},
+            {"contract": contract, "existing": {}, "task_id": self.task.task_id},
         )
         self.assertEqual(envelope["status"], "ok")
         self.assertEqual(envelope["decision"], "pass")
@@ -1233,6 +1285,159 @@ class McpContract25ToolsTests(unittest.TestCase):
             rec_unobs = store.resolve(id_unobs)
             self.assertEqual(rec_unobs.result, "not_run")
             self.assertEqual(rec_unobs.basis, "unobserved")
+
+    def test_regression_compile_preview_apply_ready_false_returns_hard_block(self) -> None:
+        profile_env = self.call_tool("harness.profile", {"root": str(self.root)})
+        profile = profile_env["data"]
+        from devharness.control_profile import run_interview, build_baseline, build_execution_contract
+        interview = run_interview(profile, ["workspace-write", "on-request"])
+        baseline = build_baseline(profile, interview, version=1, predecessor_ref=None, event_refs=[], evidence_refs=[])
+        overlay = {
+            "overlay_version": "1.0",
+            "overlay_id": "overlay-blocked",
+            "task": {
+                "project_id": baseline["project_id"],
+                "worktree_id": baseline["worktree_id"],
+                "task_id": self.task.task_id,
+                "environment_ref": baseline["environment_ref"],
+                "mode": "managed",
+                "goal": "preview execution blocked",
+            },
+            "baseline_ref": baseline["baseline_id"],
+            "baseline_fingerprint": baseline["fingerprint"],
+            "instruction_overlay": {"source_refs": []},
+            "control_overlay": {"source_refs": []},
+            "writable_paths": ["src/**"],
+            "protected_targets": ["AGENTS.md"],
+            "permission_expansions": [],
+            "approval_triggers": [],
+            "validation_criteria": ["pytest"],
+            "gate_criteria": [],
+            "unobserved_paths": [],
+        }
+        contract = build_execution_contract(baseline=baseline, overlay=overlay, approvals=[], now="2026-09-07T00:00:00+00:00")
+        conflicting_existing = {".codex/config.toml": 'sandbox_mode = "read-only"\napproval_policy = "disabled"\n'}
+        envelope = self.call_tool(
+            "harness.compile_preview",
+            {"contract": contract, "existing": conflicting_existing, "task_id": self.task.task_id},
+        )
+        self.assertEqual(envelope["status"], "ok")
+        self.assertEqual(envelope["decision"], "hard_block")
+        self.assertFalse(envelope["data"]["compiled"]["apply_ready"])
+        self.assertTrue(any(f["severity"] == "hard" for f in envelope["data"]["compiled"]["findings"]))
+
+    def test_regression_runtime_configured_pass_enforced_not_run_returns_unobserved(self) -> None:
+        prepared_data = {
+            "repository": str(self.root),
+            "task": {
+                "project_id": self.task.project_id,
+                "worktree_id": self.task.worktree_id,
+                "task_id": self.task.task_id,
+                "environment_ref": self.task.environment_ref,
+            },
+            "checked_at": "2026-09-07T00:00:00+00:00",
+            "configured": {
+                "config": {"observed": True, "exact_scope": ".codex/config.toml"},
+                "agents": {"observed": True, "exact_scope": "AGENTS.md"},
+                "rules": {"observed": True, "exact_scope": ".codex/rules/ownhands.rules"},
+                "hooks": {"observed": True, "exact_scope": ".codex/hooks.json"},
+                "sandbox": {"observed": True, "exact_scope": "workspace-write"},
+                "approval": {"observed": True, "exact_scope": "on-request"},
+            },
+            "runtime_observations": {},
+        }
+        run_data = {
+            "records": [],
+            "thread_id": "thread-1",
+            "turn_id": "turn-1",
+            "terminal_status": "completed",
+            "instruction_sources": [],
+            "codex_version": "0.153.3",
+            "protocol_fingerprint": "sha256:test",
+        }
+        envelope = self.call_tool(
+            "runtime.controls_check",
+            {"prepared": prepared_data, "run": run_data, "task_id": self.task.task_id},
+        )
+        self.assertEqual(envelope["status"], "ok")
+        self.assertEqual(envelope["decision"], "unobserved")
+
+    def test_regression_context_unobserved_and_not_evaluated_preserved(self) -> None:
+        # 1. context.gate_evaluate preserves unobserved
+        import devharness.mcp.tools.context as context_mod
+        orig_gate = context_mod.ApplicabilityGate
+        class MockGate:
+            def evaluate(self, gate_input):
+                return {
+                    "instruction_overlay": [{"decision": "unobserved"}],
+                    "control_overlay": [{"decision": "pass"}],
+                }
+        context_mod.ApplicabilityGate = lambda: MockGate()
+        try:
+            res_gate = self.call_tool("context.gate_evaluate", {"gate_input": {"trigger": "test"}})
+            self.assertEqual(res_gate["status"], "ok")
+            self.assertEqual(res_gate["decision"], "unobserved")
+        finally:
+            context_mod.ApplicabilityGate = orig_gate
+
+        # 2. context.guarantee_evaluate preserves unobserved on not_evaluated
+        orig_guar = context_mod.evaluate_context_guarantees
+        context_mod.evaluate_context_guarantees = lambda m, mf, ev: [
+            {"claim_id": "c1", "category": "context", "verdict": "not_evaluated", "residual_risks": []}
+        ]
+        try:
+            res_guar = self.call_tool(
+                "context.guarantee_evaluate",
+                {"matrix": {}, "manifest": {"manifest_id": "m1"}, "evidence_records": []},
+            )
+            self.assertEqual(res_guar["status"], "ok")
+            self.assertEqual(res_guar["decision"], "unobserved")
+        finally:
+            context_mod.evaluate_context_guarantees = orig_guar
+
+    def test_regression_compare_mixed_comparable_pass_and_missing_before_returns_soft_block(self) -> None:
+        receipt_base = {
+            "test_id": "t1",
+            "subject_ref": "sub",
+            "criterion_id": "crit1",
+            "classification": "regression",
+            "validation_command": "pytest",
+            "command_fingerprint": "sha256:" + "1" * 64,
+            "selection_scope": "tests",
+            "environment_fingerprint": "sha256:" + "2" * 64,
+            "contract_fingerprint": "sha256:" + "3" * 64,
+            "start_patch_hash": "sha256:" + "4" * 64,
+            "target_patch_hash": "sha256:" + "5" * 64,
+            "code_refs": ["src/a.py"],
+            "result": "pass",
+            "basis": "observed",
+            "evidence_refs": ["ev1"],
+            "conflict_refs": [],
+        }
+        receipt_t2 = {**receipt_base, "test_id": "t2"}
+        envelope = self.call_tool(
+            "tests.compare_runs",
+            {
+                "before": {"receipts": [receipt_base]},
+                "after": {"receipts": [receipt_base, receipt_t2]},
+                "task_id": self.task.task_id,
+            },
+        )
+        self.assertEqual(envelope["status"], "ok")
+        self.assertEqual(envelope["decision"], "soft_block")
+        comparisons = envelope["data"]["comparisons"]
+        statuses = {c["test_id"]: c["status"] for c in comparisons}
+        self.assertEqual(statuses["t1"], "comparable_pass")
+        self.assertEqual(statuses["t2"], "missing_before")
+
+    def test_regression_partial_direct_contract_does_not_pass(self) -> None:
+        envelope = self.call_tool(
+            "harness.contract_validate",
+            {"contract": {"writable_paths": ["src/**"]}},
+        )
+        self.assertEqual(envelope["status"], "error")
+        self.assertNotEqual(envelope.get("decision"), "pass")
+        self.assertEqual(envelope["error"]["code"], "InvalidArgument")
 
 
 if __name__ == "__main__":

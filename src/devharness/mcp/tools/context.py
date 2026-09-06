@@ -264,8 +264,10 @@ def handle_context_gate_evaluate(arguments: dict[str, Any], data_paths: DataPath
     decisions = {item.get("decision") for item in all_overlays}
     if "forbidden" in decisions:
         decision = "hard_block"
-    elif any(d in {"unobserved", "replace_with_specific"} for d in decisions):
+    elif "replace_with_specific" in decisions:
         decision = "soft_block"
+    elif "unobserved" in decisions:
+        decision = "unobserved"
     else:
         decision = "pass"
 
@@ -395,7 +397,9 @@ def handle_context_guarantee_evaluate(arguments: dict[str, Any], data_paths: Dat
     verdicts = {r.get("verdict") for r in raw_results}
     if "contradicted" in verdicts:
         decision = "hard_block"
-    elif all(v == "supported" for v in verdicts) and raw_results:
+    elif "not_evaluated" in verdicts or not raw_results:
+        decision = "unobserved"
+    elif all(v == "supported" for v in verdicts):
         decision = "pass"
     else:
         decision = "soft_block"

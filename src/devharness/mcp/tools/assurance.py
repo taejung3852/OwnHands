@@ -204,12 +204,14 @@ def handle_tests_compare_runs(arguments: dict[str, Any], data_paths: DataPaths |
     comparisons = raw_result.get("comparisons", [])
     statuses = {c.get("status") for c in comparisons}
 
-    # 11 Comparison statuses mapping
+    # 11 Comparison statuses mapping with strict precedence: hard > soft > unobserved > pass
     if "regression" in statuses or "contradicted" in statuses:
         decision = "hard_block"
-    elif any(s in {"stale", "incomparable", "missing_after"} for s in statuses):
+    elif any(s in {"stale", "incomparable", "missing_after", "missing_before", "unchanged_failure", "inconclusive"} for s in statuses):
         decision = "soft_block"
-    elif any(s in {"comparable_pass", "fixed_failure", "unchanged_failure"} for s in statuses):
+    elif any(s in {"not_run"} for s in statuses) or not comparisons:
+        decision = "unobserved"
+    elif all(s in {"comparable_pass", "fixed_failure"} for s in statuses):
         decision = "pass"
     else:
         decision = "unobserved"

@@ -368,18 +368,50 @@ def handle_runtime_controls_check(arguments: dict[str, Any], data_paths: DataPat
     except Exception as error:
         return make_error_envelope(type(error).__name__, str(error))
 
-    all_checks = []
-    for ctrl in packet.values():
-        for chk_name in ("configured", "loaded", "enforced"):
-            if chk_name in ctrl:
-                all_checks.append(ctrl[chk_name].get("result"))
+    all_checks = [
+        chk
+        for ctrl in packet.values()
+        for chk in (ctrl.get("configured"), ctrl.get("loaded"), ctrl.get("enforced"))
+        if isinstance(chk, dict)
+    ]
 
-    if any(c == "fail" for c in all_checks):
+    if any(c.get("result") == "fail" for c in all_checks):
         decision = "hard_block"
-    elif any(c == "pass" for c in all_checks):
-        decision = "pass"
     else:
-        decision = "unobserved"
+        configured_meta = prepared.get("configured", {})
+        required_controls = [
+            name
+            for name, meta in configured_meta.items()
+            if isinstance(meta, dict) and meta.get("observed") is True
+        ]
+        if not required_controls:
+            required_controls = ["sandbox", "approval", "agents"]
+
+        REQUIRED_CHECKS_MAP = {
+            "sandbox": ("configured", "enforced"),
+            "approval": ("configured", "enforced"),
+            "agents": ("configured", "loaded"),
+            "config": ("configured",),
+            "rules": ("configured",),
+            "hooks": ("configured",),
+        }
+
+        all_required_pass = True
+        for name in required_controls:
+            ctrl = packet.get(name)
+            if not ctrl:
+                all_required_pass = False
+                break
+            needed_checks = REQUIRED_CHECKS_MAP.get(name, ("configured",))
+            for chk_name in needed_checks:
+                chk = ctrl.get(chk_name, {})
+                if chk.get("result") != "pass" or chk.get("basis") != "observed":
+                    all_required_pass = False
+                    break
+            if not all_required_pass:
+                break
+
+        decision = "pass" if all_required_pass else "unobserved"
 
     evidence_id = None
     task_id = arguments.get("task_id") or prepared.get("task", {}).get("task_id")

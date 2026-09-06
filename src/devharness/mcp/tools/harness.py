@@ -43,13 +43,13 @@ HARNESS_PROFILE_TOOL = {
 
 HARNESS_CONTRACT_VALIDATE_TOOL = {
     "name": "harness.contract_validate",
-    "description": "Validates the semantic integrity, boundary isolation, and permission approvals of a Task Execution Contract or Baseline Profile.",
+    "description": "Validates the semantic integrity, boundary isolation, and permission approvals by compiling baseline profile and task overlay into an execution contract.",
     "inputSchema": {
         "type": "object",
         "properties": {
-            "contract": {"type": "object", "description": "Compiled or declared Task Execution Contract"},
             "baseline": {"type": "object", "description": "Baseline control profile (when compiling from overlay)"},
             "overlay": {"type": "object", "description": "Task overlay (when compiling from baseline)"},
+            "approvals": {"type": "array", "description": "List of explicit approval records", "default": []},
             "profile": {"type": "object", "description": "Project profile (when building baseline)"},
             "interview_responses": {"type": "array", "description": "Interview answer list"},
             "version": {"type": "integer", "default": 1, "description": "Baseline version"},
@@ -58,7 +58,6 @@ HARNESS_CONTRACT_VALIDATE_TOOL = {
             "evidence_refs": {"type": "array", "items": {"type": "string"}, "description": "Evidence references", "default": []},
             "trigger": {"type": "string", "description": "Optional freshness check trigger"},
             "available_refs": {"type": "array", "items": {"type": "string"}, "description": "Available evidence refs for freshness check"},
-            "approvals": {"type": "array", "description": "List of explicit approval records", "default": []},
             "task_id": {"type": "string", "description": "Optional task ID to bind and record evidence"},
         },
     },
@@ -172,38 +171,10 @@ def handle_harness_contract_validate(arguments: dict[str, Any], data_paths: Data
                 "validation_error": str(error),
                 "error_type": type(error).__name__,
             }
-    elif isinstance(contract, dict):
-        task = contract.get("task")
-        if not isinstance(task, dict) or "task_id" not in task:
-            decision = "hard_block"
-            findings = ["contract.task is missing or invalid"]
-        else:
-            findings = []
-            writable = contract.get("writable_paths", [])
-            protected = contract.get("protected_targets", [])
-            for w in writable:
-                for p in protected:
-                    if w == p or str(w).startswith(str(p) + "/") or str(p).startswith(str(w) + "/"):
-                        findings.append(f"writable path '{w}' overlaps protected target '{p}'")
-                        decision = "hard_block"
-
-            active_perms = contract.get("permissions") or contract.get("active_permissions", [])
-            for perm in active_perms:
-                if perm.get("active") is False:
-                    findings.append(f"permission '{perm.get('permission')}' is unapproved")
-                    decision = "hard_block"
-            if contract.get("gate_status") == "hard_block":
-                findings.append("contract gate_status is hard_block")
-                decision = "hard_block"
-
-        result_data = {
-            "contract": contract,
-            "validation_findings": findings,
-        }
     else:
         return make_error_envelope(
             "InvalidArgument",
-            "either 'contract', 'baseline' with 'overlay', or 'profile' with 'interview_responses' must be provided",
+            "direct contract validation is unsupported; provide 'baseline' and 'overlay' or 'profile' and 'interview_responses'",
         )
 
     evidence_id = None
@@ -240,35 +211,20 @@ def handle_harness_compile_preview(arguments: dict[str, Any], data_paths: DataPa
     existing = arguments.get("existing", {})
     evidence_index = arguments.get("evidence_index", {})
 
-    c = dict(contract)
-    c.setdefault("contract_id", c.get("task", {}).get("task_id", "default-contract"))
-    c.setdefault("permissions", c.get("active_permissions", []))
-    c.setdefault("writable_paths", [])
-    c.setdefault("protected_targets", ["AGENTS.md"])
-    c.setdefault("approval_triggers", [])
-    c.setdefault("validation_criteria", ["pytest"])
-    c.setdefault("gate_status", "ready_for_preview")
-    c.setdefault("unobserved", [])
-    if isinstance(c.get("task"), dict):
-        c["task"] = dict(c["task"])
-        c["task"].setdefault("goal", "task execution")
-    else:
-        c["task"] = {"goal": "task execution"}
-    if "fingerprint" not in c:
-        import hashlib
-        import json
-        c["fingerprint"] = "sha256:" + hashlib.sha256(json.dumps(c, sort_keys=True).encode()).hexdigest()
-
     try:
-        compiled = compile_control_profile(c, existing)
-        preview_markdown = render_control_preview(c, compiled, evidence_index)
+        compiled = compile_control_profile(contract, existing)
+        preview_markdown = render_control_preview(contract, compiled, evidence_index)
         data = {
-            "contract_id": c.get("contract_id"),
+            "contract_id": contract.get("contract_id"),
             "compiled": compiled,
             "preview_markdown": preview_markdown,
         }
-        decision = "pass"
-    except (ControlProfileError, ValueError) as error:
+        has_hard_findings = any(f.get("severity") == "hard" for f in compiled.get("findings", []))
+        if not compiled.get("apply_ready") or has_hard_findings:
+            decision = "hard_block"
+        else:
+            decision = "pass"
+    except (ControlProfileError, KeyError, IndexError, TypeError, ValueError) as error:
         return make_error_envelope(type(error).__name__, str(error))
 
     evidence_id = None
@@ -281,7 +237,7 @@ def handle_harness_compile_preview(arguments: dict[str, Any], data_paths: DataPa
                 requirement_id="M2-PREVIEW",
                 evidence_type="active_configuration",
                 subject_ref="harness.compile_preview",
-                scope=str(c.get("contract_id", "")),
+                scope=str(contract.get("contract_id", "")),
                 result_decision=decision,
                 payload=data,
             )
