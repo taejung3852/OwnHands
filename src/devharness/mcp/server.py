@@ -13,7 +13,14 @@ from devharness.mcp.protocol import (
     error_response,
     success_response,
 )
+from devharness.mcp.tools.assurance import (
+    ASSURANCE_GATE_EVALUATE_TOOL,
+    TESTS_COMPARE_RUNS_TOOL,
+    handle_assurance_gate_evaluate,
+    handle_tests_compare_runs,
+)
 from devharness.mcp.tools.context import CONTEXT_LINT_TOOL, handle_context_lint
+from devharness.mcp.tools.harness import HARNESS_PROFILE_TOOL, handle_harness_profile
 from devharness.paths import DataPaths
 
 
@@ -22,6 +29,9 @@ class McpServer:
         self.data_paths = DataPaths.resolve(data_root) if data_root else None
         self.tools: dict[str, tuple[dict, Callable[[dict, DataPaths | None], dict]]] = {
             "context.lint": (CONTEXT_LINT_TOOL, handle_context_lint),
+            "harness.profile": (HARNESS_PROFILE_TOOL, handle_harness_profile),
+            "tests.compare_runs": (TESTS_COMPARE_RUNS_TOOL, handle_tests_compare_runs),
+            "assurance.gate_evaluate": (ASSURANCE_GATE_EVALUATE_TOOL, handle_assurance_gate_evaluate),
         }
 
     def register_tool(

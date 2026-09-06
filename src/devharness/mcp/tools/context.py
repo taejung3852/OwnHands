@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-import hashlib
-import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from devharness.catalog import Catalog
 from devharness.context_architecture import ContextArchitectureError, lint_context
-from devharness.events import EventDraft, EventLog
-from devharness.evidence import EvidenceDraft, EvidenceStore
-from devharness.identity import IdentityRegistry
+from devharness.mcp.tools.common import record_tool_evidence
 from devharness.paths import DataPaths
 
 CONTEXT_LINT_TOOL = {
@@ -46,50 +40,6 @@ CONTEXT_LINT_TOOL = {
         },
     },
 }
-
-
-def _ensure_task_exists(catalog: Catalog, task_id: str) -> None:
-    task_row = catalog.query_value("SELECT 1 FROM tasks WHERE task_id=?", (task_id,))
-    if task_row is not None:
-        return
-    registry = IdentityRegistry(catalog)
-    project = registry.register_project("mcp:auto-project")
-    worktree = registry.register_worktree(project.project_id, "mcp:auto-worktree")
-    created_at = datetime.now(timezone.utc).isoformat()
-    with catalog.transaction() as connection:
-        connection.execute(
-            """
-            INSERT INTO tasks(
-                task_id, project_id, worktree_id, mode, commit_hash, branch,
-                cwd, environment_ref, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                task_id,
-                project.project_id,
-                worktree.worktree_id,
-                "managed",
-                "HEAD",
-                "main",
-                "/",
-                "mcp-env",
-                created_at,
-            ),
-        )
-    events = EventLog(catalog)
-    events.append(
-        EventDraft(
-            event_id=f"task-created:{task_id}",
-            task_id=task_id,
-            event_type="task.created",
-            event_version=1,
-            occurred_at=created_at,
-            payload={"mode": "managed", "task_id": task_id},
-            collection_method="mcp:auto-init",
-            redaction_status="not_needed",
-        ),
-        lambda p: p,
-    )
 
 
 def handle_context_lint(arguments: dict[str, Any], data_paths: DataPaths | None = None) -> dict:
@@ -136,28 +86,16 @@ def handle_context_lint(arguments: dict[str, Any], data_paths: DataPaths | None 
     evidence_id = None
     task_id = arguments.get("task_id")
     if isinstance(task_id, str) and task_id.strip():
-        paths = data_paths or DataPaths.resolve()
-        with Catalog.open(paths) as catalog:
-            _ensure_task_exists(catalog, task_id)
-            payload_bytes = json.dumps(raw_result, sort_keys=True, ensure_ascii=False).encode("utf-8")
-            content_hash = hashlib.sha256(payload_bytes).hexdigest()
-            draft = EvidenceDraft(
-                evidence_id=f"sha256:{content_hash}",
-                task_id=task_id,
-                requirement_id="M1.5-LINT",
-                evidence_type="instruction_loading",
-                subject_ref="context.lint",
-                exact_scope=str(root_path),
-                result=("pass" if decision == "pass" else "fail"),
-                basis="observed",
-                fields={"decision": decision, "findings_count": len(findings)},
-                content=payload_bytes,
-                collection_method="mcp:context.lint",
-                redaction_status="not_needed",
-            )
-            store = EvidenceStore(catalog, EventLog(catalog))
-            record = store.put(draft, lambda b: b)
-            evidence_id = record.evidence_id
+        evidence_id = record_tool_evidence(
+            data_paths=data_paths,
+            task_id=task_id,
+            requirement_id="M1.5-LINT",
+            evidence_type="instruction_loading",
+            subject_ref="context.lint",
+            scope=str(root_path),
+            result_decision=decision,
+            payload=raw_result,
+        )
 
     return {
         "status": "ok",
