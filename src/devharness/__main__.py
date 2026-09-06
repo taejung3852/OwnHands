@@ -42,7 +42,15 @@ def main() -> int:
     )
     lint.add_argument("--root", type=Path, required=True)
     lint.add_argument("--sources", type=Path, required=True)
+    mcp = subparsers.add_parser("mcp-server", help="run stdio MCP server")
+    mcp.add_argument("--data-root", type=Path, help="local data root for evidence")
     arguments = parser.parse_args()
+
+    if arguments.command == "mcp-server":
+        from .mcp.server import McpServer
+        server = McpServer(data_root=arguments.data_root)
+        server.run_stdio()
+        return 0
 
     if arguments.command == "m1-demo":
         result = run_m1_demo(

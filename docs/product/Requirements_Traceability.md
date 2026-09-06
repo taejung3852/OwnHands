@@ -19,6 +19,7 @@
 | Impact / Test Design / Regression Gate | 전체 | ADR-0006, M0-04 | M2, M4 | M4 #44~#49 contract-bound local slice 구현 · synthetic review Evidence · actual branch Gate는 `docs/reviews/m4/observed-gate-summary.json`에서 추적 |
 | Workspace Restore Point / Worktree 분리 | Control | M0-06 storage boundary | M1, M4 | tracked patch를 disposable clone에서 재구성 · untracked/submodule/symlink 및 외부 효과는 명시적 제외/Unobserved |
 | Task Review / Feature Validation / Harness Status | Dashboard | ADR-0006 review artifact contract | M1~M5 | M2 local Preview 후보 · M5 UI/UX Gate 유지 |
+| Skill / MCP / Plugin 계층 및 Hybrid Contract | Control, 전체 | ADR-0010, M4.5 #63 | M4.5 | Option C 계약 확정 · M4.5-01 완료 |
 | Brand 색상 방향 | Dashboard, Design Rationale | M0-07 3안·Probe, ADR-0007 Accepted(색상 범위) | M5 | B 색상 방향 승인 |
 | 정보 위계·글쓰기·상호작용·접근성 기반 | Dashboard, Design Rationale | M0-07 참고 시안·Probe | M5 | M5 UI/UX Gate Review |
 | Audit & History | Dashboard | Event/Evidence contracts | M5 | Blocked by Evidence |
