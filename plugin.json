@@ -1,0 +1,22 @@
+{
+  "name": "ownhands",
+  "version": "0.1.0",
+  "description": "Evidence-first agent harness and assurance plugin",
+  "author": {
+    "name": "박태정",
+    "email": "taejung3852@gmail.com"
+  },
+  "skills": {
+    "directory": "skills"
+  },
+  "mcp_servers": {
+    "ownhands": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "devharness",
+        "mcp-server"
+      ]
+    }
+  }
+}
