@@ -1,11 +1,22 @@
 ---
 name: test-assurance
-description: Guides test strategy design, baseline test capture, pre/post run comparisons, and authoritative regression gate evaluation using assurance MCP tools.
+description: Guides test strategy design, baseline test capture, pre/post run comparisons, diff impact analysis, and authoritative regression gate evaluation using assurance MCP tools.
 ---
 
 # test-assurance
 
-You provide methodological guidance for test design, diff impact analysis, test run comparisons, and regression gate evaluation.
+You provide methodological guidance for test design, diff impact analysis, test run comparisons, and authoritative regression gate evaluation.
+
+## Canonical MCP Tools
+
+This sub-skill owns 7 canonical MCP tools:
+1. tests.baseline_record: Records observed test baseline receipts with strict validation of all 16 receipt fields. Failing baselines are fully valid for TDD Red state.
+2. tests.compare_runs: Compares pre-change and post-change test receipts using authoritative 11-status mappings.
+3. tests.gap_detect: Detects coverage gaps, unobserved criteria, and missing test executions.
+4. tests.design_memo: Synthesizes structured test design memos and criterion bindings from contracts and impact analyses.
+5. git.diff_impact: Analyzes modified file diff impact against relation catalogs with strict relation types.
+6. assurance.gate_evaluate: Evaluates the authoritative regression gate using full contract, impact, design, comparison, and gap inputs.
+7. guarantee.evaluate: Evaluates test domain guarantees returning exact verdict states.
 
 ## When to Activate
 
@@ -15,24 +26,28 @@ You provide methodological guidance for test design, diff impact analysis, test 
 
 ## Verification Procedure
 
-1. **Test Strategy Formulation**
-   Formulate a test design memo identifying affected functional areas, test levels, and risk factors aligned with project quality standards.
+1. **Pre-Change Baseline Capture**
+   Invoke tests.baseline_record with contract, selection, and observed test receipts. Even if tests currently fail in TDD Red state, baseline capture succeeds.
 
-2. **Pre-Change Baseline Capture**
-   Execute the test suite prior to code modifications using tests.compare_runs in baseline mode. Record the baseline run identifier.
+2. **Diff Impact Analysis**
+   Call git.diff_impact with workspace root, restore point, and relation catalog to classify affected targets.
 
-3. **Diff Impact Analysis**
-   After making code modifications, inspect git diff output to verify changes remain strictly within declared task boundaries.
+3. **Test Strategy and Design Memo**
+   Invoke tests.design_memo and tests.gap_detect to verify comprehensive criterion coverage.
 
-4. **Post-Change Comparison**
-   Execute the test suite again and invoke tests.compare_runs to compare pre-change and post-change test outcomes.
+4. **Comparative Test Execution**
+   Execute post-change tests and call tests.compare_runs.
+   - pass: expected outcomes verified.
+   - soft_block: non-critical advisory change.
+   - hard_block: regression detected.
 
-5. **Regression Gate Evaluation**
-   Invoke the assurance.gate_evaluate MCP tool with baseline_run_id, current_run_id, and task_id.
-   Interpret the standard Option C response:
-   - decision: "pass": No regressions detected. Fixed failures or new passing tests verified. Proceed to completion.
-   - decision: "soft_block": Coverage gaps or unobserved test outcomes detected. Present findings to the user for review.
-   - decision: "hard_block": Regressions detected (previously passing tests now fail). Stop completion and resolve regressions.
+5. **Authoritative Gate Evaluation**
+   Call assurance.gate_evaluate with contract, impact, design, comparison, and gaps.
+   - decision: "pass": No regressions, criteria satisfied.
+   - decision: "hard_block": Regressions or missing coverage detected. Completion is blocked.
 
-6. **Record Evidence**
+6. **Authoritative Guarantees**
+   Call guarantee.evaluate to verify that assurance guarantees remain supported.
+
+7. **Record Evidence**
    Reference the returned evidence_id in the completion report to prove deterministic verification.

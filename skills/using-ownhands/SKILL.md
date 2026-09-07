@@ -57,12 +57,12 @@ These rationalizations indicate process evasion:
 
 ## Routing Matrix
 
-| Phase / Intent | Delegated Sub-Skill | Backing MCP Tool | Gate Rule |
+| Phase / Intent | Delegated Sub-Skill | Canonical MCP Tools (25 Total) | Gate Rule |
 |---|---|---|---|
-| **Instruction & Rule Alignment:** Modifying AGENTS instructions, scoped rules, task overlays | context-validation | context.lint, context.inspect | Must achieve pass or approved soft_block |
-| **Workspace & Contract Profiling:** Inspecting repo structure, test commands, compiling task contracts | harness-profiler | harness.profile, harness.contract_validate | Establishes boundaries & baseline |
-| **Execution & Sandbox Control:** Running shell commands, evaluating permissions, capturing snapshots | execution-control | sandbox.inspect, git.restore_capture | Pre-execution snapshot & approval check |
-| **Test Design & Regression Assurance:** Designing test strategy, comparing pre/post test runs, evaluating gate | test-assurance | git.diff_impact, tests.compare_runs, assurance.gate_evaluate | hard_block halts on detected regression |
+| **Instruction and Context Alignment:** Modifying AGENTS instructions, scoped rules, manifests, evaluating context gates and benchmarks | context-validation (6 tools) | context.lint, context.inspect, context.gate_evaluate, context.benchmark_plan, context.benchmark_evaluate, context.guarantee_evaluate | Must achieve pass or approved soft_block |
+| **Workspace and Contract Profiling:** Inspecting repo structure, test commands, compiling task contracts and previews | harness-profiler (3 tools) | harness.profile, harness.contract_validate, harness.compile_preview | Establishes boundaries and baseline |
+| **Execution and Sandbox Control:** Running shell commands, evaluating permissions, task lifecycle, applying and rolling back changes | execution-control (9 tools) | sandbox.inspect, git.restore_capture, runtime.controls_check, task.prepare, task.create, task.record_run, task.import, harness.candidate_apply, harness.candidate_rollback | Pre-execution snapshot and approval check |
+| **Test Design and Regression Assurance:** Designing test strategy, baseline capture, comparative runs, gate and guarantees | test-assurance (7 tools) | tests.baseline_record, tests.compare_runs, tests.gap_detect, tests.design_memo, git.diff_impact, assurance.gate_evaluate, guarantee.evaluate | hard_block halts on detected regression or coverage gap |
 
 ## Platform Adaptation
 

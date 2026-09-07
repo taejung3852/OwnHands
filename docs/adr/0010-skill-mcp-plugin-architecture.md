@@ -33,8 +33,9 @@ M0~M4를 통해 DevHarness Core 엔진(SQLite Catalog Schema v3, Event/Evidence 
    - 호출 인자에 `task_id`가 제공된 경우: 도구 실행 결과를 CAS Evidence Store에 불변 저장하고 SHA-256 `evidence_id` 자동 반환.
    - `task_id`가 생략된 경우: 순수 조회/Dry-run 모드로 동작하며 `evidence_id: null` 반환.
 
-5. **Core 0-Mutation 원칙:**
-   - `src/devharness/`의 기존 함수 시그니처와 데이터베이스 스키마는 수정하지 않으며, MCP Gateway는 얇은 외부 어댑터로 동작.
+5. **Core 0-Mutation 원칙 및 Additive Lifecycle Amendment:**
+   - `src/devharness/`의 기존 함수 시그니처와 데이터베이스 스키마는 파괴적으로 수정하지 않으며, MCP Gateway는 얇은 외부 어댑터로 동작.
+   - **Additive Amendment (M4.5):** 외부 MCP 어댑터에서 Project → Worktree → Task 생성 및 canonical `task.created` Event 발행까지를 단일 원자적 경계 내에서 일관되게 보장하기 위해 `IdentityRegistry.create_task_lifecycle()`을 비파괴적(additive) Core API로 추가하여 Core의 정식 책임으로 승격함.
 
 ## Alternatives
 

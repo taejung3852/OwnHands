@@ -28,6 +28,21 @@ class M45VerticalSliceIntegrationTests(unittest.TestCase):
         self.data_root = self.root / "data"
         self.server = McpServer(data_root=self.data_root)
 
+        with Catalog.open(DataPaths.resolve(self.data_root)) as catalog:
+            from devharness.identity import IdentityRegistry
+            registry = IdentityRegistry(catalog)
+            for tid in ["task-clean-01", "task-soft-01", "task-hard-01"]:
+                registry.create_task_lifecycle(
+                    project_locator="file:///vertical-project",
+                    worktree_locator="file:///vertical-project/main",
+                    mode="managed",
+                    commit="0" * 40,
+                    branch="main",
+                    cwd=str(self.project_dir),
+                    environment_ref="test-env",
+                    task_id=tid,
+                )
+
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 

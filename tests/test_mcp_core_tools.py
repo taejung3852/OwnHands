@@ -13,7 +13,23 @@ class McpCoreToolsTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.root = Path(self.temp_dir.name)
         (self.root / "pyproject.toml").write_text("[project]\nname = \"test\"\n", encoding="utf-8")
-        self.server = McpServer(data_root=self.root / "data")
+        data_root = self.root / "data"
+        self.server = McpServer(data_root=data_root)
+        from devharness.catalog import Catalog
+        from devharness.identity import IdentityRegistry
+        from devharness.paths import DataPaths
+        with Catalog.open(DataPaths.resolve(data_root)) as catalog:
+            registry = IdentityRegistry(catalog)
+            registry.create_task_lifecycle(
+                project_locator="file:///test-project",
+                worktree_locator="file:///test-project/main",
+                mode="managed",
+                commit="0" * 40,
+                branch="main",
+                cwd=str(self.root),
+                environment_ref="test-env",
+                task_id="task-compare-01",
+            )
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()

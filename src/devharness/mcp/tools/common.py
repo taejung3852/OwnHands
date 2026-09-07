@@ -7,54 +7,48 @@ from pathlib import Path
 from typing import Any
 
 from devharness.catalog import Catalog
-from devharness.events import EventDraft, EventLog
 from devharness.evidence import EvidenceDraft, EvidenceStore
-from devharness.identity import IdentityRegistry
+from devharness.events import EventLog
 from devharness.paths import DataPaths
 
 
-def ensure_task_exists(catalog: Catalog, task_id: str) -> None:
+class TaskNotFoundError(Exception):
+    def __init__(self, task_id: str) -> None:
+        super().__init__(f"task not found: {task_id}")
+        self.task_id = task_id
+
+
+def validate_task_exists(catalog: Catalog, task_id: str) -> None:
     task_row = catalog.query_value("SELECT 1 FROM tasks WHERE task_id=?", (task_id,))
-    if task_row is not None:
-        return
-    registry = IdentityRegistry(catalog)
-    project = registry.register_project("mcp:auto-project")
-    worktree = registry.register_worktree(project.project_id, "mcp:auto-worktree")
-    created_at = datetime.now(timezone.utc).isoformat()
-    with catalog.transaction() as connection:
-        connection.execute(
-            """
-            INSERT INTO tasks(
-                task_id, project_id, worktree_id, mode, commit_hash, branch,
-                cwd, environment_ref, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                task_id,
-                project.project_id,
-                worktree.worktree_id,
-                "managed",
-                "HEAD",
-                "main",
-                "/",
-                "mcp-env",
-                created_at,
-            ),
-        )
-    events = EventLog(catalog)
-    events.append(
-        EventDraft(
-            event_id=f"task-created:{task_id}",
-            task_id=task_id,
-            event_type="task.created",
-            event_version=1,
-            occurred_at=created_at,
-            payload={"mode": "managed", "task_id": task_id},
-            collection_method="mcp:auto-init",
-            redaction_status="not_needed",
-        ),
-        lambda p: p,
-    )
+    if task_row is None:
+        raise TaskNotFoundError(task_id)
+
+
+def task_not_found_response(task_id: str) -> dict[str, Any]:
+    return {
+        "status": "error",
+        "decision": "hard_block",
+        "evidence_id": None,
+        "data": {},
+        "error": {
+            "code": "TaskNotFound",
+            "message": f"task not found: {task_id}",
+        },
+    }
+
+
+def make_error_envelope(
+    code: str,
+    message: str,
+    decision: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "status": "error",
+        "decision": decision,
+        "evidence_id": None,
+        "data": {},
+        "error": {"code": code, "message": message},
+    }
 
 
 def record_tool_evidence(
@@ -69,9 +63,19 @@ def record_tool_evidence(
 ) -> str | None:
     paths = data_paths or DataPaths.resolve()
     with Catalog.open(paths) as catalog:
-        ensure_task_exists(catalog, task_id)
+        validate_task_exists(catalog, task_id)
         payload_bytes = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
         content_hash = hashlib.sha256(payload_bytes).hexdigest()
+
+        if result_decision == "pass":
+            ev_result, ev_basis = "pass", "observed"
+        elif result_decision == "soft_block":
+            ev_result, ev_basis = "inconclusive", "observed"
+        elif result_decision == "hard_block":
+            ev_result, ev_basis = "fail", "observed"
+        else:
+            ev_result, ev_basis = "not_run", "unobserved"
+
         draft = EvidenceDraft(
             evidence_id=f"sha256:{content_hash}",
             task_id=task_id,
@@ -79,8 +83,8 @@ def record_tool_evidence(
             evidence_type=evidence_type,
             subject_ref=subject_ref,
             exact_scope=scope,
-            result="pass" if result_decision == "pass" else "fail",
-            basis="observed",
+            result=ev_result,
+            basis=ev_basis,
             fields={"decision": result_decision},
             content=payload_bytes,
             collection_method=f"mcp:{subject_ref}",

@@ -1,34 +1,38 @@
 ---
 name: harness-profiler
-description: Discovers repository structure, test commands, sensitive paths, and validates task contracts using the deterministic harness.profile MCP tool.
+description: Discovers repository structure, configuration layers, sensitive paths, compiles control profiles, and previews task contracts using harness MCP tools.
 ---
 
 # harness-profiler
 
-You provide methodological guidance for inspecting workspace configuration, discovering build and test commands, and establishing task execution boundaries.
+You provide methodological guidance for inspecting workspace configuration, discovering build and test commands, validating execution contracts, and rendering safety previews.
+
+## Canonical MCP Tools
+
+This sub-skill owns 3 canonical MCP tools:
+1. harness.profile: Scans repository structure, configuration layers, test commands, rules, and sensitive paths. Returns the profile document with null decision as compatibility anchor.
+2. harness.contract_validate: Validates semantic integrity, permission boundaries, freshness triggers, and approval requirements of execution contracts or baseline profiles.
+3. harness.compile_preview: Compiles contracts into concrete workspace artifacts and generates human-readable review previews.
 
 ## When to Activate
 
-- Prior to starting work on a new repository or unfamiliar codebase.
-- When discovering project test runners, linters, or package managers.
-- When compiling or validating task contracts.
+- Prior to starting work on a repository or establishing a task baseline.
+- When compiling, checking freshness, or validating task execution contracts.
+- When generating preview artifacts before candidate changes are applied.
 
 ## Verification Procedure
 
-1. **Target Inspection**
-   Identify the workspace root directory and project configuration files (`pyproject.toml`, Makefile, or build manifests).
+1. **Target Profiling**
+   Call harness.profile with root directory, project_id, worktree_id, and environment_ref. Inspect detected commands, sensitive paths, and rule tiers.
 
-2. **Invoke Deterministic Profiler**
-   Call the harness.profile MCP tool with root directory and task_id.
+2. **Task Contract Validation**
+   Call harness.contract_validate with contract, baseline and overlay, or profile and interview_responses.
+   - decision: "pass": Contract is valid and active permissions satisfy boundary constraints.
+   - decision: "soft_block": Baseline freshness stale or interview ambiguity detected.
+   - decision: "hard_block": Critical boundary violation, missing task block, or unapproved permission.
 
-3. **Evaluate Response Envelope**
-   Interpret the standard Option C response:
-   - decision: "pass": Project structure, test runner, and sensitive path boundaries successfully resolved. Proceed with task planning.
-   - decision: "soft_block": Ambiguities detected in package configuration or test commands. Present findings to the user and confirm baseline.
-   - decision: "hard_block": Corrupted configuration or unreadable repository root. Stop execution and request user clarification.
+3. **Compile and Preview**
+   Call harness.compile_preview with contract and existing file map to generate artifact diffs and review previews before applying modifications.
 
-4. **Task Contract Validation**
-   When task scope is declared, invoke harness.contract_validate to confirm that target files and allowed operations remain within safe boundaries.
-
-5. **Record Evidence**
-   Reference the returned evidence_id in the task review log to maintain audit traceability.
+4. **Record Evidence**
+   Reference returned evidence_id in the task review log for end-to-end traceability.
