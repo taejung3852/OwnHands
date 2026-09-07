@@ -119,22 +119,22 @@ def handle_harness_contract_validate(arguments: dict[str, Any], data_paths: Data
     approvals = arguments.get("approvals")
     if approvals is None:
         approvals = []
-    elif not isinstance(approvals, list):
-        return make_error_envelope("InvalidArgument", "approvals must be an array")
+    elif not isinstance(approvals, list) or not all(isinstance(item, dict) for item in approvals):
+        return make_error_envelope("InvalidArgument", "approvals must be an array of objects")
 
     event_refs = arguments.get("event_refs")
-    if event_refs is not None and not isinstance(event_refs, list):
-        return make_error_envelope("InvalidArgument", "event_refs must be an array")
+    if event_refs is not None and (not isinstance(event_refs, list) or not all(isinstance(item, str) for item in event_refs)):
+        return make_error_envelope("InvalidArgument", "event_refs must be an array of strings")
     event_refs = event_refs or []
 
     evidence_refs = arguments.get("evidence_refs")
-    if evidence_refs is not None and not isinstance(evidence_refs, list):
-        return make_error_envelope("InvalidArgument", "evidence_refs must be an array")
+    if evidence_refs is not None and (not isinstance(evidence_refs, list) or not all(isinstance(item, str) for item in evidence_refs)):
+        return make_error_envelope("InvalidArgument", "evidence_refs must be an array of strings")
     evidence_refs = evidence_refs or []
 
     available_refs = arguments.get("available_refs")
-    if available_refs is not None and not isinstance(available_refs, list):
-        return make_error_envelope("InvalidArgument", "available_refs must be an array")
+    if available_refs is not None and (not isinstance(available_refs, list) or not all(isinstance(item, str) for item in available_refs)):
+        return make_error_envelope("InvalidArgument", "available_refs must be an array of strings")
 
     now = datetime.now(timezone.utc).isoformat()
 
@@ -228,14 +228,14 @@ def handle_harness_compile_preview(arguments: dict[str, Any], data_paths: DataPa
     existing = arguments.get("existing")
     if existing is None:
         existing = {}
-    elif not isinstance(existing, dict):
-        return make_error_envelope("InvalidArgument", "existing must be an object")
+    elif not isinstance(existing, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in existing.items()):
+        return make_error_envelope("InvalidArgument", "existing must be an object with string keys and string values")
 
     evidence_index = arguments.get("evidence_index")
     if evidence_index is None:
         evidence_index = {}
-    elif not isinstance(evidence_index, dict):
-        return make_error_envelope("InvalidArgument", "evidence_index must be an object")
+    elif not isinstance(evidence_index, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in evidence_index.items()):
+        return make_error_envelope("InvalidArgument", "evidence_index must be an object with string keys and string values")
 
     try:
         compiled = compile_control_profile(contract, existing)
