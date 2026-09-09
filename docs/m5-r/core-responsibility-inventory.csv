@@ -1,0 +1,207 @@
+path,classification,reason_and_boundary,follow_up,baseline_sha256
+.gitignore,keep,현재 패키지·재현 환경·Git 제외 기반 보존; 불필요한 변경 없음,#79,dd81fecb1b2233c832aff57da604bb4126ef302ee5aa63341f33118981b9952c
+README.md,compat,현재 실행 안내와 M1 demo 혼합; 새 lifecycle 소개와 역사 재현 안내를 후속 분리,"#81, #83",41fa31557e3c5a353c87024ebcd97267eac5b3cefd7ee393b366c1f6752e0e7e
+docs/adr/0001-codex-desktop-integration.md,historical-only,Codex managed 실행 통합 결정 이력; 새 제품 필수조건으로 승계하지 않음,#83,1a252aee9dc40126d413a28ae5d89af756264c3fe35a76dda5d16e1bf1dd9208
+docs/adr/0002-control-validation-evidence-model.md,compat,Control check의 구 스키마와 공용 result/basis/scope 분리 원칙을 구별,"#80, #82, #83",93195dab2b322fefdce043eeaa3786069848671e60ff3de2f997bb7d7f0f5e07
+docs/adr/0003-guarantee-matrix-representation.md,compat,구 Guarantee Matrix/Report 의미 보존; 새 Claim 계약 별도 작성,"#80, #82",d25ce343693494f27c10fc3c5369a5893027826eeca85788464134b8a09422b2
+docs/adr/0004-event-evidence-store.md,keep,Event/Evidence 원본·파생 Projection·보존 원칙 재사용; 당시 환경 사실은 역사,#80,88b7a4fcee84992333b3945c4bc2fe763ad88dd4045ef0767f4919e7a2f9806a
+docs/adr/0005-superpowers-vendoring-boundary.md,compat,upstream pin/license/호출 경계 재사용; 옛 도입 목록 자동 승계 금지,#81,4b2643d2d5857bc153747c104f60cb97ea2a03ee134b21b9b67b04f0410c7495
+docs/adr/0006-assurance-dashboard-sequencing.md,compat,Impact/Test Design/Regression 책임 재사용; 옛 단계·UI 계획은 역사,"#80, #82",0b79cd914b76aac878ec30a24648949343896d3e047020f56e05adf40911ca42
+docs/adr/0007-brand-dashboard-design-foundation.md,historical-only,당시 색상 결정·UI gate 기록; 현행 Dashboard 승인으로 승계하지 않음,#7,e51fee23441c824020017da2b90df18cf0cffe0c331260167982c65227e24814
+docs/adr/0008-python-core-runtime.md,keep,현재 stdlib Python/SQLite 기반 선택 보존; 현행 환경 성능의 재검증 주장 아님,#79,e80b2e769eaafae1556fd89a5c6e23477d3c0fa0279db4feeed2a20243808c45
+docs/adr/0009-task-harness-manifest.md,compat,기존 Harness Manifest 소비·데이터 의미 보존; 새 Spec으로 이름만 변경 금지,"#80, #83",f249e80658d9a82e4da913bab6d2beb2cf32f6157acf507de42d45dce047bc1f
+docs/adr/0010-skill-mcp-plugin-architecture.md,compat,계층 분리 재사용; 25 tools/4 skills/zero-mutation은 M4.5 계약 범위,"#80, #81",6b8d5b243a280ea8024efa54082e874f03f47dbfe6463772171f556d5c6d082d
+docs/adr/README.md,historical-only,기존 ADR 인덱스 보존; 이 책임표가 새 경계 추적을 제공,#79,c256b3c1d03a28fa3ad511ad414f4cad5758dd94224ab5e03efa39dd0a6591b7
+docs/design/m0-07/README.md,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,aa778b4b0cd0f84d86e8426416c8cc8c269f2bdc4e8084d2c8a9821d68088a22
+docs/design/m0-07/design-evaluation.md,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,0b4ab64b302532d0b01e894a38913c9db1022bbfea0c5949375e76973ef1eed9
+docs/design/m0-07/index.html,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,3b2318ee267811e58bc36294166d7f4773552269cc92c2d564a3beb4ea071800
+docs/design/m0-07/probe-results.md,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,4a8e636d0b5e3e27d3b18bd3884f9ad076619731f85d13c0d7ca8807c6edcfc5
+docs/design/m0-07/probes/m0-07-browser-probe.mjs,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,9384e6a2f0e914ed9d19d788d096618fae586ae7d44468775aec38287f595f5d
+docs/design/m0-07/probes/m0-07-design-probe.mjs,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,e58a88eb61b94b427de3f9cf1f09ff1ff4f20b20bb7e3f1825da26b78e65ecdd
+docs/design/m0-07/research.md,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,6df64bea642490510a1ebf3b6fbee2d8012741caf0888fcb17c4da8ad56ae095
+docs/design/m0-07/screenshots/ledger-dark-evidence.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,e815f1dc3c922ec11eb3c5f658fdc3c2be0ff828ebd1f60a187f5fb5f38d1d13
+docs/design/m0-07/screenshots/ledger-dark-harness.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,b759d0655084d71816c8b101855423ac4a8df0d881ed5d9b1484b6f448b43b08
+docs/design/m0-07/screenshots/ledger-dark-task.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,7b656e0a807838dab90c0dfe219b6c78091f2ef83685f4877a689465da88be88
+docs/design/m0-07/screenshots/ledger-light-evidence.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,0c665e0b0e9cf5e19cd3fd0b127d3840766ee7b3ffdc249865e8067209cd4f8e
+docs/design/m0-07/screenshots/ledger-light-harness.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,f6c8d7d7aad94d5b183fbc595a5e022303ae188bc88e9f971308f78958154a4b
+docs/design/m0-07/screenshots/ledger-light-task.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,27b06bc6d8845af03b679cb0da5985366362a08a70200cac073417d2b5200930
+docs/design/m0-07/screenshots/signal-dark-evidence.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,c4673c5838971092d60c6d62e2b61ccfe51528208570128d68e629fa3a560f6c
+docs/design/m0-07/screenshots/signal-dark-harness.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,3697dff4efa36289b430b1013b1d8029c3082fda6f09773209387649a078dbf0
+docs/design/m0-07/screenshots/signal-dark-task.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,8e13730b0ea881e0c9d7aa35e098487ced8efe384fbf0cc4d0e473e395ad5d5e
+docs/design/m0-07/screenshots/signal-light-evidence.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,b7e754b2690331ca30a5c738280d71ca2436aac9db6009ed52641801bd37323a
+docs/design/m0-07/screenshots/signal-light-harness.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,0d65825283c5242d2ed49351601d1e956ccdb5c786ec8e6983b40ef9574ba91c
+docs/design/m0-07/screenshots/signal-light-task.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,9301d013265f465d743acf90961e8f82a3f1b67fa6d25a905828546b3041bc92
+docs/design/m0-07/screenshots/slate-dark-evidence.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,487f39b6e3e13213a00f000e1e460806ec225ee75a765fbbea5acf7bd1dc280c
+docs/design/m0-07/screenshots/slate-dark-harness.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,a18350623dc3fba51f50b12485a619464cd634e85f300e1122955f06f578511c
+docs/design/m0-07/screenshots/slate-dark-task.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,bb338db95ab40b54b87bfc8e80f6dd695969b14eabd1e6483948201fdcdbb238
+docs/design/m0-07/screenshots/slate-light-evidence.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,432d3d0dfe140572f5c806afd78ff3ed6e2e2b569fb7dc9e628f6ba83d794708
+docs/design/m0-07/screenshots/slate-light-harness.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,aac0382d51b7892f733adeb75224000fc861f60783be2865dc48cd63d3403c41
+docs/design/m0-07/screenshots/slate-light-task.png,historical-only,M0 시각 탐색·probe·스크린샷 기록 보존; 새 Dashboard 설계·검증으로 승계 금지,#7,d297d43e108a12e807750feecafc43265afb2a504076b2b0d8cc45e602bd6722
+docs/diagrams/devharness-milestone-roadmap.html,historical-only,기존 로드맵/라우터 다이어그램 원본 보존; 현행 계약은 #7/#81,"#7, #81",4631f14b94af3fc5e450adda5b37503d99f22f5cb39114067a089cdcb02dcc82
+docs/diagrams/ownhands-skill-router-dark.html,historical-only,기존 로드맵/라우터 다이어그램 원본 보존; 현행 계약은 #7/#81,"#7, #81",eb4898dc08716bd4cf0cb8b4ea88e3f29f10d9e9cb83ee2d071a0c1b09ac8f57
+docs/dogfooding/README.md,historical-only,과거 HWPX 평가 방향 기록; 새 Dashboard 이후 필요성 재판단,#7,5e8deb7de7030d50badd4e7b03df12a0df513b3fe7581de1f19c03cf7ba968af
+docs/product/Conflict_and_Open_Decisions.md,historical-only,당시 결정·미결정 기록 보존; 새 이슈 범위로 대체,"#7, #79",64b13d8accb030fe7b20f52a21406e9b11bdbd7d9e170a979ea7f11b3d98cac8
+docs/product/Context_Placement_Policy.md,compat,얇은 router/참조 원칙 재사용 검토; Context 구성 정책은 이관 책임,"#81, #83",8aa675618291e8c1187b71382c254e2bc54c55656e0380cf4d05fda60adf64a9
+docs/product/Control_layer.md,compat,§9~17 Guarantee/Assurance/Event/Evidence와 실행통제 혼합; 재사용 원칙만 새 계약으로 명시,"#80, #82, #83",7c43d869603e2e514d26ed6e26528a7029061d70200a607eb6bb01ef2fca73a8
+docs/product/Dashboard_layer.md,historical-only,분리 전 Dashboard UX 계획 보존; 구현 계획 자동 승계 금지,#7,64d7de7cbc96bf1d7c71e873acf6a4af36916ab583beef5e39f0585988b3acc3
+docs/product/Design_Rationale.md,historical-only,분리 전 제품 설계 이유 보존; 새 책임은 #7/#79 우선,#7,feb54daab5c5641517319ccfaa32872871b06fc3ad1bc8ee16f7946f3fb57030
+docs/product/Glossary.md,compat,옛 Contract/Gate/Decision 용어 사전; 새 용어는 namespace/version으로 분리,#80,d0ad39cfc5335717bb15722a8fc296cc49bb1f177900afb98395bfa844448696
+docs/product/M0_ADR_Review_Packet.md,historical-only,M0 승인·검증 패킷 기록 보존,#7,715704dabb59e83309ef0db6868e15f7d2551f9a9fcb7b435f61cbf7f80384ad
+docs/product/M0_Kickoff_Report.md,historical-only,M0 착수·위임 범위 기록 보존,#7,c2d0308b95827aa047aec896fb5810746cd3a6ef7f787ef59e9e89dcdceac23f
+docs/product/README.md,historical-only,옛 제품 기준선 인덱스와 hash 보존; 현행 지도는 #7,#7,27abfda2df1d08b2537f01b9b497cb268b5ab9cd40e4ae6232903a0e58912972
+docs/product/Requirements_Traceability.md,historical-only,이전 요구사항 추적 보존; 새 Claim 추적은 #80/#82,"#80, #82",2f9d6adbedd4b9042db6c3b48a86a56efe588fc4f295d0c4e3b5ae589464c4ed
+docs/product/assurance-packet.example.json,compat,기존 Execution Contract/Assurance Packet schema·예시; #80/#82와 별도 version 경계,"#80, #82",fb0808b46fb780c7740030b6f81daec8691b977eccf02bb0fbee03172ebd9222
+docs/product/assurance-packet.schema.json,compat,기존 Execution Contract/Assurance Packet schema·예시; #80/#82와 별도 version 경계,"#80, #82",33d409071a71c021f9b828119e9854f84c34d2a4131ea008c52c106535efc0e1
+docs/product/context-comparison-package.schema.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",d8ab64b64f3d6636e89514cffadd7fe18dc6381653a8a1fd6ad55bc91a09329a
+docs/product/context-guarantee-matrix.proposed.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",b786ca8e0aa22f1264ca5a0bde0036e92fb1f2be172dd1fed374235e5ca5a92c
+docs/product/context-guarantee-matrix.schema.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",b9e9350b5d0fced8b4f6b5d2003668d21014bf2ef5031e7760f98864bfe56f70
+docs/product/context-status-report.example.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",aab5f8bdf1719d4f325282501d103af454e80ca428a53efa6e440562bf632dff
+docs/product/context-status-report.schema.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",e9a7803608d62ba2c7b6d026d1562a9bb04c709ef23141b05da4fdb9d0d4b07f
+docs/product/control-profile-compiler.example.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",8e915032d241d2e5548e9888da03d069db502d0d623460ba846412047d063c2e
+docs/product/control-profile-compiler.schema.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",e1499bd3aa95b82bac0e7ce673672fffe37d07c248a45ff49375c60d7ba01a2e
+docs/product/control-validation.example.json,compat,구 Guarantee/Control 표현 및 runtime matrix 소비; 공용 검증과 Control category 분리,"#80, #82, #83",5b425d5967df62b00e3c46948793244bf562713908e83f67f36b282a0ecd57b6
+docs/product/control-validation.schema.json,compat,구 Guarantee/Control 표현 및 runtime matrix 소비; 공용 검증과 Control category 분리,"#80, #82, #83",bf85233a6dadde46e527aee4fa28aba6ebc204833e3db41caef5bdb9f4571d85
+docs/product/guarantee-matrix.schema.json,compat,구 Guarantee/Control 표현 및 runtime matrix 소비; 공용 검증과 Control category 분리,"#80, #82, #83",483dd74a13c425845b6a293bb657efd1f2c2dafd22593517bc614554e87fb8a6
+docs/product/guarantee-matrix.v1.json,compat,구 Guarantee/Control 표현 및 runtime matrix 소비; 공용 검증과 Control category 분리,"#80, #82, #83",def1f179e5b73de15ccc0dbb495b4cfdbd4a8aa41fbd88ba8182aade9715c7ff
+docs/product/m4.5-contracts.md,compat,현재 MCP 25개 계약의 해석 기준; 새 lifecycle 승인/완료 증거 아님,"#80, #81, #82",6833f90e2dfaca3bd004ac463250c320ee9930aabf127917bef46c0205e301b3
+docs/product/managed-task-runtime.example.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",5857508fb8e8bed300d1fcc9dc0a9ee9276d80bee769035df787e38872be667e
+docs/product/managed-task-runtime.schema.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",57d95eb274a2a5bdf9b05caae63d284f476dd8351d997db5bcca656643dc5ac0
+docs/product/project-baseline.example.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",efde54f550fde6bb978d80694c795e43999268686936422508cc0353feb28d27
+docs/product/project-baseline.schema.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",f3b90fce4e89de29bb6917400d2453e1e377647a2abb7ae253c1f33f34f813ea
+docs/product/task-execution-contract.example.json,compat,기존 Execution Contract/Assurance Packet schema·예시; #80/#82와 별도 version 경계,"#80, #82",62f97946f2d1ccc9127f73558d8e86cb74d6506ff5b23af6956ff1ff26c839a4
+docs/product/task-execution-contract.schema.json,compat,기존 Execution Contract/Assurance Packet schema·예시; #80/#82와 별도 version 경계,"#80, #82",70946d2c4584830e728b96877e04553af343344c0e7b728574982a90c14f4bb6
+docs/product/task-guarantee-report.example.json,compat,구 Guarantee/Control 표현 및 runtime matrix 소비; 공용 검증과 Control category 분리,"#80, #82, #83",1e7bdea6ae638e1512cd54412b3e1afac27bfdae6b7347921240dd5342e04884
+docs/product/task-guarantee-report.schema.json,compat,구 Guarantee/Control 표현 및 runtime matrix 소비; 공용 검증과 Control category 분리,"#80, #82, #83",688a1781096bcddcb37555a51fc73e6ed0fdda7e67131763a73ff4123764d9f8
+docs/product/task-harness-manifest.imported.example.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",5dff41540932c6fc499eb1de56e407b9927d6f9cd134e6d470e702bd530ef30f
+docs/product/task-harness-manifest.managed.example.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",1330840487184a970a30ab0785edf0619a4208a7d6ca133f3dd7656a575f5579
+docs/product/task-harness-manifest.schema.json,compat,기존 Context/Profile/managed 계약 schema·예시; 원본 보존 및 소비 대체 후 전용 경계 정리,"#80, #83",19f50e0c4b4eac6abbf59b399721deea36360e36ceecc07d70eee2dbfc6b97f6
+docs/product/향후계획.md,historical-only,이전 milestone 계획 기록 보존; 현행 roadmap 자동 승계 금지,#7,df7753580caeaea23ca5fa8407fed5b817cce27388c33e269184f0483e980301
+docs/research/claude-code-and-grok-adaptation.md,historical-only,과거 플랫폼/라우팅 조사 보존; 새 Skill 채택 시 #81에서 근거 재검토,#81,40884c33e266dc3c336d5b57421ae5e0bc99a38e9dbf86d6fa1d9e1889217211
+docs/research/using-superpowers-routing-pattern.md,historical-only,과거 플랫폼/라우팅 조사 보존; 새 Skill 채택 시 #81에서 근거 재검토,#81,efc5330d65f2b3aa4fe1e5ca97224c92c0f7f1f558b7703f45887543cd7ca61a
+docs/reviews/m1.5/README.md,historical-only,M1.5 비교 실행·검토 기록 보존; 새 제품 성능 증거로 승계 금지,"#7, #83",14eeab0999b201f36f7f61a1d045924eef6fd98a25d1fb279b2be89d5199eff2
+docs/reviews/m1.5/comparison-package.json,compat,과거 비교 자료이나 현재 Context 테스트/비교 실행 입력이므로 즉시 역사 전용으로 분리 불가,"#81, #83",256074b43f562e205c4eb9779dd072abeb90e61bdd05601f4189d6d5fab67dc7
+docs/reviews/m1.5/fixtures/condition-b/AGENTS.md,compat,과거 비교 자료이나 현재 Context 테스트/비교 실행 입력이므로 즉시 역사 전용으로 분리 불가,"#81, #83",5c4c3d8c0bec540dd189602fc14350bf9a2cd8b41f15f3e55da6699772839731
+docs/reviews/m1.5/fixtures/condition-c/AGENTS.md,compat,과거 비교 자료이나 현재 Context 테스트/비교 실행 입력이므로 즉시 역사 전용으로 분리 불가,"#81, #83",880ca4172b770856aa2841f5c60eb570fd2e098e96168257c135dad8f4df3c0d
+docs/reviews/m1.5/fixtures/condition-c/task-reference.md,compat,과거 비교 자료이나 현재 Context 테스트/비교 실행 입력이므로 즉시 역사 전용으로 분리 불가,"#81, #83",6f022982c61dd1bcbe5019f20a9cf2e15350df4ad8073ce1c139be06a251cd06
+docs/reviews/m1.5/run_comparison.py,historical-only,M1.5 비교 실행·검토 기록 보존; 새 제품 성능 증거로 승계 금지,"#7, #83",96b8ca179e7aaa74f3807d73310341f81c1df33c0b4cd12b29b662daf23213b9
+docs/reviews/m1/README.md,historical-only,당시 slice/실행 결과·검토 기록 보존; 현행 M5 완료 증거 아님,#7,f48d96a90bdcae450022e60fd095b77cb1c0ce32f418246d71f4152d039bb4eb
+docs/reviews/m2/README.md,historical-only,당시 slice/실행 결과·검토 기록 보존; 현행 M5 완료 증거 아님,#7,16377eceae11200674136ac7dc55e904ce01b8c65dc682cd86cdd4a3d0c01003
+docs/reviews/m2/run_fixture.py,historical-only,이전 milestone 재현 실행기 보존; 새 lifecycle에서 자동 호출하지 않음,#83,f4c4b8827fb8678b49fc4b3545a51d156cad8b6793b8526e169d7e58b945a9cd
+docs/reviews/m3/README.md,historical-only,당시 slice/실행 결과·검토 기록 보존; 현행 M5 완료 증거 아님,#7,69e1aad10cc4677b01fe8bfac58b565ec727653b1f76323f53dbc5d68582ff3a
+docs/reviews/m3/observed-gate-summary.json,historical-only,당시 slice/실행 결과·검토 기록 보존; 현행 M5 완료 증거 아님,#7,6aa1450bca82fc5cb24f67fbb14079e6df6d61f736fe9c6f2c28aa210900878d
+docs/reviews/m3/run_live_probe.py,historical-only,이전 milestone 재현 실행기 보존; 새 lifecycle에서 자동 호출하지 않음,#83,0eb82536244fce195a489200713d4d384a05dff7121f673782f2ed319e55ae55
+docs/reviews/m4.5/README.md,historical-only,당시 slice/실행 결과·검토 기록 보존; 현행 M5 완료 증거 아님,#7,31deffbad64c31167560653790c5fe3a417baa57758f57a89b8b0b480b02f579
+docs/reviews/m4.5/observed-slice-summary.json,historical-only,당시 slice/실행 결과·검토 기록 보존; 현행 M5 완료 증거 아님,#7,826ca9869014cfd836356b9f923163b6c41d0455a4c01d10631792d92885adff
+docs/reviews/m4.5/run_slice.py,historical-only,이전 milestone 재현 실행기 보존; 새 lifecycle에서 자동 호출하지 않음,#83,db1c49d1fd3bfd6cf395bcc97c25fb6e53a24ed80aec290bb2a66ace6c5b74de
+docs/reviews/m4/README.md,historical-only,당시 slice/실행 결과·검토 기록 보존; 현행 M5 완료 증거 아님,#7,e4153b9e8c5dc93ebddc77aaf749a831c8395c3eec291f5246f5ce1bb044cb5a
+docs/reviews/m4/observed-gate-summary.json,historical-only,당시 slice/실행 결과·검토 기록 보존; 현행 M5 완료 증거 아님,#7,e89de8c05308d2096813f2b3aa9b140bc15ab6b4dc7e95d7d03080570217adbc
+docs/reviews/m4/run_fixture.py,historical-only,이전 milestone 재현 실행기 보존; 새 lifecycle에서 자동 호출하지 않음,#83,68c19f1ab6a88e122f361c92d28e1c4677f86679fd1cf1f9b15993cb0c9e4084
+docs/spikes/README.md,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",61045a2deae69b8e3260dfe4a45ff9fd9f5688ed053a9636e9483edbabbca44e
+docs/spikes/codex-desktop-integration.md,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",b9e55cd095c43ac222e68cbd752ed369ff71b9956fefc0e1494b7234ce4e541f
+docs/spikes/control-validation-coverage.md,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",d499df74ef69fbdadb9d62fbad26f112bb53547b001afb691c927400620f5a5d
+docs/spikes/event-evidence-store.md,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",304664fe7ebdae3d78a6a417bcb242e461180052a0d2f35f997a6e21e1571874
+docs/spikes/guarantee-matrix-fixtures.json,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",20980314e9d674ea1066f67f52b20c1f4fe37aa569a0c633d1c7233b6853c05d
+docs/spikes/guarantee-matrix-v1.md,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",a8ccaf3f414ac73ce31e41ddb8384edea2081be078546d630952074c9e790f68
+docs/spikes/m0-01-baseline-audit.md,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",c3fe062a162481ab92f1de1e264e784732a50ffcdc6172e801ea2abe264a23d2
+docs/spikes/probes/m0-01-baseline-probe.sh,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",84643af219ad8720dd53a3c8cd84f06d77c9a670dc73f88b1fc23d689d4b4965
+docs/spikes/probes/m0-02-03-codex-capability-probe.sh,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",e60ca3e74782775a79bbf5aebfb502e6faab57ddf22f4cad40a2a7e1ebd76c19
+docs/spikes/probes/m0-04-guarantee-matrix-probe.sh,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",2a21def87934f98e31c16eaf4f8e987a271214bca9153a7802b3317cb79fd9b7
+docs/spikes/probes/m0-06-store-probe.sh,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",9ccf674359ae6425f3ee06ab33df1ed3614957cdc2a59fb764faf7eef013c2b0
+docs/spikes/superpowers-vendoring.md,historical-only,M0 조사·probe·fixture 이력 보존; 현행 환경과 성능 검증으로 승계 금지,"#7, #79",7f1e0e55c1158bba313df2456c2dfbd408af19eeb0b187934ec0fc6fbe3e47b5
+docs/superpowers/plans/2026-09-04-m1-evidence-core.md,historical-only,M1~M4 구현 계획·설계 이력 보존; 현재 실행 지시로 재사용하지 않음,#7,895dadebfe25acea4ccac22a3fb3d3f225af8f117add5101432f29450c76c5f5
+docs/superpowers/plans/2026-09-05-m1.5-context-architecture.md,historical-only,M1~M4 구현 계획·설계 이력 보존; 현재 실행 지시로 재사용하지 않음,#7,32d487d9183bbd4b7cdc4cf7ca1f77595a6aa50071fa70090cc6a80836d62031
+docs/superpowers/plans/2026-09-05-m2-control-profile-lifecycle.md,historical-only,M1~M4 구현 계획·설계 이력 보존; 현재 실행 지시로 재사용하지 않음,#7,0e9d7ecc4929f2d36fc7f7bd01099a874c73fbfe6f90935eec4ccabb699bbb05
+docs/superpowers/plans/2026-09-05-m3-managed-task-integration.md,historical-only,M1~M4 구현 계획·설계 이력 보존; 현재 실행 지시로 재사용하지 않음,#7,d7caaab7d1f9a78e73e0ba9607c8059fcc9c19b00adf13d4cf018910c2668ac1
+docs/superpowers/plans/2026-09-06-m4-assurance-pipeline.md,historical-only,M1~M4 구현 계획·설계 이력 보존; 현재 실행 지시로 재사용하지 않음,#7,419f2ad9242837079fa7495317912ff1f4047ae14f12bf944b7b009df89e1645
+docs/superpowers/specs/2026-09-05-m3-managed-task-integration-design.md,historical-only,M1~M4 구현 계획·설계 이력 보존; 현재 실행 지시로 재사용하지 않음,#7,252ffa1f3b2dda39d7dc339225af835d6fa391053feb012e764ca2376e1134cb
+docs/superpowers/specs/2026-09-06-m4-assurance-pipeline-design.md,historical-only,M1~M4 구현 계획·설계 이력 보존; 현재 실행 지시로 재사용하지 않음,#7,3c8ececad4cb35dd24d1573a2220c1420cf99e7790289eda04049e9e10c6a50c
+mcp.json,compat,현행 패키지 metadata/서버 진입 설정 유지; 새 Skill/API 노출은 #81과 정합화,#81,26965190b8f50741edc489a8762a3e962dc02b8ccc41448672bf46037e53370e
+plugin.json,compat,현행 패키지 metadata/서버 진입 설정 유지; 새 Skill/API 노출은 #81과 정합화,#81,b15a057831e2c2218e4b893a6394be0c14ba0061270f8ebc3d9cf4a3ca2099fe
+pyproject.toml,keep,현재 패키지·재현 환경·Git 제외 기반 보존; 불필요한 변경 없음,#79,923b169b936b62699f62562fed217d4bc6f5d9c2110c96d98da3c4a241c76e21
+skills/context-validation/SKILL.md,remove-later,Context 전용 본문을 새 lifecycle 필수 단계에서 분리,"#81, #83",07b793d23d38161236779d5a590d5b56a2af7c63c11370c8c4dd3d42d21c5695
+skills/execution-control/SKILL.md,compat,create/import/restore와 managed/candidate 실행통제 혼합; 단계별 재배치,"#81, #83",04205a133db4b08009ff979c6dd4f3c10a60954b1589b857703aaa90000658c2
+skills/harness-profiler/SKILL.md,remove-later,환경 profile/compile 본문 분리; contract 생성 연결은 Core에서 별도 호환,"#80, #81, #83",980840db46027742433236fee4c0f059c7664ad82cfe8e145e7efc7a516cd90f
+skills/test-assurance/SKILL.md,compat,검증 책임 재사용; 구 gate pass/override와 새 Review·Human Decision 분리,"#81, #82",fe0b314cd9f06318b7d4e51efac8e87425f408194a478aac68fc8eb8c61a5ede
+skills/using-ownhands/SKILL.md,compat,현재 4-domain 사전검사 router를 새 dormant/lifecycle router로 교체,#81,4e9bc966c5860f29bc99b7d03cee408993476fb247b12a84e8b18a73e082f47d
+skills/using-ownhands/references/antigravity-tools.md,compat,기존 플랫폼 tool 참조; 사용 환경·지원 주장을 새 Skill 계약에서 재평가,#81,9a809505c837019eaa7f5384a5a51e98f3f2c7e3e0570cd66709d3175eca52e4
+skills/using-ownhands/references/claude-code-tools.md,compat,기존 플랫폼 tool 참조; 사용 환경·지원 주장을 새 Skill 계약에서 재평가,#81,b42188d50030c69b9367fb9e497845d5fc8a5d6b392bc0e29ab0cc8a22490eda
+skills/using-ownhands/references/codex-tools.md,compat,기존 플랫폼 tool 참조; 사용 환경·지원 주장을 새 Skill 계약에서 재평가,#81,195b042197ca83f5af80694d911d2ecd7d0e91e22a6f7585a5aaef35b356225f
+skills/using-ownhands/references/grok-tools.md,compat,기존 플랫폼 tool 참조; 사용 환경·지원 주장을 새 Skill 계약에서 재평가,#81,137196b9899b811b8e05be809b77ef0f1a9cef6358aa9e7b6e68fae647a044e7
+src/devharness/__init__.py,keep,패키지 초기화,#79,54a18841912f4125d97b26cb7f62438772ecfe396d098d8c72c14bff4ead49aa
+src/devharness/__main__.py,compat,MCP 서버 진입점 유지; M1 demo와 M1.5 CLI 및 eager Context import는 분리,"#81, #83",3519dce61d69d08a133ac932664dd1490bad22a8d135eab812973d3af16e7256
+src/devharness/assurance.py,keep,Restore·Impact·Test Design·비교·Gap·Packet 기반; v1.1 입력과 Gate/override는 호환 경계,"#80, #82",1e61b3555cb31538eb52f22ae5c95c7703546d642591dd08d3ea3f43c748e661
+src/devharness/catalog.py,keep,SQLite 트랜잭션·schema 검증·참조 무결성; v1/v2 migration은 호환 유지,#80,30893893626a6e59db1b54db354351150373a1285d35809b6a94b6124e1571d1
+src/devharness/codex_app_server.py,remove-later,managed 실행·승인 통제 전용; AppServerRun/Record를 소비하는 기록 수입 경로 보호 후 분리,#83,1fe2e388993da215e36c1afe0caa30cc357a78beb613d91650260d5ebf531c16
+src/devharness/context_architecture.py,remove-later,Context lint·manifest·적용성·고정 비교 책임; CLI·Context MCP·Skill 테스트 소비 해소 전 보존,"#81, #83",bbc4e9bfdba212b6a8ea065e1341b2bf20992c5da7b278647bc09182bf147b29
+src/devharness/control_profile.py,compat,Profile/Compiler 분리 후보이나 build_execution_contract의 Assurance draft·fingerprint 생성 연결 보존,"#80, #82, #83",c47fa69e34a9a857bff8385de939dfe99c802ae049af2c9454355c691ec9d455
+src/devharness/control_runtime.py,remove-later,configured/loaded/enforced 관찰 평가; managed 기록 및 legacy 관찰 의미 보존 후 분리,#83,507203053afcad210729c54b19f8ca3c641b790cc073cfc65af40207b8dbdc6a
+src/devharness/events.py,keep,append-only sequence·fingerprint·redaction 및 lifecycle 원본 보존,#80,f3c91b3e10b5b3ca697f6eb41a731e471e55ffe781002f3121a38975a56109c9
+src/devharness/evidence.py,keep,CAS 객체·metadata·scope·redaction·purge 감사; legacy evidence type 즉시 삭제 금지,"#80, #82",cda0f2d05b3372c021afa7843fdb358469ab7cdd79e735dc83a8498bd3e50a62
+src/devharness/guarantees.py,compat,공용 증거 검증과 Control category·report v1 혼합; 새 Claim 평가로 명시적 전환,"#80, #82, #83",18a8adc90099c581fa8721b1510c34fa99ac47c46e3d5df32e6da3261f526a43
+src/devharness/identity.py,keep,Project/Worktree/Task 격리와 원자적 task.created; managed/imported는 legacy 입력 경계,#80,09b09a631d53c2c0a16123260145d22ea27fb9b843e22502c62570a36a2891ff
+src/devharness/imported_tasks.py,keep,현재 snapshot/diff/test 수입과 과거 실행 이력 비추정; 구 Guarantee 호출은 호환,"#80, #82, #83",3b050b1350a2a478d580a6da30fadc06cd010f1c337d903a3253c4cdcdfbef81
+src/devharness/m2_review.py,historical-only,M2 고정 demo·재현 실행기 보존; 새 lifecycle 실행기로 승계하지 않음,#83,30f97607426155fb988e0fe5c76e0cb7a0f6df4f31945d3db4a7342a273ca451
+src/devharness/m3_review.py,historical-only,M3 고정 probe/packet/live 실행 이력 재현; 자동 재실행·새 Review로 승계 금지,#83,93e4651b95b727f577d3fb3e291b941e76a6c152f89edb3d32b1907b367b47a7
+src/devharness/m4_review.py,compat,Packet 검증·표현 재사용 검토; run_m4_fixture와 합성 저장소 생성은 역사 재현,"#80, #82, #83",a4bb8179283d627b25f4662b71ed961c235aa0e7a40ed8199ad37ad1811ab1f0
+src/devharness/managed_tasks.py,compat,prepare 실행통제와 record_managed_run의 Evidence 수입·참조 검증 혼합,"#80, #83",270efaeede15f8bb953d1c1c228bcec53ff4610b3e70502253e6c97fd856aad0
+src/devharness/mcp/__init__.py,keep,MCP 패키지 export; server 의존성은 등록표와 함께 보호,#81,82fa4d5978333bdf30a92940d62f26c79944a49babcbab9643881962444478f7
+src/devharness/mcp/protocol.py,keep,JSON-RPC envelope와 오류 표현 기반,"#80, #81",bf27be1d219bb1f8ed303e5fa2274c9654ae63ddfe167d379eaa0a1038ba1129
+src/devharness/mcp/server.py,compat,transport/dispatch 유지; 25-tool registration과 validation은 명시적 계약 교체,"#80, #81, #83",e74a09756a30a8c049da62d50fb9ee52ffbbae731702f48c273f3290d310af6b
+src/devharness/mcp/tools/__init__.py,keep,MCP 도구 패키지 초기화,#81,5384bfdb2df380b6557cc7a71d16891415bccaa87699406e236f752c6415389f
+src/devharness/mcp/tools/assurance.py,compat,검증 7개 도구 재사용; 구 decision/contract/guarantee 의미를 새 Claim으로 직접 변환 금지,"#80, #82",457e4658d635417d022e9c8956ff2c2aa7327309d79a942747732e3a50c6f8b6
+src/devharness/mcp/tools/common.py,compat,Task 존재 검사·Evidence 저장 유지; legacy decision→result/basis 변환 분리,"#80, #82",105ad2e1e3f1da2cbbf2368ddc920d9ea91c87776f8bf82e7cd4296c0be83903
+src/devharness/mcp/tools/context.py,remove-later,Context 전용 6개 adapter; 구 보장/고정 benchmark 재현은 별도 하위 경계,"#81, #83",32009e1454ac56c7ccd7a6b8b6eb4882ee170fadef24547f9d456a118ead8a0b
+src/devharness/mcp/tools/execution.py,compat,create/import/restore 유지와 prepare/runtime/candidate 제어 혼합,"#80, #81, #83",ef6058fc348c855444e5b1801909a79ad001ffcbe52b75c9df1506d8f93d7a17
+src/devharness/mcp/tools/harness.py,compat,profile/compile 제거 후보와 Assurance 계약 생성 adapter 혼합,"#80, #83",1f1ce0097552ba5df2dcd72fa5a722add3dfb937687e049964c2586d1722ecc2
+src/devharness/paths.py,keep,Git 밖 private data root와 저장 경계,#80,8d6221af110a1fe4fe4bec0332f6d1fd708ad83dcbe4beb39efae0d6c2326032
+src/devharness/plugin.py,keep,manifest/config 검증과 Skill discovery; load_plugin_manifest 호환 projection 유지,#81,070b6739d00ca48ee46c3965a5f10658589df18a71f05d9a5b7c822db4e92a0e
+src/devharness/projections.py,keep,canonical replay·무결성·수집 freshness; 구 event handler와 v1 projection은 호환,"#80, #82",0f0287dfedf82e81aa65c0ddeb2421343acbb1690318862bc05c27bda091b42a
+src/devharness/review.py,compat,M1 Evidence/Guarantee 표현과 공유 atomic writer 유지; run_m1_demo는 역사 재현,"#80, #83",a48960eaf3e9ac9eb4fb8db806d888f121c69170bba734cbae265a7298cc6800
+tests/__init__.py,keep,테스트 패키지 초기화,#79,01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+tests/fixtures/guarantee_attacks.json,compat,구 Guarantee 의미와 위조/상충 Evidence 반례 fixture 보존,"#82, #83",a42f540d13083f55618189c0b6a5964841f6f2226c16761c799f5bb68eb24fd8
+tests/fixtures/hwpx_package_inspection.json,compat,M1 합성 수직 slice 입력; 실사용·현행 M5 검증 증거 아님,#83,185badffaaf686a124a60d24dafab5afca4f4382e156a85ac64534a58ec5d418
+tests/fixtures/m15/applicability_cases.json,compat,기존 Context 검사·비교 fixture; 테스트 소비 제거 전 보존,"#81, #83",72de864d1a45d4ead263616483e9308f93eb457225ffb23f55a42c4dc4caac97
+tests/fixtures/m15/comparison_attacks.json,compat,기존 Context 검사·비교 fixture; 테스트 소비 제거 전 보존,"#81, #83",cc7c4454aaf94c6aea20dea8471a66fd660a3c08426bd30d74ad3ee697b87026
+tests/fixtures/m15/comparison_project/REQUIREMENTS.md,compat,기존 Context 검사·비교 fixture; 테스트 소비 제거 전 보존,"#81, #83",a6b6b0958a77302f1c70254e20ba2627ff598e2850d64dfac5569dccf3b4d794
+tests/fixtures/m15/comparison_project/harness.py,compat,기존 Context 검사·비교 fixture; 테스트 소비 제거 전 보존,"#81, #83",72c9be31dc411be40b7b206110b4dce477e3b3d0cbe589d4d53a39a2a3d3c9d8
+tests/fixtures/m15/comparison_project/test_harness.py,compat,기존 Context 검사·비교 fixture; 테스트 소비 제거 전 보존,"#81, #83",890b4520f5ac9a5c689d34a78316af897e2838d36d5aab8a0e538bd28e121e28
+tests/fixtures/m15/guarantee_attacks.json,compat,구 Guarantee 의미와 위조/상충 Evidence 반례 fixture 보존,"#82, #83",0586bcf278e464527de85f9122f2d7ec19da28db94158364f8ac1bef074efae2
+tests/fixtures/m15/lint_cases.json,compat,기존 Context 검사·비교 fixture; 테스트 소비 제거 전 보존,"#81, #83",d23550b460088331f8cf1b4c7733e432a704b2fe27f129aa61ed61ede0db3ddf
+tests/fixtures/m15/manifest_attacks.json,compat,기존 Context 검사·비교 fixture; 테스트 소비 제거 전 보존,"#81, #83",ce353744cabae06151e63f36d6341c11a2753c4eda697e16536c3c808466d2b7
+tests/fixtures/m2/adversarial-cases.json,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",7faa818709955d3ca268cf616a15c9522844626cb71bf439a23f43e18cdf4cb3
+tests/fixtures/m2/interview-cases.json,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",a549989f5a65901fb0accf7f2278618d00c9dd0c77e69105ebbafab59156c5f7
+tests/fixtures/m2/project/.codex/config.toml,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",c73e8bece7ee8c99689e2c62932ffeb52126a24b55782659b5d9811bfdd253f7
+tests/fixtures/m2/project/.codex/hooks.json,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",56972e066000a13954a596529804a5823dd394fa52a062aa0a3e8dd59ed6e246
+tests/fixtures/m2/project/.codex/rules/fixture.rules,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",5cefe8027ee4df6298c863accd896c7b9d37f39ec3c83e580bac8b640c125ad3
+tests/fixtures/m2/project/AGENTS.md,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",3c5fca89dc98084416e792e284a736c6132070a775c0212d98fe2c618ad9d154
+tests/fixtures/m2/project/REQUIREMENTS.md,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",1784fb69e0db07f6102f869bd4acfba24fafe322c6ee738dcbcfa35e733ebbd4
+tests/fixtures/m2/project/external-services.json,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",ea4e4a00861a85cb0099111543918012e26f64b93a207b3af30efdbb5cc3d45a
+tests/fixtures/m2/project/hwpx-tool-contract.json,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",5fee3c29ed51e298be36e57c020f65b897760ac1fd25a462dd36d5a6a8314478
+tests/fixtures/m2/project/pyproject.toml,compat,Profile/Compiler·구 Assurance 계약 생성 테스트 입력; 임의 제거 금지,"#80, #83",93a12908f788701edb0f9444c48999e8e2f773aab17c327e396686fa6de58aa4
+tests/fixtures/m3/app-server-attacks.json,compat,실행 protocol 또는 imported snapshot 테스트 입력; 실제 runtime 성공 증거 아님,"#80, #83",0f3c6335d221feaadfb2ec2b625a795b9d2be116fc5be711e870b646f64b9858
+tests/fixtures/m3/app-server-success.jsonl,compat,실행 protocol 또는 imported snapshot 테스트 입력; 실제 runtime 성공 증거 아님,"#80, #83",fb075c930748c86302bc8c30c795f40762306b9593c908aff3a74384f23f111c
+tests/fixtures/m3/imported-task.json,compat,실행 protocol 또는 imported snapshot 테스트 입력; 실제 runtime 성공 증거 아님,"#80, #83",5da91ce6089ca0ab548fb756d85b50d384a0d051bdb540cfc8193651a6edfbe5
+tests/fixtures/m4/adversarial-cases.json,keep,Assurance 계약·영향 관계·공격 입력 fixture를 회귀 기준으로 보존,"#80, #82",ff1f09545dab9556a741d11cb54db796f7259b50eed7ac466254aeede001cc79
+tests/fixtures/m4/relation-catalog.json,keep,Assurance 계약·영향 관계·공격 입력 fixture를 회귀 기준으로 보존,"#80, #82",ecb5071eb746525c148a7934075e4238ba4f0725c38f12f11949cd7b41a3c9eb
+tests/test_assurance.py,keep,Contract binding·실패 baseline·비교 불가·gap·override·packet 반례 보호,"#80, #82",0bd74b607193a414d20bb6588535ed90241a4dd8cf78b70805c3fa556ca00095
+tests/test_codex_app_server.py,compat,scope·approval chain·timeout·transport 회귀 보호; 실행통제 분리 후 역사 재현 경계,#83,fbe5da8edd53846f3c61677df1b716d1da19f5ab2f18ea46842320c0cb18fcc7
+tests/test_context_architecture.py,compat,Context 검증·CLI·고정 비교 계약의 현재 회귀 기준; 소비 대체 전 유지,"#81, #83",6f64d04c393e6c9ba9ec9d77277a001948622b9294a63f872221b58cfddf2826
+tests/test_control_profile.py,compat,구 계약 생성과 apply/journal/rollback 보호; 새 검증 연결 분리 전 유지,"#80, #83",418d26d0b2befb6a22bb4fde23984942ac95c5fc3eea4957a3b53a86fee8b4f4
+tests/test_control_runtime.py,compat,configured를 loaded/enforced로 승격하지 않는 관찰 회귀 보호,#83,b50bd7d16fd98e166d847228a0497342db893c0c5807796e55f63911a8014300
+tests/test_events.py,keep,append-only·sequence·task.created·tamper 반례 보호,#80,a2da2e1a2be74fece7c41b4ce893c5f0adbe70fb8574fd72257bc44815e02efd
+tests/test_evidence.py,keep,private/redaction/hash/metadata/tombstone/purge 회귀 보호,"#80, #82",9e528b78a901ecb8c2189e606fb6de5be6ce501c953573741d05aa9cd5493301
+tests/test_guarantees.py,compat,구 matrix 고정 category와 범용 Evidence scope/위조/상충 검증을 분리해 보호,"#82, #83",45571dab32555876c813e8b9172a5334769506afc5c16caad290bdbe608cee06
+tests/test_identity.py,keep,Task 격리·원자성·schema migration 실패 시 보존 회귀 보호,#80,bfe08378162a8d643cf485689471e9019774a5f5d9b82a5ec7c7c1ac94de5475
+tests/test_imported_tasks.py,keep,현재 증거만 수입·타 Task/오래된 test/조작한 이력 거부 보호,"#80, #82",6c9830af38e18d2a8387507cc582de80c5263fcb72c3ade7dbced27e4d1d1f5a
+tests/test_m3_review.py,compat,역사 live 실행기의 one-attempt·sanitization·preflight 회귀 안전장치; 새 M5 검증 결과 아님,#83,b20061c6d8309b0573e15257af0f296ff76c572d2079d7086d66bcbea82535f9
+tests/test_m45_vertical_slice.py,compat,구 plugin/context slice와 실제 stdio subprocess roundtrip; transport 부분 재사용,"#81, #83",1e82c62570854375ca63c96a5e55b7375aa43deec78e755cf671202f9c0ed39d
+tests/test_m4_review.py,compat,합성 packet fixture와 표현/sanitization/closure 보호; 새 Dashboard 수용 시험 아님,"#80, #82",f30d9a4dd72436461385541980590c9fdddd00c5aa94be688af3bb4c5b48eeed
+tests/test_managed_tasks.py,compat,managed prepare와 Evidence 수입 무결성 혼합 회귀 보호,"#80, #83",7a250e0d6dfc9bbab6e1cea36bc116d7d0f2f5e37826030f1de3e35e3c28066a
+tests/test_mcp_contract_25_tools.py,compat,25개 exact list·atomic task·legacy decision mapping 반례; 새 tool 계약과 버전 분리,"#80, #81, #82, #83",768f133cdee1305ea6d292d40fc99880b51a762c14031ebd49da321117e87d9e
+tests/test_mcp_core_tools.py,compat,초기 4-tool 호환 anchor; 검사 대상 책임을 새 계약에 명시적으로 연결,"#81, #82",74467d8906df08ea34cd6c1c23f6bacae6d0916672065f93a5ae7f7195efeeaa
+tests/test_mcp_server.py,compat,initialize/dispatch/context legacy envelope; 공용 transport와 전용 Context 회귀 분리,"#81, #83",99cf6ede14e9fc83993f46ab01d895038c3467958a8177a566fa0da464e43d99
+tests/test_plugin_manifest.py,keep,manifest/MCP config 및 discovery 보호; 고정 Skill 목록은 #81에서 교체,#81,b2212c0284f3aa7f683c2afe3d3cf851ae3147da12563181e30d00adbf58de15
+tests/test_projections.py,keep,replay/freshness/tamper/cross-task/missing-ref 반례 보호,#80,a926a1c54fa779a4d4a48f641d76deae8b483f209eb10da09cba3c368a533263
+tests/test_skills.py,compat,기존 5 Skill 및 platform reference lint 검증; 새 Router 계약으로 교체,#81,b010f75e24e20e37ecee65e27ab034285445a8c8b45eb0cdfe36b7186e88c878
+tests/test_vertical_poc.py,compat,M1 재현 및 raw 노출/HTML escaping 보호; 역사 slice와 새 검증을 구분,"#80, #83",1241aa35f3d1c2166927d9f0346eb03fffc245e704145f1b57ca92dc6966d9d4
+uv.lock,keep,현재 패키지·재현 환경·Git 제외 기반 보존; 불필요한 변경 없음,#79,18395e596b80b3f7869c9f9b98c606560d32badf18e3ce1366a9ae25e93edd15
