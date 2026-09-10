@@ -1,0 +1,10 @@
+[
+  {"name": "same inputs", "change": "none", "expected": "current"},
+  {"name": "spec revision changed", "change": "spec", "expected": "stale"},
+  {"name": "working tree changed", "change": "code", "expected": "stale"},
+  {"name": "environment changed", "change": "environment", "expected": "stale"},
+  {"name": "test meaning changed", "change": "test", "expected": "stale"},
+  {"name": "test meaning unavailable", "change": "unknown-test", "expected": "unknown"},
+  {"name": "human decision appended", "change": "decision", "expected": "current"},
+  {"name": "display outcome appended", "change": "display", "expected": "current"}
+]
