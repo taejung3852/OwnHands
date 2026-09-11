@@ -1,73 +1,62 @@
 ---
 name: using-ownhands
-description: Use prior to task execution, workspace changes, or command runs - establishes OwnHands 4-tier harness safety and routes to specialized sub-skills before taking action.
+description: "OwnHands lifecycle router. Determines the next single lifecycle skill (work-map, verification-spec, baseline, review, dashboard). STAY DORMANT during general conversation, research, brainstorming, and while code implementation is in-progress."
 ---
 
 <SUBAGENT-STOP>
 If you were dispatched as a subagent to execute a specific task, ignore this skill.
 </SUBAGENT-STOP>
 
-<EXTREMELY-IMPORTANT>
-If an OwnHands governance rule, task contract, or safety boundary applies, invoke the relevant OwnHands sub-skill.
+# using-ownhands (Root Thin Router)
 
-- Execute context validation and harness profiling prior to code modification.
-- Verify sandbox permissions prior to running shell commands with external side-effects.
-- Require deterministic regression gate evaluation prior to declaring task completion.
+You are the OwnHands Root Lifecycle Router. Your sole responsibility is to inspect the current state of the conversation and repository, determine the **next single lifecycle skill**, and route to it.
 
-This requirement is enforced through the 4-tier harness architecture.
-</EXTREMELY-IMPORTANT>
+You do **NOT** execute tests, modify code, draft specs, or capture baselines directly inside this router. Delegate execution to dedicated lifecycle skills.
 
-# using-ownhands (Root Router)
+## The Core Rule: Thin & Deterministic Routing
 
-You are the OwnHands Root Skill Router. You enforce the 4-tier harness safety architecture (ADR-0010) and route user requests and agent tasks to specialized sub-skills backed by deterministic Option C MCP tools.
+1. **Check for Dormant Conditions First**:
+   - If the user is having a general conversation, asking questions, exploring ideas/brainstorming, or conducting research, **STAY DORMANT**. Do not invoke any OwnHands skill.
+   - If code implementation is actively in-progress, **STAY DORMANT**. Do not interrupt the coding flow.
+2. **Select at Most ONE Next Skill**:
+   - Do not chain multiple skills together in a single step.
+   - Use the priority and state transition table below to determine the single matching skill.
+3. **Announce and Delegate**:
+   - Announce: `"Using [skill] to [purpose]"` and follow that skill sequentially.
 
-Do not perform direct rule lints, contract validations, test comparisons, or code modifications directly inside this router. Delegate execution to dedicated sub-skills.
+## Routing Priority
 
-## The Rule
+When resolving next steps, evaluate state strictly in this order:
+`Explicit user intent > Persisted lifecycle state (LifecycleStore) > Repository facts > Model inference`
 
-**Invoke relevant OwnHands skills before taking action** — including modifying files, executing shell commands, or asking clarifying questions.
+## Deterministic State Transition Table
 
-1. Check if the task involves instruction files, workspace configuration, code execution, or test verification.
-2. Select the matching sub-skill from the Priority and Routing Matrix.
-3. Announce: "Using [skill] to [purpose]" and follow that sub-skill sequentially.
+| Situation / Context | Action / Delegated Skill | Rationale |
+|---|---|---|
+| General chat, language questions, explanations | **None (Dormant)** | Do not intervene in general conversation. |
+| Research, codebase exploration, brainstorming | **None (Dormant)** | Allow freeform exploration without harness friction. |
+| Code implementation & unit testing in-progress | **None (Dormant)** | Do not block or interrupt active development. |
+| Large/ambiguous goal, roadmap, unresolved decisions | **`work-map`** | Decompose into concrete work items and dependencies. |
+| Concrete work item defined, but Spec missing | **`verification-spec`** | Define acceptance criteria and edge cases. |
+| Spec drafted, but unapproved by human | **`verification-spec`** | Review with human and obtain formal approval. |
+| **[Pre-Implementation]** Approved Spec, no Baseline | **`baseline`** | Observe Before state & environment before editing. |
+| Implementation complete, verification/review requested | **`review`** | Run After tests, collect Evidence, assess regressions. |
+| **[Post-Implementation]** No valid Before baseline exists | **`review`** | Do NOT fabricate past baseline; record as missing_before or gap. |
+| Review exists + presentation missing/stale + requested | **`dashboard`** | Prepare human-digestible visual presentation artifact. |
+| Review exists + presentation current + dashboard read | **None (Dormant)** | Cache hit: read stored presentation without invoking skills. |
+| **[Freshness]** Requirements or criteria change | **`verification-spec`** | Re-draft and obtain new approval. |
+| **[Freshness]** Code modified after review | **`review`** | Review is stale; re-run verification. |
+| **[Freshness]** [Pre-impl] Environment / test meaning change | **`baseline`** | Re-capture Before baseline. |
+| **[Freshness]** [Post-impl] Environment / test meaning change | **`review`** | Mark comparison incomparable/stale and re-verify. |
 
-## Skill Priority
+## Red Flags — STOP and Route
 
-When multiple skills apply to the current phase, follow the declared sequence:
-
-1. **Governance & Baseline First:** Prior to editing code or creating task plans, invoke context-validation and harness-profiler.
-2. **Execution Safety Second:** Prior to running shell commands with external side-effects or sensitive access, invoke execution-control.
-3. **Test Assurance Third:** Prior to claiming fixes or declaring task completion, invoke test-assurance.
-
-## Red Flags - STOP and Route
-
-These rationalizations indicate process evasion:
-
-| Thought | Reality |
-|---|---|
-| "I can edit code directly without context linting" | Stale context and rule conflicts corrupt execution. Run context-validation. |
-| "I do not need to profile the repo; I see the files" | Skimming misses credential paths and declared test commands. Run harness-profiler. |
-| "I will skip the baseline test run and just run tests at the end" | Without a pre-change baseline receipt, regression proof is impossible. Capture baseline via test-assurance. |
-| "I changed one line; impact check is unnecessary" | Small changes cause unobserved breaks. Run git.diff_impact. |
-| "The tool returned soft_block, I will ignore it" | Soft blocks require explicit human override rationale and contract fingerprint. |
-| "The tool returned hard_block, I will work around it" | Hard blocks are absolute stops. Resolve the root defect. |
-| "I will run bash commands directly without checking sandbox controls" | Destructive execution without pre-inspection risks workspace corruption. Run execution-control. |
-| "I do not need to pass task_id since this is a quick check" | Omitting task_id disables CAS evidence persistence, leaving no audit trail. Pass task_id for tracking. |
-| "Tests pass, so the task is complete" | Passing tests is not verification. Completion requires assurance.gate_evaluate and evidence verification. |
-
-## Routing Matrix
-
-| Phase / Intent | Delegated Sub-Skill | Canonical MCP Tools (25 Total) | Gate Rule |
-|---|---|---|---|
-| **Instruction and Context Alignment:** Modifying AGENTS instructions, scoped rules, manifests, evaluating context gates and benchmarks | context-validation (6 tools) | context.lint, context.inspect, context.gate_evaluate, context.benchmark_plan, context.benchmark_evaluate, context.guarantee_evaluate | Must achieve pass or approved soft_block |
-| **Workspace and Contract Profiling:** Inspecting repo structure, test commands, compiling task contracts and previews | harness-profiler (3 tools) | harness.profile, harness.contract_validate, harness.compile_preview | Establishes boundaries and baseline |
-| **Execution and Sandbox Control:** Running shell commands, evaluating permissions, task lifecycle, applying and rolling back changes | execution-control (9 tools) | sandbox.inspect, git.restore_capture, runtime.controls_check, task.prepare, task.create, task.record_run, task.import, harness.candidate_apply, harness.candidate_rollback | Pre-execution snapshot and approval check |
-| **Test Design and Regression Assurance:** Designing test strategy, baseline capture, comparative runs, gate and guarantees | test-assurance (7 tools) | tests.baseline_record, tests.compare_runs, tests.gap_detect, tests.design_memo, git.diff_impact, assurance.gate_evaluate, guarantee.evaluate | hard_block halts on detected regression or coverage gap |
-
-## Platform Adaptation
-
-Consult the tool mapping reference for the active host platform:
-- Antigravity CLI (`agy`): `skills/using-ownhands/references/antigravity-tools.md`
-- OpenAI Codex: `skills/using-ownhands/references/codex-tools.md`
-- Claude Code: `skills/using-ownhands/references/claude-code-tools.md`
-- Grok (xAI): `skills/using-ownhands/references/grok-tools.md`
+| Thought | Reality | Correct Action |
+|---|---|---|
+| "The user asked a Python question; I should run the harness." | General questions require zero harness intervention. | Stay dormant. |
+| "I will write the code and spec at the same time." | Implementation without acceptance criteria causes rework. | Route to `verification-spec`. |
+| "The spec is approved, but I will ask the user again." | Current approved specs are idempotent and frozen. | Route directly to `baseline` or implementation. |
+| "I already wrote code, so I'll create a baseline now." | Time travel is forbidden; modified code cannot be Before. | Route to `review` and record missing_before or gap. |
+| "Tests pass, so I can create a formal Review without a Spec." | Formal Review strictly requires `VerificationSpec + SpecApproval`. | Route to `verification-spec` (or observation fallback). |
+| "I will run work-map, baseline, and review all at once." | Chaining multiple heavy skills overwhelms context. | Route to ONE skill only. |
+| "I will invoke context-validation or execution-control." | Legacy 4-tier skills are for historical/compat only. | Use the 5 new lifecycle skills. |

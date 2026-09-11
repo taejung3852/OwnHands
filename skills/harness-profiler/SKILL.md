@@ -1,6 +1,6 @@
 ---
 name: harness-profiler
-description: Discovers repository structure, configuration layers, sensitive paths, compiles control profiles, and previews task contracts using harness MCP tools.
+description: "[Legacy / Compat Only] Historical workspace and contract profiler harness. Do not invoke for new lifecycle workflows."
 ---
 
 # harness-profiler

@@ -8,8 +8,8 @@ When executing OwnHands skills in the xAI Grok ecosystem (Grok Build CLI or Grok
 | **Track Governance Milestones** | Agent Todos (`Ctrl+T`) & background tasks | In-context markdown checklist / plan object | Separate multi-step todo tracking from background OS process monitoring. |
 | **Invoke OwnHands MCP Tools** | mcp_servers.ownhands configuration | Function calling (`tools`) or Remote MCP (`type: "mcp"`) | Transports Option C JSON-RPC envelopes. |
 | **Inspect Source & Rule Files** | `read` / local file tools | Tool call to local reader / inspector | Traverses and validates AGENTS instructions and rules. |
-| **File Modification** | `edit` or `write` (governed by `GROK_WRITE_FILE`) | Tool call to local file editor | Permitted only after `context-validation` pass. |
-| **Shell & Command Execution** | `bash` (governed by sandbox policy) | Tool call to local shell runner | Gated by `execution-control`: capture pre-execution snapshot before running commands. |
+| **File Modification** | `edit` or `write` (governed by `GROK_WRITE_FILE`) | Tool call to local file editor | Permitted during implementation after spec approval and baseline capture. |
+| **Shell & Command Execution** | `bash` (governed by sandbox policy) | Tool call to local shell runner | Used for baseline test capture and post-implementation review verification. |
 
 ---
 

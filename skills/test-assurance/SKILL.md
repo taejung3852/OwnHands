@@ -1,6 +1,6 @@
 ---
 name: test-assurance
-description: Guides test strategy design, baseline test capture, pre/post run comparisons, diff impact analysis, and authoritative regression gate evaluation using assurance MCP tools.
+description: "[Legacy / Compat Only] Historical test assurance and regression gate harness. Do not invoke for new lifecycle workflows."
 ---
 
 # test-assurance

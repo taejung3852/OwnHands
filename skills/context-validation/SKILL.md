@@ -1,6 +1,6 @@
 ---
 name: context-validation
-description: Validates instruction hygiene, context placement, manifest integrity, benchmarks, and context guarantees using context MCP tools.
+description: "[Legacy / Compat Only] Historical context linting harness. Do not invoke for new lifecycle workflows."
 ---
 
 # context-validation
