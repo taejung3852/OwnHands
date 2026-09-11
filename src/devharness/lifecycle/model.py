@@ -29,6 +29,16 @@ FRESHNESS_STATES = {"current", "stale", "unknown"}
 RESULTS = {"pass", "fail", "not_run", "inconclusive"}
 BASES = {"observed", "inferred", "unobserved"}
 
+STAGE_SCOPE_KEYS = {
+    "goal": {"project_id"},
+    "issue": {"project_id"},
+    "spec": {"project_id", "issue_id"},
+    "baseline": {"project_id", "issue_id", "task_id", "attempt_id"},
+    "execution": {"project_id", "issue_id", "task_id", "attempt_id"},
+    "review": {"project_id", "issue_id", "task_id", "attempt_id"},
+    "decision": {"project_id", "issue_id", "task_id", "attempt_id"},
+}
+
 
 def canonical_json(value: object) -> str:
     try:

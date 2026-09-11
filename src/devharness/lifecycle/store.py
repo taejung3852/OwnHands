@@ -18,6 +18,7 @@ from .model import (
     NAMESPACE,
     RESULTS,
     SCHEMA_VERSION,
+    STAGE_SCOPE_KEYS,
     canonical_json,
     fingerprint,
     reference,
@@ -35,7 +36,6 @@ BLOCKER_REASONS = {
     "verification_execution_failed",
     "invalid_required_evidence",
 }
-
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS lifecycle_metadata(
@@ -327,7 +327,8 @@ class LifecycleStore:
         source = record["scope"]
         if source["project_id"] != target["project_id"]:
             raise ValueError("reference belongs to another project")
-        if record["kind"] == "work_issue" and target.get("issue_id") != record["id"]:
+        if (record["kind"] == "work_issue" and "issue_id" in target
+                and target["issue_id"] != record["id"]):
             raise ValueError("reference belongs to another issue")
         for key in ("issue_id", "task_id", "attempt_id"):
             if key in source and source.get(key) != target.get(key):
@@ -380,9 +381,16 @@ class LifecycleStore:
             raise ValueError("freshness subject must be a review")
         data = review["data"]
         changed = []
-        for name, current_ref in (("spec", spec_ref), ("code_state", code_ref), ("environment", environment_ref)):
-            self.get(current_ref)
-            if data.get(name) != current_ref:
+        current_inputs = {
+            "spec": self._require_kind(spec_ref, "spec", review["scope"]),
+            "code_state": self._require_kind(code_ref, "code_state", review["scope"]),
+            "environment": self._require_kind(environment_ref, "environment", review["scope"]),
+        }
+        if data.get("spec") != spec_ref:
+            changed.append("spec")
+        for name in ("code_state", "environment"):
+            reviewed_input = self.get(data[name])
+            if reviewed_input["data"].get("fingerprint") != current_inputs[name]["data"].get("fingerprint"):
                 changed.append(name)
         unknown = []
         observation_refs = list(data.get("additional_observations", []))
@@ -437,8 +445,8 @@ class LifecycleStore:
                     raise ValueError("each criterion must define required as a boolean")
                 ids.append(require_text(criterion.get("id"), "criterion id"))
                 require_text(criterion.get("text"), "criterion text")
-                if criterion.get("comparison") not in {"current", "before_after"}:
-                    raise ValueError("criterion comparison must be current or before_after")
+                if criterion.get("comparison") not in {"current", "preserve", "improve"}:
+                    raise ValueError("criterion comparison must be current, preserve, or improve")
             if len(ids) != len(set(ids)):
                 raise ValueError("criterion ids must be unique")
         elif kind == "spec_approval":
@@ -595,8 +603,16 @@ class LifecycleStore:
             require_text(data.get("reason"), "human decision reason")
             require_text(data.get("source"), "human decision source")
         elif kind == "outcome":
-            self._require_attempt_scope(scope)
-            require_text(data.get("stage"), "outcome stage")
+            stage = require_text(data.get("stage"), "outcome stage")
+            expected_scope = STAGE_SCOPE_KEYS.get(stage)
+            if expected_scope is None:
+                raise ValueError("unsupported outcome stage")
+            if set(scope) != expected_scope:
+                raise ValueError(f"{stage} outcome has the wrong scope")
+            if "attempt_id" in scope:
+                self._require_attempt_scope(scope)
+            elif "issue_id" in scope:
+                self._require_issue_scope(scope)
             require_text(data.get("action"), "outcome action")
             if data.get("status") not in {"completed", "failed", "partial"}:
                 raise ValueError("unsupported outcome status")
@@ -669,18 +685,20 @@ class LifecycleStore:
                         or observed.get("code_state") != data["code_state"]
                         or observed.get("environment") != data["environment"]):
                     raise ValueError("verified observation is bound to different review inputs")
-                if criteria[criterion_id].get("comparison") == "before_after":
+                comparison = criteria[criterion_id].get("comparison")
+                if comparison in {"preserve", "improve"}:
                     comparable = [item for item in before_records
                                   if item["data"].get("criterion_id") == criterion_id
                                   and item["data"].get("test_id") == observed.get("test_id")
                                   and item["data"].get("phase") == "before"]
                     if not comparable:
-                        raise ValueError("verified regression claim requires comparable Before evidence")
+                        raise ValueError("verified comparison claim requires Before evidence")
+                    expected_before = "pass" if comparison == "preserve" else "fail"
                     if not any(item["data"].get("test_meaning") == observed.get("test_meaning")
                                and item["data"].get("environment") == data["environment"]
-                               and item["data"].get("result") in {"pass", "fail"}
+                               and item["data"].get("result") == expected_before
                                and item["data"].get("basis") == "observed" for item in comparable):
-                        raise ValueError("Before and After test meaning or environment is incomparable")
+                        raise ValueError(f"{comparison} claim has no matching observed Before result")
         required = {item["id"] for item in criteria.values() if item["required"]}
         if not required <= set(claim_ids):
             review_state = "needs-review"

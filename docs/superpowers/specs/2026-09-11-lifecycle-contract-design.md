@@ -52,7 +52,7 @@
 |---|---|
 | WorkIssue | 내부 ID, 프로젝트, 외부 Issue locator, 참조한 Issue 내용 버전, 목표·범위·미결정 사항 및 그 출처 참조 |
 | Attempt | Issue·Task 연결, 이전 attempt 참조, 시작·종료·재개 기록 |
-| VerificationSpec | Issue 연결, MD 경로·내용 hash·불변 내용 참조, 사람이 정한 criterion ID와 필수 여부, 승인 참조 |
+| VerificationSpec | Issue 연결, MD 경로·내용 hash·불변 내용 참조, 사람이 정한 criterion ID·필수 여부·비교 유형(`current/preserve/improve`), 승인 참조 |
 | SpecApproval | 정확한 Spec revision, 사람 식별자, 결정·근거·시각. 에이전트의 수정 기록과 구분 |
 | CodeState | commit, working-tree fingerprint, 캡처 방식·범위·제외 항목. hash가 있어도 누락 범위를 숨기지 않음 |
 | Baseline | Micro/Verification 종류, 승인된 정확한 Spec·SpecApproval·Before CodeState·환경·Observation 참조와 누락 이유 |
@@ -94,7 +94,7 @@ Spec은 Issue 범위이며 여러 attempt가 같은 승인 버전을 사용할 �
 
 1. **조회 맥락:** 공통 조회에 사용자 요청·명시적 제약의 출처 참조, 대상 작업과 현재 수행하려는 단계/행동, 변경 성격과 판단 근거를 전달할 수 있게 한다. 사용자 의도와 에이전트의 추정은 구분하며, 단계는 파일 존재만으로 유일한 다음 행동으로 강제하지 않는다. 변경 성격을 아직 모르면 미확인으로 표현한다. 명시적 의도 우선, 불확실성에 따른 Wayfinder·grill-me·SDD·TDD 선택 정책은 #81에서 구체화한다. #80의 schema에 이 이름들을 필수 enum으로 고정하지 않는다.
 2. **준비된 산출물과 부족한 입력:** 조회는 사용 가능한 산출물의 정확한 참조·승인 상태·Freshness·적용 범위와, 아직 충족되지 않은 입력 및 그 이유를 반환한다. 문서가 존재한다는 것만으로 재사용 가능하다고 판정하지 않는다. 기존 기록으로 입력이 충족되면 추가 Skill 호출 없이 진행하는 경로도 정상적으로 표현한다. Skill 호출 이력 부재는 입력 누락이 아니다. 앞서 정한 Issue/Task/attempt 참조 경계는 그대로 적용한다.
-3. **수행 결과 연결:** Skill 사용 여부와 관계없이 수행 기록에 대상 단계/행동, 읽은 입력 revision, 재사용한 산출물 참조, 새로 남긴 산출물·실행 근거 참조, 수행 상태와 남은 gap을 연결한다. Skill 이름·버전은 사용했을 때만 provenance로 남긴다. 수행 성공과 검수 통과는 구별한다. 산출물의 type·scope·version으로 소비하므로 Skill과 Dashboard가 동일하게 읽을 수 있어야 한다. 입력이 수행 도중 변경되면 결과는 실제 사용한 입력에 묶어 보존하고 현재 적용 여부는 재평가한다.
+3. **수행 결과 연결:** Skill 사용 여부와 관계없이 수행 기록에 대상 단계/행동, 읽은 입력 revision, 재사용한 산출물 참조, 새로 남긴 산출물·실행 근거 참조, 수행 상태와 남은 gap을 연결한다. Skill 이름·버전은 사용했을 때만 provenance로 남긴다. 수행 성공과 검수 통과는 구별한다. 산출물의 type·scope·version으로 소비하므로 Skill과 Dashboard가 동일하게 읽을 수 있어야 한다. 준비 조회와 수행 결과는 같은 단계별 scope 규칙을 사용한다. 목표 탐색·Issue 구체화는 project, Spec은 issue, Baseline 이후는 attempt 범위이므로 Issue 생성 전 탐색도 결과를 남길 수 있다. 입력이 수행 도중 변경되면 결과는 실제 사용한 입력에 묶어 보존하고 현재 적용 여부는 재평가한다.
 
 위 항목은 기존 공통 조회와 수행 기록의 필드 보완이다. Router 선택 알고리즘·프롬프트·Skill 설치/발견·호출 구현은 #81 범위다.
 
@@ -105,7 +105,7 @@ Spec은 Issue 범위이며 여러 attempt가 같은 승인 버전을 사용할 �
 - Review가 시작할 때 정확한 Spec·CodeState·환경을 고정한다. 진행 중 파일이 바뀌어도 해당 검사의 입력을 바꿔 적지 않는다.
 - Claim: verified / failed / inconclusive / unobserved. 상세 판정 알고리즘은 #82. 미실행과 비교 불가를 같은 이유로 기록하지 않는다.
 - Review: ready / needs-review / blocked. 검토 상태이지 사람의 최종 수용이 아니다. #80은 제출된 verified의 최소 근거와 미검증·추가 실패·명시적 blocker를 구분하고, 의미 평가 확장은 #82에 둔다.
-- Freshness: current / stale / unknown, 평가 범위와 이유·근거 포함. 문서·코드·테스트 의미·환경의 관련 변화로 재평가한다.
+- Freshness: current / stale / unknown, 평가 범위와 이유·근거 포함. Spec은 정확한 version 참조, CodeState·환경은 검증된 내용 fingerprint, 테스트는 의미 식별자로 관련 변화를 재평가한다. 같은 내용을 새 ID로 기록한 것만으로 stale 처리하지 않는다.
 - 알려진 관련 변경으로 영향받는 결과는 재검증한다. 영향 없음의 판단도 출처·범위를 남긴다. 일반적인 잠재 영향 가능성을 모든 결과의 unknown이나 자동 차단으로 확장하지 않는다.
 - HumanDecision 추가는 Projection 반영을 요구할 수 있으나, 그 이유만으로 판단 근거의 의미상 Freshness를 stale로 만들지 않는다.
 - 표시만 바뀌고 검증 입력 의미가 같으면 의미상 Freshness는 유지한다. 실제 제품 동작·접근성 등을 바꾸는 UI 변경을 표시-only로 일괄 분류하지 않는다.
@@ -119,7 +119,9 @@ Spec은 Issue 범위이며 여러 attempt가 같은 승인 버전을 사용할 �
 | Spec MD 무승인 수정 | 기존 승인 Spec 유지, 수정본은 미승인 |
 | 사람 승인 조건 변경 | 과거 결과 보존, 새 Spec과 결과 혼용 거부 |
 | 테스트 의미·환경 변경 | 비교 가능성·Freshness 재평가 |
-| Before 없음 / 비교 불가 | 회귀 verified 승격 금지 |
+| Before 없음 / 비교 불가 | 비교 verified 승격 금지 |
+| Before fail → After pass를 기존 동작 유지 조건에 연결 | `preserve` 거부. 사람이 승인한 `improve` 조건에서만 개선으로 인정 |
+| 동일한 코드·환경을 새 ID로 재기록 | 내용 fingerprint가 같으면 semantic Freshness 유지 |
 | 관련 검사 선정만 있고 실행 근거 없음 | 실행·통과 표시 금지 |
 | 추가 테스트 통과, 필수 테스트 미실행 | 필수 미검증 유지 |
 | 추가 검사 실패 | 실패·보고 필요 보존, 자동 완료 승격 금지 |
@@ -136,6 +138,7 @@ Spec은 Issue 범위이며 여러 attempt가 같은 승인 버전을 사용할 �
 | TDD 선택 metadata만 있고 Before receipt 없음 | 방법론 선언으로 Before 또는 회귀 통과 생성 금지 |
 | 준비 상태 조회 후 입력 revision 변경 | 기존 조회 결과를 현재 준비 상태로 재사용하지 않음 |
 | 목표 기록만 있고 Issue/attempt 실행 근거 없음 | 목표 탐색 기록을 실행·검증 증거로 승격하지 않음 |
+| Issue 생성 전 목표 탐색 결과 저장 | project 범위 outcome으로 보존하고 이후 WorkIssue 출력 참조 연결 가능 |
 | 사용자 요청과 에이전트의 변경 성격 추정이 함께 전달됨 | 요청 출처와 추정 근거를 구별해 보존. Skill 선택 정책 자체는 #81에서 검증 |
 | 기존 산출물로 입력 충족, 추가 Skill 미사용 | 정상 준비·수행 결과 연결 가능. Skill 호출 기록을 필수로 요구하지 않음 |
 | 기존 문서는 있지만 다른 범위·미승인·stale 상태 | 단순 파일 존재로 재사용 준비를 인정하지 않고 해당 행동에 부족한 입력을 설명 |

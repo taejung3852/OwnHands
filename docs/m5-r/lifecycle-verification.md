@@ -10,9 +10,9 @@
 |---|---|
 | 모든 Artifact의 ID·version·parent/reference | `LifecycleStore`의 kind/id/revision/hash 참조, scope closure, append-only journal. 동일 내용 idempotency, 새 revision, 논리 ID scope 이동 거부 시험 |
 | 같은 commit의 다른 dirty tree 구분 | tracked 내용·삭제, untracked, symlink, file mode를 포함한 CodeState 시험 |
-| Before 누락·test meaning/environment 비교 불가를 회귀 pass로 금지 | missing, not_run, inconclusive, meaning/environment 불일치의 verified Review 저장 거부와 보고 가능한 Review 저장 시험 |
+| Before 누락·test meaning/environment 비교 불가를 비교 pass로 금지 | missing, not_run, inconclusive, meaning/environment 불일치의 verified Review 저장 거부. `preserve`는 Before pass, `improve`는 Before fail만 허용하는 시험 |
 | 다른 Issue·Task·attempt 근거 연결 금지 | WorkIssue/Spec, CodeState/Baseline, legacy Evidence 교차 scope 거부 시험 |
-| Spec·코드·테스트·환경·판단·표시-only Freshness | 각 입력 변경, Claim 및 추가 Observation의 missing/changed test meaning, Decision/outcome append의 semantic Freshness 독립 시험 |
+| Spec·코드·테스트·환경·판단·표시-only Freshness | 각 입력 변경, 같은 fingerprint의 새 CodeState/Environment ID 유지, Claim 및 추가 Observation의 missing/changed test meaning, Decision/outcome append의 semantic Freshness 독립 시험 |
 | 과거 version·판단 보존과 결정적 current 선택 | human approval activation, Issue별 active attempt, Snapshot/Decision 불변, journal replay 시험 |
 
 ## 추가 제품 합의 검증
@@ -22,7 +22,7 @@
 - 추가 검사 실패는 `needs-review`로 남고 자동 완료되지 않는다.
 - 명시적 실행 blocker와 일반 미검증을 다른 Review 상태로 보존한다.
 - blocker는 실제 필수 입력·권한·서비스 부재, 실행 실패, 유효하지 않은 필수 근거의 고정 reason code만 허용한다. 막연한 잠재 영향은 blocker로 저장하지 않는다.
-- Router 준비 조회는 승인된 현재 Spec과 정확한 활성 승인 쌍을 요구하고, 교차 입력 관계를 확인한다. 직접 수행 outcome은 Skill producer 없이 저장할 수 있다.
+- Router 준비 조회는 승인된 현재 Spec과 정확한 활성 승인 쌍을 요구하고, 교차 입력 관계를 확인한다. 준비 조회와 outcome 저장은 하나의 단계별 scope 규칙을 사용하며, Issue 생성 전 목표 탐색 outcome도 project 범위에 저장할 수 있다. 직접 수행 outcome은 Skill producer 없이 저장할 수 있다.
 - lifecycle journal 재개·Projection lag와 legacy Event Projection이 서로 영향을 주지 않는다.
 - raw Evidence가 나중에 손상되면 binding뿐 아니라 이를 참조하는 Observation·Review도 유효하게 읽히지 않는다.
 - CodeState와 Environment의 fingerprint는 canonical fields에서 재계산한다. ignored 내용은 fingerprint 범위 밖이라고 표시하고 coverage를 `partial`로 둔다.
@@ -35,11 +35,11 @@
 
 ```text
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -p test_lifecycle.py -q
-Ran 43 tests
+Ran 46 tests in 1.149s
 OK
 
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -q
-Ran 350 tests in 6.313s
+Ran 353 tests in 6.560s
 OK
 ```
 

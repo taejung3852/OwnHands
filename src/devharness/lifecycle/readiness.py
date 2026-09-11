@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from .model import canonical_json, fingerprint
+from .model import STAGE_SCOPE_KEYS, canonical_json, fingerprint
 
 
 REQUIREMENTS = {
@@ -30,17 +30,6 @@ EXPECTED_KINDS = {
     "snapshot": "snapshot",
 }
 
-EXPECTED_SCOPE_KEYS = {
-    "goal": {"project_id"},
-    "issue": {"project_id"},
-    "spec": {"project_id", "issue_id"},
-    "baseline": {"project_id", "issue_id", "task_id", "attempt_id"},
-    "execution": {"project_id", "issue_id", "task_id", "attempt_id"},
-    "review": {"project_id", "issue_id", "task_id", "attempt_id"},
-    "decision": {"project_id", "issue_id", "task_id", "attempt_id"},
-}
-
-
 def inspect_stage(store, stage: str, action: str, scope: dict, inputs: dict, request_context: dict) -> dict:
     required = REQUIREMENTS.get((stage, action))
     if required is None:
@@ -54,7 +43,7 @@ def inspect_stage(store, stage: str, action: str, scope: dict, inputs: dict, req
     input_refs = []
     records = {}
     invalid = False
-    if set(scope) != EXPECTED_SCOPE_KEYS[stage]:
+    if set(scope) != STAGE_SCOPE_KEYS[stage]:
         invalid = True
         checks.append({"input": "scope", "status": "invalid", "reason": "invalid_stage_scope"})
     if "attempt_id" in scope:

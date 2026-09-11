@@ -58,7 +58,7 @@ scope는 `project_id → issue_id → task_id → attempt_id` 순으로 좁아�
 |---|---|---|
 | `work_issue` | project | 제목, 외부 source, 내용, 사용자 요청 출처 |
 | `attempt` | issue+task+attempt | WorkIssue, 이전 attempt. 수정·테스트 반복은 같은 attempt, 완료 후 재작업은 새 attempt |
-| `spec` | issue | WorkIssue, MD 경로와 고정된 본문, criterion ID·문장·필수 여부·비교 유형 |
+| `spec` | issue | WorkIssue, MD 경로와 고정된 본문, criterion ID·문장·필수 여부·비교 유형(`current/preserve/improve`) |
 | `spec_approval` | issue | 정확한 Spec revision, human actor, approved/rejected, 이유와 출처 |
 | `code_state` | attempt | format version, commit, working-tree fingerprint, 관찰 coverage·제외, 파일별 kind/mode/hash |
 | `environment` | attempt | format version, 설명·구조화 details와 그 내용에서 계산한 fingerprint |
@@ -68,7 +68,7 @@ scope는 `project_id → issue_id → task_id → attempt_id` 순으로 좁아�
 | `review` | attempt | 활성 Spec과 그 정확한 SpecApproval·After CodeState·환경·Verification Baseline·Claim·추가 검사·불확실성·추정·blocker와 파생 Review 상태 |
 | `snapshot` | attempt | 정확한 Review 참조를 판단용으로 고정 |
 | `human_decision` | attempt | Snapshot, human actor, 결정·이유·출처. append-only |
-| `outcome` | attempt | 단계·행동, 읽은/재사용한/생성한 참조, 수행 상태·gap, 선택적 producer provenance |
+| `outcome` | 단계별 project/issue/attempt | 단계·행동, 읽은/재사용한/생성한 참조, 수행 상태·gap, 선택적 producer provenance |
 
 Micro Baseline은 작은 조사나 특정 검사 준비 상태를 고정하는 제한된 기준이다. Verification Baseline은 승인된 Spec의 Before 비교 근거를 고정한다. 두 종류 모두 관찰 범위와 누락을 명시하며, `micro`라는 이름만으로 Verification Baseline이나 회귀 보장이 되지 않는다.
 
@@ -94,9 +94,11 @@ Micro Baseline은 작은 조사나 특정 검사 준비 상태를 고정하는 �
 
 Lifecycle v1은 Claim 평가 엔진을 구현하지 않는다. 제출된 `verified`가 최소한 승인 Spec의 criterion, 같은 Review 입력, 실제 관찰된 pass, 필요한 비교 가능한 Before를 참조하는지 검증한다. 정확한 평가 정책은 #82가 제공한다.
 
-Before가 없거나 Before 결과가 `not_run`/`inconclusive`면 회귀 Claim을 `verified`로 저장할 수 없다. Before·After의 test meaning이나 environment가 다르면 비교 가능하다고 처리하지 않는다. 추가 검사 실패가 있으면 Review는 `needs-review`가 된다. 실제 필수 입력·권한·서비스 부재, 실행 실패, 유효하지 않은 필수 근거는 정해진 blocker reason code로 남길 때만 `blocked`가 된다. 막연한 잠재 영향은 `uncertainties`에 기록하며 blocker로 저장하지 않는다. 미검증 결과를 포함한 Review 작성 자체는 가능하다.
+criterion의 비교 유형은 현재 결과만 확인하는 `current`, 기존 성공 동작 유지를 확인하는 `preserve`, 관찰된 실패의 개선을 확인하는 `improve`다. `preserve`는 같은 test meaning·환경의 관찰된 Before `pass`와 After `pass`를 요구한다. `improve`는 같은 조건의 관찰된 Before `fail`과 After `pass`를 요구한다. 따라서 Before 실패는 기존 동작 유지의 근거가 될 수 없고, 사람이 승인한 criterion이 `improve`일 때만 개선 근거가 된다.
 
-Freshness는 Review가 참조한 Spec·CodeState·환경과 모든 Claim·추가 Observation의 test meaning을 현재 입력과 비교한다. 관련 값이 바뀌면 `stale`, 현재 의미를 확인할 입력이 없으면 `unknown`, 모두 같으면 `current`다. Human Decision이나 표시-only outcome 추가는 Projection 재생성 필요를 만들 수 있지만 그것만으로 semantic Freshness를 stale로 만들지 않는다.
+Before가 없거나 Before 결과가 `not_run`/`inconclusive`면 비교 Claim을 `verified`로 저장할 수 없다. Before·After의 test meaning이나 environment가 다르면 비교 가능하다고 처리하지 않는다. 추가 검사 실패가 있으면 Review는 `needs-review`가 된다. 실제 필수 입력·권한·서비스 부재, 실행 실패, 유효하지 않은 필수 근거는 정해진 blocker reason code로 남길 때만 `blocked`가 된다. 막연한 잠재 영향은 `uncertainties`에 기록하며 blocker로 저장하지 않는다. 미검증 결과를 포함한 Review 작성 자체는 가능하다.
+
+Freshness는 Review가 참조한 Spec·CodeState·환경과 모든 Claim·추가 Observation의 test meaning을 현재 입력과 비교한다. Spec은 승인과 version의 의미를 보존하기 위해 정확한 참조를 비교하고, CodeState와 Environment는 기록 ID가 아니라 검증된 내용 fingerprint를 비교한다. 같은 코드·환경을 새 ID로 다시 기록한 것만으로는 `stale`이 되지 않는다. 관련 내용이 바뀌면 `stale`, 현재 test meaning을 확인할 입력이 없으면 `unknown`, 모두 같으면 `current`다. Human Decision이나 표시-only outcome 추가는 Projection 재생성 필요를 만들 수 있지만 그것만으로 semantic Freshness를 stale로 만들지 않는다.
 
 ## CodeState
 
@@ -109,6 +111,8 @@ ignored content, submodule/nested working tree, 지원하지 않는 filesystem o
 `inspect_stage(stage, action, scope, inputs, request_context)`는 Router, Skill, Dashboard가 공유하는 파생 조회다.
 
 지원하는 단계는 목표 탐색, Issue 구체화, Spec 작성·검토·활성화, Baseline 수집, 수행, Review 작성·완료, 사람 판단이다. 각 단계는 정해진 scope 깊이를 확인하고, attempt 단계는 현재 활성 Attempt를 요구한다. Baseline·수행·Review 작성은 현재 활성 Spec과 정확한 승인 참조 쌍을 요구한다. Review 작성은 Verification Baseline의 Spec·승인·환경이 Review 입력과 맞는지도 확인한다. 결과는 다음을 포함한다.
+
+준비 상태와 `outcome` 저장은 같은 단계별 scope 규칙을 공유한다. 목표 탐색과 Issue 구체화는 project, Spec 단계는 issue, Baseline·수행·Review·사람 판단은 attempt 범위다. 따라서 Issue를 만들기 전 탐색 결과도 project 범위 outcome으로 남기고, 이후 만들어진 WorkIssue를 출력 참조로 연결할 수 있다.
 
 - `readiness`: `ready / needs-input / invalid`
 - 정확한 `input_refs`와 요청·제약·변경 성격 출처

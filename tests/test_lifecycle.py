@@ -47,7 +47,7 @@ class LifecycleTests(unittest.TestCase):
         self.store.activate(self.attempt)
         self.spec_data = {'issue': self.issue, 'document': {'path': 'docs/issues/80.md',
             'text': '# Widget\nPreserve widget'}, 'criteria': [
-                {'id': 'c1', 'text': 'Preserve widget', 'required': True, 'comparison': 'before_after'}]}
+                {'id': 'c1', 'text': 'Preserve widget', 'required': True, 'comparison': 'preserve'}]}
         self.spec = self.store.append('spec', 'spec:80', self.issue_scope, self.spec_data)
         self.approval = self.approve(self.spec)
         self.code = self.store.append('code_state', 'code:1', self.scope,
@@ -67,6 +67,13 @@ class LifecycleTests(unittest.TestCase):
              'reason': 'Agreed criteria', 'source': 'conversation:approval'})
         self.store.activate(spec, approval=approval)
         return approval
+
+    def use_comparison(self, comparison):
+        changed = copy.deepcopy(self.spec_data)
+        changed['document']['text'] += '\nComparison: ' + comparison
+        changed['criteria'][0]['comparison'] = comparison
+        self.spec = self.store.append('spec', 'spec:80', self.issue_scope, changed)
+        self.approval = self.approve(self.spec)
 
     def observation(self, phase='after', result='pass', meaning='d' * 64, env=None,
                     criterion='c1', scope=None, basis='observed', code=None):
@@ -150,6 +157,42 @@ class LifecycleTests(unittest.TestCase):
                          'claims': [{'criterion_id': 'c1', 'status': 'verified',
                                      'observations': [after], 'reason': 'Invalid Before'}],
                          'additional_observations': [], 'uncertainties': [], 'inferences': []})
+
+    def test_preservation_and_improvement_require_different_before_results(self):
+        self.use_comparison('preserve')
+        failed_before = self.observation('before', result='fail')
+        baseline = self.baseline([failed_before])
+        after = self.observation()
+        with self.assertRaises(ValueError):
+            self.store.append('review', 'preserve-from-failure', self.scope,
+                {'spec': self.spec, 'spec_approval': self.approval,
+                 'code_state': self.code, 'environment': self.env, 'baseline': baseline,
+                 'claims': [{'criterion_id': 'c1', 'status': 'verified',
+                             'observations': [after], 'reason': 'Preserved behavior'}],
+                 'additional_observations': [], 'uncertainties': [], 'inferences': []})
+
+        self.use_comparison('improve')
+        passing_before = self.observation('before', result='pass')
+        baseline = self.baseline([passing_before])
+        after = self.observation()
+        with self.assertRaises(ValueError):
+            self.store.append('review', 'improvement-from-pass', self.scope,
+                {'spec': self.spec, 'spec_approval': self.approval,
+                 'code_state': self.code, 'environment': self.env, 'baseline': baseline,
+                 'claims': [{'criterion_id': 'c1', 'status': 'verified',
+                             'observations': [after], 'reason': 'No failing behavior observed'}],
+                 'additional_observations': [], 'uncertainties': [], 'inferences': []})
+
+        failed_before = self.observation('before', result='fail')
+        baseline = self.baseline([failed_before])
+        after = self.observation()
+        review = self.store.append('review', 'fixed-failure', self.scope,
+            {'spec': self.spec, 'spec_approval': self.approval,
+             'code_state': self.code, 'environment': self.env, 'baseline': baseline,
+             'claims': [{'criterion_id': 'c1', 'status': 'verified',
+                         'observations': [after], 'reason': 'Fixed observed failure'}],
+             'additional_observations': [], 'uncertainties': [], 'inferences': []})
+        self.assertEqual(self.store.get(review)['data']['review_state'], 'ready')
 
     def test_test_meaning_and_environment_mismatch_never_become_regression_pass(self):
         for right in [self.observation(meaning='e' * 64),
@@ -297,6 +340,17 @@ class LifecycleTests(unittest.TestCase):
                                   self.code_state_data('later'))
         self.assertEqual(self.store.freshness(review, self.spec, later, self.env,
                                              {'widget': 'd' * 64})['state'], 'stale')
+
+    def test_freshness_uses_code_and_environment_content_identity(self):
+        review = self.review()
+        same_code = self.store.append('code_state', 'same-code-new-id', self.scope,
+                                      self.code_state_data())
+        same_environment = self.store.append('environment', 'same-env-new-id', self.scope,
+            lifecycle.environment_state('fixture'))
+        result = self.store.freshness(review, self.spec, same_code, same_environment,
+                                      {'widget': 'd' * 64})
+        self.assertEqual(result['state'], 'current')
+        self.assertEqual(result['changed'], [])
 
     def test_active_attempt_is_selected_once_per_issue(self):
         self.assertEqual(self.store.current('attempt', self.issue_scope), self.attempt)
@@ -492,6 +546,16 @@ class LifecycleTests(unittest.TestCase):
              'outputs': [self.baseline()], 'reused': [self.spec], 'status': 'completed',
              'gaps': [], 'producer': None})
         self.assertIsNone(self.store.get(outcome)['data']['producer'])
+
+    def test_goal_discovery_outcome_can_be_recorded_before_issue_attempt(self):
+        context = {'request': 'Find a verifiable goal', 'source': 'conversation:goal'}
+        readiness = self.store.inspect_stage('goal', 'discover', self.project_scope, {}, context)
+        self.assertEqual(readiness['readiness'], 'ready')
+        outcome = self.store.append('outcome', 'goal-discovery', self.project_scope,
+            {'stage': 'goal', 'action': 'discover', 'inputs': [], 'outputs': [self.issue],
+             'reused': [], 'status': 'completed', 'gaps': [],
+             'producer': {'kind': 'skill', 'name': 'wayfinder', 'version': '1'}})
+        self.assertEqual(self.store.get(outcome)['scope'], self.project_scope)
 
     def test_display_only_and_decision_records_do_not_change_semantic_freshness(self):
         review = self.review()
