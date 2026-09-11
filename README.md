@@ -19,3 +19,7 @@ PYTHONPATH=src uv run --python 3.12 python -m devharness m1-demo \
 ```
 
 Raw Evidence는 지정한 OS user-data 경계에 남고, HTML과 JSON report에는 Evidence ID·hash·scope·판정만 포함된다. 이 HTML은 M1 review artifact이며 M5 Production UI가 아니다.
+
+## M5 Issue Lifecycle
+
+Issue의 검수 조건, 작업 attempt, Baseline, 검사 근거, Review Snapshot과 사람 판단을 연결하는 `ownhands.lifecycle` v1 계약은 [Lifecycle 계약](docs/m5-r/lifecycle-contract.md)을 참조한다. 기존 Contract·Gate·approval 의미와 저장 schema는 그대로 보존한다.
