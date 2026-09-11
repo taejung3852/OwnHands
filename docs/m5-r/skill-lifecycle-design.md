@@ -124,7 +124,7 @@ description: "Use when requested to prepare human-digestible presentation artifa
 
 ### 7) Legacy 4개 스킬 Discovery 경계 격리
 `legacy/skills/{context-validation, execution-control, harness-profiler, test-assurance}/SKILL.md`
-- 4개 레거시 스킬은 `skills/` 디렉터리에서 `legacy/skills/` 디렉터리로 완전히 이동하여 `discover_skills()` 및 활성 에이전트 discovery 경로에서 원천 제외한다.
+- 4개 레거시 스킬은 `skills/` 디렉터리에서 `legacy/skills/` 디렉터리로 완전히 이동하여 OwnHands의 공식 `discover_skills()` discovery surface에서 구조적으로 제외했다.
 - Frontmatter description에 `[Legacy / Compat Only]` 표시를 유지하여 히스토리 검증 및 회귀 테스트 호환성만 보존한다.
 
 ---
