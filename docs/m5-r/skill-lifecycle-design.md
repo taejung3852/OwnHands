@@ -30,7 +30,12 @@ OwnHands는 작업을 검증 가능하게 정의하고 수행하도록 돕고, �
 - **정식 Review 계약 (#80 머신 계약)**:
   - 정식 `review` 레코드는 반드시 5대 인력(`VerificationSpec + SpecApproval + CodeState + Environment + VerificationBaseline`)을 참조해야만 저장된다.
   - **Baseline 아티팩트 유무 vs Before Observation 유무의 엄격한 분리**:
-    - **Baseline 아티팩트 자체가 없는 경우**: `LifecycleStore`는 baseline 참조 없는 formal Review 저장을 거부한다. 구현 완료 후 베이스라인 아티팩트가 없다면, `review`는 과거를 날조하는 대신 #80 규격에 맞추어 `observations=[]` 및 `missing_reason="Before observation unavailable"`을 담은 missing-Before `VerificationBaseline`을 안전하게 준비·참조한다.
+    - **Baseline 아티팩트 자체가 없는 경우**: `LifecycleStore`는 baseline 참조 없는 formal Review 저장을 거부한다. 구현 완료 후 베이스라인 아티팩트가 없다면, `review`는 과거를 날조하는 대신 #80 규격에 맞추어 `observations=[]` 및 `missing_reason`을 담은 missing-Before `VerificationBaseline`을 안전하게 준비·참조한다.
+      - **CodeState & Environment Provenance 규칙**:
+        - 코드 변경 전 신뢰할 수 있는 스냅샷(커밋, 해시 등)이 실제로 존재하는 경우에만 pre-change `CodeState`를 베이스라인에 연결한다.
+        - 변경 전 provenance가 존재하지 않는 경우, 현재 구현 완료 후의 After `CodeState`를 Before 상태인 것처럼 재사용하거나 연결해서는 안 된다.
+        - provenance 부재 사실은 `missing_reason`에 명시적으로 기록한다 (`"No pre-change verification observations were captured. Pre-change CodeState provenance is unavailable; current After CodeState must not be treated as Before."`).
+        - 현행 #80 스키마의 필수 FK 제약으로 참조가 들어가더라도 이는 과거 Before 상태의 유효성을 보증하지 않으며, 사후 CodeState unprovenanced 표현 확장은 #80/#82 후속 과제로 위임한다.
     - **Baseline은 있으나 Before Observation이 없는 경우**: #80 저장소 규칙에 따라 `current` 기준은 After 증적만으로 `verified` 판정이 가능하지만, Before/After 비교가 필요한 `preserve` 및 `improve` 기준은 Before 증적 없이 `verified`로 승격될 수 없다 (`ValueError("verified comparison claim requires Before evidence")`). 이들 비교 기준은 `inconclusive` 또는 `unobserved`로 처리되며, 리뷰 상태는 `ready`가 아닌 `needs-review`가 된다.
 - **Observation Fallback**: 승인된 Spec 없이 "검증해줘"를 요청받은 경우:
   - 권장 경로: `verification-spec`으로 라우팅하여 최소 Spec 작성 및 승인 유도.
@@ -173,7 +178,10 @@ description: "Use when requested to prepare human-digestible presentation artifa
 3. **사후 Baseline 허위 생성 금지 및 missing-Before 처리 (시간 거스르기 금지)**:
    - 구현이 이미 완료된 후에 시간을 거슬러 `baseline` 단계로 돌아가 허위 Before를 만들어내지 않는다.
    - `baseline` 스킬은 오직 구현 전 Before 관찰용이다.
-   - 구현 완료 후 Baseline이 없거나 Before 관찰이 누락된 경우, `review` 단계에서 #80 규격의 missing-Before Verification Baseline(`observations=[]`, `missing_reason="Before observation unavailable"`)을 준비·참조하여 전제조건을 안전하게 충족하되, `preserve`/`improve` 비교 기준은 `verified`로 승격하지 않고 `inconclusive`/`unobserved`로 처리한다 (Review 상태는 `needs-review`).
+   - 구현 완료 후 Baseline이 없거나 Before 관찰이 누락된 경우, `review` 단계에서 #80 규격의 missing-Before Verification Baseline(`observations=[]`)을 준비·참조하되:
+     - pre-change `CodeState` / `Environment` provenance가 실제로 존재할 때만 해당 과거 상태를 연결한다.
+     - provenance가 존재하지 않는 경우 현재의 After `CodeState`를 Before 상태로 취급하거나 재사용하지 않으며, 부재 사실을 `missing_reason`에 명시한다 (`"No pre-change verification observations were captured. Pre-change CodeState provenance is unavailable; current After CodeState must not be treated as Before."`).
+     - `preserve`/`improve` 비교 기준은 `verified`로 승격하지 않고 `inconclusive`/`unobserved`로 처리한다 (Review 상태는 `needs-review`). `current` 기준은 After 증적만으로 평가할 수 있으나 과거 상태를 검증한 것으로 주장하지 않는다.
 4. **Current 승인 Spec 재질문 방지**:
    - 이미 활성 승인된 Spec이 존재하면 스펙 작성을 재질문하지 않고 즉시 Baseline 또는 구현 단계로 직행한다.
 

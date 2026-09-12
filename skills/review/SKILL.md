@@ -36,9 +36,17 @@ Storing a formal review record in `LifecycleStore` strictly requires referencing
      - `baseline_kind = "verification"`
      - `observations = []`
      - `missing_reason = "Before observation unavailable (implementation completed prior to baseline capture)"` (a non-empty missing reason is required by #80).
-3. **Claim Status Constraints with Missing Before**:
-   - Criteria with `comparison: "current"` can still be evaluated against After observations and promoted to `verified` if observed passing.
-   - Criteria with `comparison: "preserve"` or `comparison: "improve"` **CANNOT** be promoted to `verified` without Before observations (enforced by #80 store constraint: `verified comparison claim requires Before evidence`).
+3. **CodeState & Environment Provenance Rules for missing-Before Baseline**:
+   - **Do not pretend past CodeState was captured**: When preparing a missing-Before baseline after code changes, never fabricate past Before commits or working trees.
+   - **Genuine pre-change provenance**: Only link a pre-change `CodeState` / `Environment` reference if a verifiable pre-change snapshot (e.g. pre-edit commit or recorded hash) genuinely exists.
+   - **Unavailable pre-change provenance**: If no trusted pre-change CodeState exists, the current post-change After CodeState must **NEVER** be re-interpreted, reused, or claimed as Before state. The absence of pre-change provenance itself must be explicitly recorded in `missing_reason`:
+     ```text
+     missing_reason: "No pre-change verification observations were captured. Pre-change CodeState provenance is unavailable; current After CodeState must not be treated as Before."
+     ```
+   - **Schema boundary notice**: Since the #80 machine contract requires `code_state` and `environment` references on all baseline records, #81 enforces the minimal safe boundary: any reference supplied to satisfy foreign key constraints carries zero historical Before validity when pre-change provenance is unavailable. (Formal schema extensions for explicitly unprovenanced CodeState are deferred to #80/#82 follow-up).
+4. **Claim Status Constraints with Missing Before**:
+   - Criteria with `comparison: "current"` can still be evaluated against After observations and promoted to `verified` if observed passing, but the baseline cannot claim to verify historical states.
+   - Criteria with `comparison: "preserve"` or `comparison: "improve"` **CANNOT** be promoted to `verified` without genuine Before observations (enforced by #80 store constraint: `verified comparison claim requires Before evidence`).
    - Such comparison claims MUST be recorded with status `inconclusive` or `unobserved` with an explicit reason noting the missing Before baseline.
    - Consequently, the review verdict cannot be `ready`; it defaults to `needs-review`.
 

@@ -377,12 +377,13 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
         env_body = {"environment_version": 1, "description": "test-env", "details": {}}
         self.env = self.store.append("environment", "env:1", self.scope, {**env_body, "fingerprint": fingerprint(env_body)})
 
-        # Spec with both a preserve criterion and a current criterion
+        # Spec with preserve, improve, and current criteria
         self.spec_data = {
             "issue": self.issue,
             "document": {"path": "docs/spec.md", "text": "# Spec"},
             "criteria": [
                 {"id": "crit_preserve", "text": "Preserve existing behavior", "required": False, "comparison": "preserve"},
+                {"id": "crit_improve", "text": "Improve latency", "required": False, "comparison": "improve"},
                 {"id": "crit_current", "text": "Add new capability", "required": True, "comparison": "current"},
             ]
         }
@@ -484,8 +485,96 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
         )
         self.assertEqual(baseline_ref["kind"], "baseline")
 
-    def test_preserve_claim_cannot_be_verified_without_before_observation(self) -> None:
-        # Create baseline with observations=[]
+    def test_missing_before_baseline_requires_provenance_gap_in_missing_reason(self) -> None:
+        # 1. When pre-change CodeState provenance is unavailable, empty missing_reason fails
+        with self.assertRaises(ValueError) as ctx:
+            self.store.append(
+                "baseline", "base:no-reason", self.scope,
+                {
+                    "spec": self.spec,
+                    "spec_approval": self.approval,
+                    "code_state": self.code,
+                    "environment": self.env,
+                    "baseline_kind": "verification",
+                    "observations": [],
+                    "missing_reason": "",
+                }
+            )
+        self.assertIn("missing reason", str(ctx.exception))
+
+        # 2. Recording with explicit provenance gap reason succeeds and flags that After state != Before state
+        provenance_reason = (
+            "No pre-change verification observations were captured. "
+            "Pre-change CodeState provenance is unavailable; current After CodeState must not be treated as Before."
+        )
+        baseline_ref = self.store.append(
+            "baseline", "base:provenance-gap", self.scope,
+            {
+                "spec": self.spec,
+                "spec_approval": self.approval,
+                "code_state": self.code,
+                "environment": self.env,
+                "baseline_kind": "verification",
+                "observations": [],
+                "missing_reason": provenance_reason,
+            }
+        )
+        stored_baseline = self.store.get(baseline_ref)
+        self.assertEqual(stored_baseline["data"]["observations"], [])
+        self.assertEqual(stored_baseline["data"]["missing_reason"], provenance_reason)
+
+    def test_pre_change_code_state_provenance_allowed_when_available(self) -> None:
+        # If genuine pre-change CodeState exists (e.g. pre-edit commit 'b'*40), linking it is supported
+        pre_code_body = {
+            "code_state_version": 1, "commit": "b" * 40,
+            "files": [{"path": "main.py", "origin": "tracked", "kind": "file", "mode": 0o644, "hash": fingerprint("code-pre")}],
+            "coverage": "complete", "exclusions": []
+        }
+        code_pre = self.store.append("code_state", "code:pre", self.scope, {**pre_code_body, "fingerprint": fingerprint(pre_code_body)})
+
+        baseline_ref = self.store.append(
+            "baseline", "base:with-pre-code", self.scope,
+            {
+                "spec": self.spec,
+                "spec_approval": self.approval,
+                "code_state": code_pre,  # Genuine pre-change code state linked
+                "environment": self.env,
+                "baseline_kind": "verification",
+                "observations": [],
+                "missing_reason": "Pre-change CodeState captured from pre-edit commit, but Before observations were not executed",
+            }
+        )
+        stored_baseline = self.store.get(baseline_ref)
+        self.assertEqual(stored_baseline["data"]["code_state"]["id"], "code:pre")
+        self.assertEqual(stored_baseline["data"]["observations"], [])
+
+        # Even with pre-change CodeState provenance, lack of Before observations forbids verified comparison claim
+        after_obs = self._create_observation("crit_preserve", "after", "pass")
+        with self.assertRaises(ValueError) as ctx:
+            self.store.append(
+                "review", "review:fail-even-with-pre-code", self.scope,
+                {
+                    "spec": self.spec,
+                    "spec_approval": self.approval,
+                    "code_state": self.code,
+                    "environment": self.env,
+                    "baseline": baseline_ref,
+                    "claims": [
+                        {
+                            "criterion_id": "crit_preserve",
+                            "status": "verified",
+                            "reason": "Attempting verification without Before observations",
+                            "observations": [after_obs],
+                        }
+                    ],
+                    "additional_observations": [],
+                    "uncertainties": [],
+                    "inferences": [],
+                }
+            )
+        self.assertIn("verified comparison claim requires Before evidence", str(ctx.exception))
+
+    def test_missing_before_forbids_preserve_and_improve_verification(self) -> None:
         baseline_ref = self.store.append(
             "baseline", "base:no-before", self.scope,
             {
@@ -498,13 +587,13 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
                 "missing_reason": "Before observation unavailable",
             }
         )
-        # Create an After observation for crit_preserve
-        after_obs = self._create_observation("crit_preserve", "after", "pass")
+        after_preserve = self._create_observation("crit_preserve", "after", "pass")
+        after_improve = self._create_observation("crit_improve", "after", "pass")
 
-        # 1. Attempting status="verified" for preserve criterion without Before observation MUST fail
+        # 1. Attempting status="verified" for preserve criterion MUST fail
         with self.assertRaises(ValueError) as ctx:
             self.store.append(
-                "review", "review:fail-verified", self.scope,
+                "review", "review:fail-preserve", self.scope,
                 {
                     "spec": self.spec,
                     "spec_approval": self.approval,
@@ -512,21 +601,32 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
                     "environment": self.env,
                     "baseline": baseline_ref,
                     "claims": [
-                        {
-                            "criterion_id": "crit_preserve",
-                            "status": "verified",  # Not allowed without Before observation!
-                            "reason": "Passing after",
-                            "observations": [after_obs],
-                        }
+                        {"criterion_id": "crit_preserve", "status": "verified", "reason": "Passing after", "observations": [after_preserve]}
                     ],
-                    "additional_observations": [],
-                    "uncertainties": [],
-                    "inferences": [],
+                    "additional_observations": [], "uncertainties": [], "inferences": [],
                 }
             )
         self.assertIn("verified comparison claim requires Before evidence", str(ctx.exception))
 
-        # 2. Recording as status="inconclusive" succeeds!
+        # 2. Attempting status="verified" for improve criterion MUST also fail
+        with self.assertRaises(ValueError) as ctx:
+            self.store.append(
+                "review", "review:fail-improve", self.scope,
+                {
+                    "spec": self.spec,
+                    "spec_approval": self.approval,
+                    "code_state": self.code,
+                    "environment": self.env,
+                    "baseline": baseline_ref,
+                    "claims": [
+                        {"criterion_id": "crit_improve", "status": "verified", "reason": "Passing after", "observations": [after_improve]}
+                    ],
+                    "additional_observations": [], "uncertainties": [], "inferences": [],
+                }
+            )
+        self.assertIn("verified comparison claim requires Before evidence", str(ctx.exception))
+
+        # 3. Recording as status="inconclusive" or "unobserved" succeeds and yields review_state="needs-review"
         review_ref = self.store.append(
             "review", "review:ok-inconclusive", self.scope,
             {
@@ -539,21 +639,23 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
                     {
                         "criterion_id": "crit_preserve",
                         "status": "inconclusive",
-                        "reason": "Before observation unavailable; cannot verify preservation of prior behavior",
-                        "observations": [after_obs],
+                        "reason": "Before observation unavailable; cannot verify preservation",
+                        "observations": [after_preserve],
+                    },
+                    {
+                        "criterion_id": "crit_improve",
+                        "status": "unobserved",
+                        "reason": "Before baseline observation missing",
+                        "observations": [],
                     }
                 ],
-                "additional_observations": [],
-                "uncertainties": [],
-                "inferences": [],
+                "additional_observations": [], "uncertainties": [], "inferences": [],
             }
         )
-        # Because a claim is inconclusive, review_state is needs-review, not ready
         review_record = self.store.get(review_ref)
         self.assertEqual(review_record["data"]["review_state"], "needs-review")
 
     def test_current_criterion_can_be_verified_with_after_evidence_alone(self) -> None:
-        # Verification baseline has observations=[]
         baseline_ref = self.store.append(
             "baseline", "base:no-before-2", self.scope,
             {
@@ -566,7 +668,6 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
                 "missing_reason": "Before observation unavailable",
             }
         )
-        # After observation for crit_current
         after_obs = self._create_observation("crit_current", "after", "pass")
 
         # For comparison="current", status="verified" succeeds even with no Before observations
