@@ -8,12 +8,8 @@ from typing import Any
 
 from devharness.assurance import AssuranceError, capture_restore_point, verify_restore_point
 from devharness.catalog import Catalog
-from devharness.codex_app_server import AppServerRecord, AppServerRun
-from devharness.control_profile import ControlProfileError, apply_candidate, rollback_candidate
-from devharness.control_runtime import evaluate_runtime_controls
 from devharness.identity import IdentityRegistry
 from devharness.imported_tasks import ImportedTaskError, import_task
-from devharness.managed_tasks import ManagedTaskError, prepare_managed_task, record_managed_run
 from devharness.mcp.tools.common import (
     TaskNotFoundError,
     make_error_envelope,
@@ -348,6 +344,10 @@ def handle_git_restore_capture(arguments: dict[str, Any], data_paths: DataPaths 
 
 
 def handle_runtime_controls_check(arguments: dict[str, Any], data_paths: DataPaths | None = None) -> dict:
+    # Explicit legacy handler; active verification does not load Control.
+    from devharness.run_records import AppServerRecord, AppServerRun
+    from devharness.control_runtime import evaluate_runtime_controls
+
     prepared = arguments.get("prepared")
     run_dict = arguments.get("run")
     if not isinstance(prepared, dict) or not isinstance(run_dict, dict):
@@ -440,6 +440,9 @@ def handle_runtime_controls_check(arguments: dict[str, Any], data_paths: DataPat
 
 
 def handle_task_prepare(arguments: dict[str, Any], data_paths: DataPaths | None = None) -> dict:
+    # Explicit legacy handler; active verification does not load Control.
+    from devharness.managed_tasks import ManagedTaskError, prepare_managed_task
+
     patch_hash = arguments.get("patch_hash")
     if not isinstance(patch_hash, str) or not patch_hash.startswith("sha256:") or len(patch_hash) != 71:
         return make_error_envelope("InvalidArgument", "patch_hash must be a valid sha256 fingerprint string")
@@ -519,6 +522,10 @@ def handle_task_create(arguments: dict[str, Any], data_paths: DataPaths | None =
 
 
 def handle_task_record_run(arguments: dict[str, Any], data_paths: DataPaths | None = None) -> dict:
+    # Explicit legacy handler; active verification does not load Control.
+    from devharness.run_records import AppServerRecord, AppServerRun
+    from devharness.managed_tasks import record_managed_run
+
     prepared = arguments.get("prepared")
     run_dict = arguments.get("run")
     if not isinstance(prepared, dict) or not isinstance(run_dict, dict):
@@ -572,6 +579,9 @@ def handle_task_import(arguments: dict[str, Any], data_paths: DataPaths | None =
 
 
 def handle_harness_candidate_apply(arguments: dict[str, Any], data_paths: DataPaths | None = None) -> dict:
+    # Explicit legacy handler; active verification does not load Control.
+    from devharness.control_profile import ControlProfileError, apply_candidate
+
     compiled = arguments.get("compiled")
     root_str = arguments.get("root")
     approval = arguments.get("approval")
@@ -611,6 +621,9 @@ def handle_harness_candidate_apply(arguments: dict[str, Any], data_paths: DataPa
 
 
 def handle_harness_candidate_rollback(arguments: dict[str, Any], data_paths: DataPaths | None = None) -> dict:
+    # Explicit legacy handler; active verification does not load Control.
+    from devharness.control_profile import ControlProfileError, rollback_candidate
+
     root_str = arguments.get("root")
     journal_path = arguments.get("journal_path")
     if not isinstance(root_str, str) or not isinstance(journal_path, (str, Path)):

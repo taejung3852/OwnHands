@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .codex_app_server import AppServerRecord, AppServerRun
+from .run_records import AppServerRecord, AppServerRun
 
 
 _CONTROL_METADATA = {

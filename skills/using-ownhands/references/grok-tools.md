@@ -28,13 +28,16 @@ args = [
     "-m",
     "devharness.mcp.server",
     "--data-root",
-    ".ownhands/data"
+    "/absolute/private/ownhands-data"
 ]
+
+[mcp_servers.ownhands.env]
+PYTHONPATH = "/absolute/path/to/OwnHands/src"
 
 [rules]
 auto_approve = [
-    "ownhands:context.lint",
-    "ownhands:harness.profile"
+    "ownhands:git.diff_impact",
+    "ownhands:tests.design_memo"
 ]
 ```
 
@@ -52,7 +55,7 @@ export GROK_SANDBOX_AUTO_ALLOW_BASH=0  # Requires permission verification before
 When building a custom harness using the Grok API, OwnHands supports two execution models:
 
 ### Model A: Client-Side Stdio MCP Gateway (Local Codebases)
-1. The harness defines OwnHands functions in the `tools` payload (`context_lint`, `harness_profile`, `tests_compare_runs`, `assurance_gate_evaluate`).
+1. The harness defines OwnHands functions in the `tools` payload (`git_diff_impact`, `tests_design_memo`, `tests_compare_runs`, `assurance_gate_evaluate`).
 2. Grok returns `tool_calls` with tool arguments.
 3. The harness routes calls to the devharness MCP server via stdio JSON-RPC.
 4. Tool outputs are appended as `role: "tool"` messages with `tool_call_id`.
@@ -73,8 +76,8 @@ For distributed or CI/CD runners, Grok natively accepts Remote MCP server defini
       "server_label": "ownhands",
       "server_description": "OwnHands Quality Assurance Gateway",
       "allowed_tools": [
-        "context_lint",
-        "harness_profile",
+        "git_diff_impact",
+        "tests_design_memo",
         "tests_compare_runs",
         "assurance_gate_evaluate"
       ]
@@ -82,6 +85,8 @@ For distributed or CI/CD runners, Grok natively accepts Remote MCP server defini
   ]
 }
 ```
+
+The default server exposes the 10 verification tools listed in [the Control boundary contract](../../../docs/m5-r/control-boundary.md). Historical M4.5 Control tools require the explicit `--legacy-tools` server argument. Keep the evidence data root outside every Git worktree; replace the absolute paths above for your installation.
 
 ---
 

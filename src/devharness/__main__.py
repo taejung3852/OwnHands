@@ -4,18 +4,12 @@ import argparse
 import json
 from pathlib import Path
 
-from .context_architecture import (
-    ContextArchitectureError,
-    build_comparison_plan,
-    lint_context,
-)
-from .review import run_m1_demo
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="devharness")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    demo = subparsers.add_parser("m1-demo", help="render the M1 evidence vertical slice")
+    demo = subparsers.add_parser("m1-demo", help="historical M1 evidence demo")
     demo.add_argument(
         "--data-root",
         type=Path,
@@ -33,26 +27,28 @@ def main() -> int:
         default=Path("docs/product/guarantee-matrix.v1.json"),
     )
     comparison = subparsers.add_parser(
-        "m15-comparison-plan", help="render the fixed M1.5 nine-run plan"
+        "m15-comparison-plan", help="historical M1.5 nine-run plan"
     )
     comparison.add_argument("--package", type=Path, required=True)
     comparison.add_argument("--target-commit", required=True)
     lint = subparsers.add_parser(
-        "m15-context-lint", help="lint declared context sources without modifying them"
+        "m15-context-lint", help="historical M1.5 context lint"
     )
     lint.add_argument("--root", type=Path, required=True)
     lint.add_argument("--sources", type=Path, required=True)
     mcp = subparsers.add_parser("mcp-server", help="run stdio MCP server")
     mcp.add_argument("--data-root", type=Path, help="local data root for evidence")
+    mcp.add_argument("--legacy-tools", action="store_true", help="enable historical M4.5 tools")
     arguments = parser.parse_args()
 
     if arguments.command == "mcp-server":
         from .mcp.server import McpServer
-        server = McpServer(data_root=arguments.data_root)
+        server = McpServer(data_root=arguments.data_root, legacy_tools=arguments.legacy_tools)
         server.run_stdio()
         return 0
 
     if arguments.command == "m1-demo":
+        from .review import run_m1_demo
         result = run_m1_demo(
             arguments.data_root,
             arguments.output,
@@ -65,6 +61,8 @@ def main() -> int:
         print(f"review={result.output_path}")
         print(f"fresh={str(result.freshness.is_fresh).lower()}")
         return 0
+    from .context_architecture import ContextArchitectureError, build_comparison_plan, lint_context
+
     try:
         if arguments.command == "m15-comparison-plan":
             package = json.loads(arguments.package.read_text(encoding="utf-8"))

@@ -1,5 +1,7 @@
 # M5-R2 Issue Lifecycle 계약 — #80
 
+현재 MCP 기본 도구와 구형 Control 호환 경계는 [#83 분리 계약](control-boundary.md)에 정리한다.
+
 ## 목적과 범위
 
 OwnHands는 작업을 검증 가능하게 정의하고 수행하도록 돕고, 근거를 사람이 이해해 최종 판단하게 하는 얇은 개발 하네스다. Dashboard는 같은 계약을 읽는 사람 검토 화면이다.

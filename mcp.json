@@ -10,7 +10,10 @@
         "--data-root",
         "${PLUGIN_DATA}/data"
       ],
-      "cwd": "${PLUGIN_ROOT}"
+      "cwd": "${PLUGIN_ROOT}",
+      "env": {
+        "PYTHONPATH": "${PLUGIN_ROOT}/src"
+      }
     }
   }
 }
