@@ -1,8 +1,16 @@
-from __future__ import annotations
-
+import tempfile
 import unittest
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
+
+from devharness.catalog import Catalog
+from devharness.events import EventLog
+from devharness.evidence import EvidenceDraft, EvidenceStore
+from devharness.identity import IdentityRegistry
+from devharness.lifecycle.model import fingerprint
+from devharness.lifecycle.store import LifecycleStore
+from devharness.paths import DataPaths
 
 
 @dataclass(frozen=True)
@@ -12,7 +20,7 @@ class LifecycleRoutingContext:
     work_item_defined: bool = False
     work_item_oversized: bool = False
     spec_state: Literal["none", "draft", "approved", "stale"] = "none"
-    baseline_state: Literal["none", "valid", "stale"] = "none"
+    baseline_state: Literal["none", "valid", "missing_before", "stale"] = "none"
     has_before_observation: bool = False
     implementation_complete: bool = False
     review_state: Literal["none", "current", "stale"] = "none"
@@ -245,7 +253,19 @@ class SkillRoutingFixtureTests(unittest.TestCase):
             has_before_observation=False,
             implementation_complete=True,
         )
-        # Time travel is forbidden: routes to review to record missing_before / gap, not baseline
+        # Time travel is forbidden: routes to review to prepare missing-Before baseline, not baseline
+        self.assertEqual(route_lifecycle_contract(ctx), "review")
+
+    def test_post_implementation_with_missing_before_baseline_routes_to_review(self) -> None:
+        ctx = LifecycleRoutingContext(
+            intent="implementation_completed",
+            phase="post_implementation",
+            work_item_defined=True,
+            spec_state="approved",
+            baseline_state="missing_before",  # Baseline exists with observations=[] + missing_reason
+            has_before_observation=False,
+            implementation_complete=True,
+        )
         self.assertEqual(route_lifecycle_contract(ctx), "review")
 
     def test_formal_review_disallowed_without_approved_spec(self) -> None:
@@ -318,6 +338,261 @@ class SkillRoutingFixtureTests(unittest.TestCase):
             if result is not None:
                 self.assertIn(result, known_skills)
                 self.assertIsInstance(result, str)
+
+
+class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
+    """
+    Directly verifies the #80 machine contract integration for baseline and review:
+    1. Formal review strictly requires a VerificationBaseline artifact reference.
+    2. Verification baseline with observations=[] requires a non-empty missing_reason.
+    3. Under a baseline with observations=[], preserve/improve claims cannot be verified.
+    4. Under a baseline with observations=[], current claims can be verified with After evidence alone.
+    """
+
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.paths = DataPaths.resolve(Path(self.temp_dir.name) / "data")
+        self.catalog = Catalog.open(self.paths)
+        self.task = IdentityRegistry(self.catalog).create_task_lifecycle(
+            "project", "worktree", "imported", "a" * 40, "main", "/fixture", "env"
+        )
+        self.store = LifecycleStore(self.catalog)
+        self.project_scope = {"project_id": self.task.project_id}
+        self.issue = self.store.append(
+            "work_issue", "issue:1", self.project_scope,
+            {"title": "Test Issue", "source": "test", "content": "Test", "request_refs": []}
+        )
+        self.issue_scope = {**self.project_scope, "issue_id": "issue:1"}
+        self.scope = {**self.issue_scope, "task_id": self.task.task_id, "attempt_id": "attempt:1"}
+        self.attempt = self.store.append("attempt", "attempt:1", self.scope, {"issue": self.issue, "previous": None})
+        self.store.activate(self.attempt)
+
+        # Code state and environment
+        code_body = {
+            "code_state_version": 1, "commit": "a" * 40,
+            "files": [{"path": "main.py", "origin": "tracked", "kind": "file", "mode": 0o644, "hash": fingerprint("code")}],
+            "coverage": "complete", "exclusions": []
+        }
+        self.code = self.store.append("code_state", "code:1", self.scope, {**code_body, "fingerprint": fingerprint(code_body)})
+        env_body = {"environment_version": 1, "description": "test-env", "details": {}}
+        self.env = self.store.append("environment", "env:1", self.scope, {**env_body, "fingerprint": fingerprint(env_body)})
+
+        # Spec with both a preserve criterion and a current criterion
+        self.spec_data = {
+            "issue": self.issue,
+            "document": {"path": "docs/spec.md", "text": "# Spec"},
+            "criteria": [
+                {"id": "crit_preserve", "text": "Preserve existing behavior", "required": False, "comparison": "preserve"},
+                {"id": "crit_current", "text": "Add new capability", "required": True, "comparison": "current"},
+            ]
+        }
+        self.spec = self.store.append("spec", "spec:1", self.issue_scope, self.spec_data)
+        self.approval = self.store.append(
+            "spec_approval", "appr:1", self.issue_scope,
+            {"spec": self.spec, "actor": {"kind": "human", "id": "user"}, "decision": "approved", "reason": "ok", "source": "test"}
+        )
+        self.store.activate(self.spec, approval=self.approval)
+        self.counter = 0
+
+    def tearDown(self) -> None:
+        self.catalog.close()
+        self.temp_dir.cleanup()
+
+    def _create_observation(self, criterion_id: str, phase: str, result: str) -> dict:
+        self.counter += 1
+        evidence_id = f"ev:{self.counter}"
+        test_meaning_hash = fingerprint("meaning_fixture")
+        fields = {
+            "test_id": "test_fn", "criterion_id": criterion_id, "phase": phase,
+            "spec_hash": self.spec["hash"], "code_hash": self.code["hash"],
+            "environment_hash": self.env["hash"], "test_meaning": test_meaning_hash
+        }
+        EvidenceStore(self.catalog, EventLog(self.catalog)).put(
+            EvidenceDraft(
+                evidence_id, self.scope["task_id"], criterion_id, "test_execution",
+                "test_fn", "function", result, "observed", fields, b"stdout log",
+                "runner", "not_needed"
+            ),
+            lambda b: b
+        )
+        binding = self.store.bind_evidence(f"binding:{self.counter}", self.scope, evidence_id)
+        return self.store.append(
+            "observation", f"obs:{self.counter}", self.scope,
+            {
+                "spec": self.spec,
+                "spec_approval": self.approval,
+                "code_state": self.code,
+                "environment": self.env,
+                "test_id": "test_fn",
+                "criterion_id": criterion_id,
+                "phase": phase,
+                "test_meaning": test_meaning_hash,
+                "result": result,
+                "basis": "observed",
+                "selection_reason": "test execution",
+                "evidence": [binding],
+            }
+        )
+
+    def test_formal_review_requires_verification_baseline_artifact(self) -> None:
+        # Attempting to store a review without a valid baseline artifact reference raises ValueError
+        with self.assertRaises(ValueError):
+            self.store.append(
+                "review", "review:no-base", self.scope,
+                {
+                    "spec": self.spec,
+                    "spec_approval": self.approval,
+                    "code_state": self.code,
+                    "environment": self.env,
+                    "baseline": {"kind": "baseline", "id": "nonexistent", "revision": 1, "hash": "0" * 64},
+                    "claims": [],
+                    "additional_observations": [],
+                    "uncertainties": [],
+                    "inferences": [],
+                }
+            )
+
+    def test_verification_baseline_empty_observations_requires_missing_reason(self) -> None:
+        # Empty observations without missing_reason -> fails
+        with self.assertRaises(ValueError) as ctx:
+            self.store.append(
+                "baseline", "base:empty-fail", self.scope,
+                {
+                    "spec": self.spec,
+                    "spec_approval": self.approval,
+                    "code_state": self.code,
+                    "environment": self.env,
+                    "baseline_kind": "verification",
+                    "observations": [],
+                    "missing_reason": "",
+                }
+            )
+        self.assertIn("missing reason", str(ctx.exception))
+
+        # Empty observations with non-empty missing_reason -> succeeds!
+        baseline_ref = self.store.append(
+            "baseline", "base:empty-ok", self.scope,
+            {
+                "spec": self.spec,
+                "spec_approval": self.approval,
+                "code_state": self.code,
+                "environment": self.env,
+                "baseline_kind": "verification",
+                "observations": [],
+                "missing_reason": "Before observation unavailable (implementation completed prior to baseline capture)",
+            }
+        )
+        self.assertEqual(baseline_ref["kind"], "baseline")
+
+    def test_preserve_claim_cannot_be_verified_without_before_observation(self) -> None:
+        # Create baseline with observations=[]
+        baseline_ref = self.store.append(
+            "baseline", "base:no-before", self.scope,
+            {
+                "spec": self.spec,
+                "spec_approval": self.approval,
+                "code_state": self.code,
+                "environment": self.env,
+                "baseline_kind": "verification",
+                "observations": [],
+                "missing_reason": "Before observation unavailable",
+            }
+        )
+        # Create an After observation for crit_preserve
+        after_obs = self._create_observation("crit_preserve", "after", "pass")
+
+        # 1. Attempting status="verified" for preserve criterion without Before observation MUST fail
+        with self.assertRaises(ValueError) as ctx:
+            self.store.append(
+                "review", "review:fail-verified", self.scope,
+                {
+                    "spec": self.spec,
+                    "spec_approval": self.approval,
+                    "code_state": self.code,
+                    "environment": self.env,
+                    "baseline": baseline_ref,
+                    "claims": [
+                        {
+                            "criterion_id": "crit_preserve",
+                            "status": "verified",  # Not allowed without Before observation!
+                            "reason": "Passing after",
+                            "observations": [after_obs],
+                        }
+                    ],
+                    "additional_observations": [],
+                    "uncertainties": [],
+                    "inferences": [],
+                }
+            )
+        self.assertIn("verified comparison claim requires Before evidence", str(ctx.exception))
+
+        # 2. Recording as status="inconclusive" succeeds!
+        review_ref = self.store.append(
+            "review", "review:ok-inconclusive", self.scope,
+            {
+                "spec": self.spec,
+                "spec_approval": self.approval,
+                "code_state": self.code,
+                "environment": self.env,
+                "baseline": baseline_ref,
+                "claims": [
+                    {
+                        "criterion_id": "crit_preserve",
+                        "status": "inconclusive",
+                        "reason": "Before observation unavailable; cannot verify preservation of prior behavior",
+                        "observations": [after_obs],
+                    }
+                ],
+                "additional_observations": [],
+                "uncertainties": [],
+                "inferences": [],
+            }
+        )
+        # Because a claim is inconclusive, review_state is needs-review, not ready
+        review_record = self.store.get(review_ref)
+        self.assertEqual(review_record["data"]["review_state"], "needs-review")
+
+    def test_current_criterion_can_be_verified_with_after_evidence_alone(self) -> None:
+        # Verification baseline has observations=[]
+        baseline_ref = self.store.append(
+            "baseline", "base:no-before-2", self.scope,
+            {
+                "spec": self.spec,
+                "spec_approval": self.approval,
+                "code_state": self.code,
+                "environment": self.env,
+                "baseline_kind": "verification",
+                "observations": [],
+                "missing_reason": "Before observation unavailable",
+            }
+        )
+        # After observation for crit_current
+        after_obs = self._create_observation("crit_current", "after", "pass")
+
+        # For comparison="current", status="verified" succeeds even with no Before observations
+        review_ref = self.store.append(
+            "review", "review:current-verified", self.scope,
+            {
+                "spec": self.spec,
+                "spec_approval": self.approval,
+                "code_state": self.code,
+                "environment": self.env,
+                "baseline": baseline_ref,
+                "claims": [
+                    {
+                        "criterion_id": "crit_current",
+                        "status": "verified",
+                        "reason": "New feature passing in After observation",
+                        "observations": [after_obs],
+                    }
+                ],
+                "additional_observations": [],
+                "uncertainties": [],
+                "inferences": [],
+            }
+        )
+        review_record = self.store.get(review_ref)
+        self.assertEqual(review_record["data"]["review_state"], "ready")
 
 
 if __name__ == "__main__":

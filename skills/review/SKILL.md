@@ -21,11 +21,29 @@ You orchestrate post-implementation verification, collect empirical evidence, ch
 
 ## Formal Review Requirements & Orchestration Role
 
-A formal Review requires three immutable inputs per the #80 contract:
-$$\text{Formal Review} = \text{Approved VerificationSpec} + \text{SpecApproval} + \text{Target CodeState}$$
+A formal Review strictly requires five validated inputs in the attempt scope per the #80 contract:
+$$\text{Formal Review} = \text{Approved VerificationSpec} + \text{SpecApproval} + \text{CodeState} + \text{Environment} + \text{Verification Baseline}$$
+
+Storing a formal review record in `LifecycleStore` strictly requires referencing an existing `VerificationBaseline` (`baseline_kind="verification"`).
+
+### Handling Missing Before Observations vs Missing Baseline Artifact
+
+1. **Baseline Artifact is Mandatory**:
+   - A formal Review cannot be stored without referencing an existing `VerificationBaseline` record in `LifecycleStore`.
+2. **Missing-Before Verification Baseline (Post-Implementation)**:
+   - When code implementation has already been completed without an earlier baseline, **DO NOT** attempt to run the `baseline` skill to retroactively fabricate past Before code states or fake test observations (time-travel is strictly forbidden).
+   - Instead, the `review` skill orchestrates recording or referencing a **missing-Before Verification Baseline** conforming to #80:
+     - `baseline_kind = "verification"`
+     - `observations = []`
+     - `missing_reason = "Before observation unavailable (implementation completed prior to baseline capture)"` (a non-empty missing reason is required by #80).
+3. **Claim Status Constraints with Missing Before**:
+   - Criteria with `comparison: "current"` can still be evaluated against After observations and promoted to `verified` if observed passing.
+   - Criteria with `comparison: "preserve"` or `comparison: "improve"` **CANNOT** be promoted to `verified` without Before observations (enforced by #80 store constraint: `verified comparison claim requires Before evidence`).
+   - Such comparison claims MUST be recorded with status `inconclusive` or `unobserved` with an explicit reason noting the missing Before baseline.
+   - Consequently, the review verdict cannot be `ready`; it defaults to `needs-review`.
 
 ### Delegation Boundary: Claim Evaluation is Owned by #82
-The `review` skill orchestrates test execution, evidence collection, and impact analysis. It does **NOT** implement custom claim verdict algorithms. Verdict calculation (`verified / failed / inconclusive / unobserved`) and review state calculation (`ready / needs-review / blocked`) are delegated to the authoritative evaluation engine (#82).
+The `review` skill orchestrates test execution, evidence collection, and impact analysis. It does **NOT** implement custom claim verdict algorithms. Verdict calculation (Claim states: `verified / failed / inconclusive / unobserved`) and review state calculation (`ready / needs-review / blocked`) are delegated to the authoritative evaluation engine (#82).
 
 ## Non-Review Observation Fallback Mode
 
@@ -45,7 +63,7 @@ If no approved specification exists, a formal Review **CANNOT** be created.
 
 1. **Verify Prerequisites**:
    - Resolve active attempt, approved Spec revision, and Verification Baseline.
-   - If Baseline is missing, proceed but record `missing_before / gap` on comparison claims (do not fabricate past baselines).
+   - If no Verification Baseline artifact exists for the attempt, prepare a missing-Before Verification Baseline (`observations=[]`, `missing_reason="Before observation unavailable"`) to satisfy #80 prerequisites without fabricating evidence.
 2. **Execute Verification Tests**:
    - Run tests bound to `current`, `preserve`, and `improve` criteria.
    - Capture execution logs, process exit codes, and output streams.

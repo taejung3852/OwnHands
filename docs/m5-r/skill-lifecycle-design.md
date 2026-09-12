@@ -21,12 +21,17 @@ OwnHands는 작업을 검증 가능하게 정의하고 수행하도록 돕고, �
   - 단일 Work Item이 확정된 후, 코드 구현에 착수하기 전에 사용한다.
   - 요구사항을 합격 조건(Success), 기존 동작 유지(Preserve), 개선 조건(Improve), 실패 반례(Edge cases), 검증 방법(Evidence)으로 구체화하고 사람의 명시적 승인(`spec_approval`)을 받는다.
 
-### ② `verification-spec` vs `review` 및 Observation Fallback
+### ② `verification-spec` vs `review` 및 Verification Baseline 계약
+
 - **`verification-spec` (구현 전)**: "무엇을 증명해야 완료인가?"를 정의하고 사람 승인을 받는다.
 - **`review` (구현 후 Orchestration)**: "그 조건들이 실제 구현 결과에서 증명되었는가?"를 확인한다.
   - 승인된 Spec을 읽어 관련 테스트/검사를 실행하고, After observation과 Evidence를 수집하며, 회귀와 영향 범위를 분석한다.
   - 판정 알고리즘 자체는 #82의 책임이며, `review` 스킬은 검증 기능을 언제 어떻게 호출하고 결과를 수집할지 안내하는 오케스트레이션 레이어다.
-- **정식 Review 계약**: 반드시 `VerificationSpec + SpecApproval + 대상 CodeState`가 존재해야만 정식 `review` 레코드를 생성할 수 있다 (#80 계약).
+- **정식 Review 계약 (#80 머신 계약)**:
+  - 정식 `review` 레코드는 반드시 5대 인력(`VerificationSpec + SpecApproval + CodeState + Environment + VerificationBaseline`)을 참조해야만 저장된다.
+  - **Baseline 아티팩트 유무 vs Before Observation 유무의 엄격한 분리**:
+    - **Baseline 아티팩트 자체가 없는 경우**: `LifecycleStore`는 baseline 참조 없는 formal Review 저장을 거부한다. 구현 완료 후 베이스라인 아티팩트가 없다면, `review`는 과거를 날조하는 대신 #80 규격에 맞추어 `observations=[]` 및 `missing_reason="Before observation unavailable"`을 담은 missing-Before `VerificationBaseline`을 안전하게 준비·참조한다.
+    - **Baseline은 있으나 Before Observation이 없는 경우**: #80 저장소 규칙에 따라 `current` 기준은 After 증적만으로 `verified` 판정이 가능하지만, Before/After 비교가 필요한 `preserve` 및 `improve` 기준은 Before 증적 없이 `verified`로 승격될 수 없다 (`ValueError("verified comparison claim requires Before evidence")`). 이들 비교 기준은 `inconclusive` 또는 `unobserved`로 처리되며, 리뷰 상태는 `ready`가 아닌 `needs-review`가 된다.
 - **Observation Fallback**: 승인된 Spec 없이 "검증해줘"를 요청받은 경우:
   - 권장 경로: `verification-spec`으로 라우팅하여 최소 Spec 작성 및 승인 유도.
   - 명시적 Fallback: 사용자가 Spec 작성을 명시적으로 거부하고 "단순 관찰만 해줘"라고 한 경우에만 `review`의 non-review fallback mode(`observation mode`)로 진입하여 제한적 Observation Report만 제공한다 (정식 Review 아님, ready 판정 없음, Claim 미평가, review 레코드 미생성).
@@ -143,7 +148,7 @@ description: "Use when requested to prepare human-digestible presentation artifa
 | Spec 초안 작성됨 (사람 미승인 상태) | **`verification-spec`** | 승인 획득 대기 |
 | **[구현 전]** Spec 승인 완료 & 유효 Baseline 없음 | **`baseline`** | Before 상태 관찰 (Worktree 강제 X) |
 | 코드 구현 완료 / 검증 및 리뷰 요청 | **`review`** | After 관찰 및 Evidence 수집 |
-| **[구현 완료 후]** 유효한 Before 관찰 없음 | **`review`** | 과거 Baseline 허위 생성 금지, `missing_before / gap` 기록 |
+| **[구현 완료 후]** 유효한 Before 관찰 없음 (Baseline 미존재 또는 observations=[]) | **`review`** | 과거 Baseline 날조 금지, missing-Before baseline 준비/참조, preserve/improve 검증 불가 처리 |
 | Review 존재 + presentation 없음/stale + 시각화 요청 | **`dashboard`** | 온디맨드 표현 아티팩트 준비 |
 | Review 존재 + presentation current + Dashboard 조회 | **None (Dormant)** | 캐시 Hit: 저장된 정적 아티팩트 읽기 (스킬 미호출) |
 | **[Freshness]** 요구사항 / Issue / Criteria 의미 변경 | **`verification-spec`** | Spec 재검토 및 재승인 안내 |
@@ -165,8 +170,18 @@ description: "Use when requested to prepare human-digestible presentation artifa
      2. 동일한 CodeState (fingerprint)
      3. 비교에 영향을 주는 동일한 Environment (환경 fingerprint)
      4. 동일한 Test meaning (실행 명령 및 파라미터)
-3. **수정된 작업 트리(Modified tree) 및 사후 Baseline 허위 생성 금지 (시간 거스르기 금지)**:
-   - 구현이 이미 완료된 후에 시간을 거슬러 Baseline 단계로 돌아가 허위 Before를 만들어내지 않는다.
-   - Before 관찰이 누락된 채 구현된 경우, `review` 단계에서 `missing_before / gap`으로 솔직하게 기록한다.
+3. **사후 Baseline 허위 생성 금지 및 missing-Before 처리 (시간 거스르기 금지)**:
+   - 구현이 이미 완료된 후에 시간을 거슬러 `baseline` 단계로 돌아가 허위 Before를 만들어내지 않는다.
+   - `baseline` 스킬은 오직 구현 전 Before 관찰용이다.
+   - 구현 완료 후 Baseline이 없거나 Before 관찰이 누락된 경우, `review` 단계에서 #80 규격의 missing-Before Verification Baseline(`observations=[]`, `missing_reason="Before observation unavailable"`)을 준비·참조하여 전제조건을 안전하게 충족하되, `preserve`/`improve` 비교 기준은 `verified`로 승격하지 않고 `inconclusive`/`unobserved`로 처리한다 (Review 상태는 `needs-review`).
 4. **Current 승인 Spec 재질문 방지**:
    - 이미 활성 승인된 Spec이 존재하면 스펙 작성을 재질문하지 않고 즉시 Baseline 또는 구현 단계로 직행한다.
+
+---
+
+## 6. Upstream 전문 Skill 정책 및 사용 경계
+
+OwnHands 라이프사이클은 자체적으로 완결된 얇은 하네스이며 외부 전문 스킬을 필수 의존성으로 요구하지 않는다. 다만 `work-map`, `verification-spec`, `dashboard` 등에서 선택적·보조적으로 활용할 수 있는 외부 전문 스킬들의 출처(provenance), 라이선스, 호출 기준 및 대체 경로(fallback)를 다음 문서에 명시한다:
+
+- [docs/m5-r/upstream-skill-policy.md](file:///Users/parktaejung/.codex/.chatgpt-projects/g-p-6a9efb89d3b48191b30ab3282c69cbda/work/ownhands-81/docs/m5-r/upstream-skill-policy.md) (wayfinder, grill-me, eli5, diagram-design)
+

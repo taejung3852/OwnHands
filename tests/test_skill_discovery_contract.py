@@ -20,12 +20,15 @@ def parse_frontmatter(content: str) -> dict[str, str]:
     return metadata
 
 
-class SkillDiscoverySmokeTests(unittest.TestCase):
+class SkillDiscoveryContractTests(unittest.TestCase):
     """
-    Evaluates the discovery contract for LLM agents:
+    This test validates the OwnHands discovery/routing contract.
+    It does not execute a real LLM or native Codex/Claude skill discovery runtime.
+
+    Validates:
     1. Active skills expose explicit STAY DORMANT boundaries in their frontmatter.
-    2. Discovered skills strictly exclude all legacy execution-control skills.
-    3. Representative user prompts map cleanly to either Dormant or the expected single skill.
+    2. Discovered skills strictly exclude all legacy execution-control skills from discover_skills().
+    3. Representative user prompt intents map cleanly to the deterministic routing contract.
     """
 
     def setUp(self) -> None:
