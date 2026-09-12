@@ -41,7 +41,7 @@ When resolving next steps, evaluate state strictly in this order:
 | Spec drafted, but unapproved by human | **`verification-spec`** | Review with human and obtain formal approval. |
 | **[Pre-Implementation]** Approved Spec, no Baseline | **`baseline`** | Observe Before state & environment before editing. |
 | Implementation complete, verification/review requested | **`review`** | Run After tests, collect Evidence, assess regressions. |
-| **[Post-Implementation]** No valid Before baseline exists | **`review`** | Do NOT fabricate past baseline; record as missing_before or gap. |
+| **[Post-Implementation]** No valid Before baseline exists | **`review`** | With trusted pre-change provenance, prepare a missing-Before baseline; otherwise Observation Report / needs-input only, no baseline or formal Review writes. |
 | Review exists + presentation missing/stale + requested | **`dashboard`** | Prepare human-digestible visual presentation artifact. |
 | Review exists + presentation current + dashboard read | **None (Dormant)** | Cache hit: read stored presentation without invoking skills. |
 | **[Freshness]** Requirements or criteria change | **`verification-spec`** | Re-draft and obtain new approval. |

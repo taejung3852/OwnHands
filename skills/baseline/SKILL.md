@@ -19,7 +19,7 @@ You observe, measure, and record the exact pre-change baseline state of the repo
 * **STAY DORMANT**:
   - Code editing is actively in-progress. Do not interrupt the developer while typing.
   - A valid baseline is already captured with matching Spec, CodeState, Environment, and Test meaning.
-  - Implementation is already finished: **DO NOT** invoke `baseline` to travel back in time or fake past Before observations. The `baseline` skill is strictly for pre-implementation Before observations. When implementation is already completed, the `review` skill handles configuring a missing-Before Verification Baseline (`observations=[]`, `missing_reason="Before observation unavailable"`) to satisfy #80 review prerequisites without fabricating evidence.
+  - Implementation is already finished: **DO NOT** invoke `baseline` to travel back in time or fake past Before observations. The `baseline` skill is strictly for pre-implementation Before observations. After implementation, `review` may prepare a missing-Before Verification Baseline (`observations=[]`, non-empty `missing_reason`) only with trusted pre-change CodeState and Environment references. Without that provenance, it produces an Observation Report / `needs-input` and creates neither a baseline nor a formal Review.
 
 ## Worktree Policy: Observation First, Isolation Optional
 

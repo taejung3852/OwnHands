@@ -374,6 +374,15 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
             "coverage": "complete", "exclusions": []
         }
         self.code = self.store.append("code_state", "code:1", self.scope, {**code_body, "fingerprint": fingerprint(code_body)})
+        pre_code_body = {
+            **code_body, "commit": "b" * 40,
+            "files": [{"path": "main.py", "origin": "tracked", "kind": "file", "mode": 0o644, "hash": fingerprint("code-pre")}],
+        }
+        self.code_pre = self.store.append(
+            "code_state", "code:pre", self.scope,
+            {**pre_code_body, "fingerprint": fingerprint(pre_code_body)},
+        )
+        # The fixture's environment is known to be unchanged across the edit.
         env_body = {"environment_version": 1, "description": "test-env", "details": {}}
         self.env = self.store.append("environment", "env:1", self.scope, {**env_body, "fingerprint": fingerprint(env_body)})
 
@@ -461,7 +470,7 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
                 {
                     "spec": self.spec,
                     "spec_approval": self.approval,
-                    "code_state": self.code,
+                    "code_state": self.code_pre,
                     "environment": self.env,
                     "baseline_kind": "verification",
                     "observations": [],
@@ -476,7 +485,7 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
             {
                 "spec": self.spec,
                 "spec_approval": self.approval,
-                "code_state": self.code,
+                "code_state": self.code_pre,
                 "environment": self.env,
                 "baseline_kind": "verification",
                 "observations": [],
@@ -485,59 +494,42 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
         )
         self.assertEqual(baseline_ref["kind"], "baseline")
 
-    def test_missing_before_baseline_requires_provenance_gap_in_missing_reason(self) -> None:
-        # 1. When pre-change CodeState provenance is unavailable, empty missing_reason fails
-        with self.assertRaises(ValueError) as ctx:
+    def test_unknown_pre_change_state_is_not_supported_by_v1(self) -> None:
+        # missing_reason cannot replace the required pre-change reference.
+        # This checks schema rejection, not automatic provenance detection:
+        # the skill must never substitute self.code (the After state).
+        with self.assertRaises(ValueError):
             self.store.append(
                 "baseline", "base:no-reason", self.scope,
                 {
                     "spec": self.spec,
                     "spec_approval": self.approval,
-                    "code_state": self.code,
+                    "code_state": None,
                     "environment": self.env,
                     "baseline_kind": "verification",
                     "observations": [],
-                    "missing_reason": "",
+                    "missing_reason": "Pre-change CodeState provenance is unavailable",
                 }
             )
-        self.assertIn("missing reason", str(ctx.exception))
-
-        # 2. Recording with explicit provenance gap reason succeeds and flags that After state != Before state
-        provenance_reason = (
-            "No pre-change verification observations were captured. "
-            "Pre-change CodeState provenance is unavailable; current After CodeState must not be treated as Before."
-        )
-        baseline_ref = self.store.append(
-            "baseline", "base:provenance-gap", self.scope,
-            {
-                "spec": self.spec,
-                "spec_approval": self.approval,
-                "code_state": self.code,
-                "environment": self.env,
-                "baseline_kind": "verification",
-                "observations": [],
-                "missing_reason": provenance_reason,
-            }
-        )
-        stored_baseline = self.store.get(baseline_ref)
-        self.assertEqual(stored_baseline["data"]["observations"], [])
-        self.assertEqual(stored_baseline["data"]["missing_reason"], provenance_reason)
+        with self.assertRaises(ValueError):
+            self.store.append(
+                "review", "review:unknown-pre-state", self.scope,
+                {
+                    "spec": self.spec, "spec_approval": self.approval,
+                    "code_state": self.code, "environment": self.env,
+                    "baseline": None, "claims": [],
+                    "additional_observations": [], "uncertainties": [], "inferences": [],
+                },
+            )
 
     def test_pre_change_code_state_provenance_allowed_when_available(self) -> None:
         # If genuine pre-change CodeState exists (e.g. pre-edit commit 'b'*40), linking it is supported
-        pre_code_body = {
-            "code_state_version": 1, "commit": "b" * 40,
-            "files": [{"path": "main.py", "origin": "tracked", "kind": "file", "mode": 0o644, "hash": fingerprint("code-pre")}],
-            "coverage": "complete", "exclusions": []
-        }
-        code_pre = self.store.append("code_state", "code:pre", self.scope, {**pre_code_body, "fingerprint": fingerprint(pre_code_body)})
-
         baseline_ref = self.store.append(
             "baseline", "base:with-pre-code", self.scope,
             {
                 "spec": self.spec,
                 "spec_approval": self.approval,
-                "code_state": code_pre,  # Genuine pre-change code state linked
+                "code_state": self.code_pre,  # Genuine pre-change code state linked
                 "environment": self.env,
                 "baseline_kind": "verification",
                 "observations": [],
@@ -580,7 +572,7 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
             {
                 "spec": self.spec,
                 "spec_approval": self.approval,
-                "code_state": self.code,
+                "code_state": self.code_pre,
                 "environment": self.env,
                 "baseline_kind": "verification",
                 "observations": [],
@@ -661,7 +653,7 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
             {
                 "spec": self.spec,
                 "spec_approval": self.approval,
-                "code_state": self.code,
+                "code_state": self.code_pre,
                 "environment": self.env,
                 "baseline_kind": "verification",
                 "observations": [],
@@ -669,6 +661,10 @@ class LifecycleBaselineAndReviewContractTests(unittest.TestCase):
             }
         )
         after_obs = self._create_observation("crit_current", "after", "pass")
+        baseline_data = self.store.get(baseline_ref)["data"]
+        after_data = self.store.get(after_obs)["data"]
+        self.assertEqual(baseline_data["code_state"], self.code_pre)
+        self.assertNotEqual(baseline_data["code_state"], after_data["code_state"])
 
         # For comparison="current", status="verified" succeeds even with no Before observations
         review_ref = self.store.append(
