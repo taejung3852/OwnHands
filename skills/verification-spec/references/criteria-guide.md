@@ -39,5 +39,5 @@ Every criterion in an OwnHands Verification Specification must have one of three
 | `current` | Not required | `pass` | `verified` |
 | `preserve` | `pass` | `pass` | `verified` |
 | `improve` | `fail` | `pass` | `verified` |
-| Any | Inconclusive / Not run | `pass` | `inconclusive` |
-| Any | Any | `fail` | `failed` |
+| `preserve` / `improve` | Inconclusive / Not run | `pass` | `inconclusive` |
+| Any | Any | Valid observed requirement violation | `failed` |
