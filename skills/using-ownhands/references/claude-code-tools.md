@@ -8,8 +8,8 @@ When executing OwnHands skills in the Claude Code (Anthropic CLI) environment, a
 | **Track Governance Milestones** | Task list (`TodoWrite`, Ctrl+T, or tasks) | States transition across `pending`, `in_progress`, and `completed`. Use tasks for background subagents. |
 | **Invoke OwnHands MCP Tools** | `mcp__ownhands__<tool>` via stdio JSON-RPC | Configured in project MCP configuration or user config. Aliased as `mcp__ownhands__context_lint`, `mcp__ownhands__harness_profile`. |
 | **Inspect Source & Rule Files** | `Read`, `Glob`, `Grep` | `Read` handles line slicing and multimodal files; `Glob` and `Grep` provide repository indexing. |
-| **File Modification** | `Edit` (string replacement) or `Write` (full file) | Permitted only after `context-validation` pass. |
-| **Shell & Command Execution** | `Bash` (`command`, `timeout`) | Gated by `execution-control`: capture pre-execution snapshot before running commands with side-effects. |
+| **File Modification** | `Edit` (string replacement) or `Write` (full file) | Permitted during implementation after spec approval and baseline capture. |
+| **Shell & Command Execution** | `Bash` (`command`, `timeout`) | Used for baseline test capture and post-implementation review verification. |
 
 ---
 

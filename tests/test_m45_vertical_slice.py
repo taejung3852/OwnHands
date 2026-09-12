@@ -50,7 +50,7 @@ class M45VerticalSliceIntegrationTests(unittest.TestCase):
         manifest = load_plugin_manifest(self.repo_root)
         self.assertEqual(manifest["name"], "ownhands")
         self.assertTrue((self.repo_root / manifest["skills"]["directory"] / "using-ownhands" / "SKILL.md").is_file())
-        self.assertTrue((self.repo_root / manifest["skills"]["directory"] / "context-validation" / "SKILL.md").is_file())
+        self.assertTrue((self.repo_root / manifest["skills"]["directory"] / "verification-spec" / "SKILL.md").is_file())
 
     def test_slice_clean_pass_records_evidence(self) -> None:
         req = {

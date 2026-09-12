@@ -1,6 +1,6 @@
 ---
 name: execution-control
-description: Enforces sandbox boundaries, checks command side-effects, manages task lifecycle, and controls workspace modifications using execution-domain MCP tools.
+description: "[Legacy / Compat Only] Historical execution and sandbox control harness. Do not invoke for new lifecycle workflows."
 ---
 
 # execution-control

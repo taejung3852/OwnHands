@@ -8,4 +8,4 @@ When executing OwnHands skills in the Antigravity CLI environment, actions map t
 | **Track Governance Milestones** | Task Artifact (`write_to_file` with `IsArtifact: true`, Task artifact type) | Do NOT use `manage_task`, which is exclusively for background OS process lifecycle. |
 | **Invoke OwnHands MCP Tools** | `run_command` invoking Python MCP runner or native MCP stdio connection | Calls devharness MCP server with Option C JSON-RPC envelopes. |
 | **Inspect Source & Rule Files** | `view_file` | Read rules, AGENTS instructions, and task overlays. |
-| **File Modification** | `replace_file_content` or `write_to_file` | Permitted only after `context-validation` pass. |
+| **File Modification** | `replace_file_content` or `write_to_file` | Permitted during implementation after spec approval and baseline capture. |
