@@ -12,6 +12,8 @@ import sys
 import unittest
 
 MUTATIONS = [
+    ('ignore-relevant-invalid-evidence', 'evaluation',
+     "if relevant_diagnostics and state == 'verified':", 'if False:'),
     ('before-direction', 'evaluation', "'pass' if criterion['comparison'] == 'preserve' else 'fail'",
      "'fail' if criterion['comparison'] == 'preserve' else 'pass'"),
     ('coverage-any', 'evaluation', 'all(s == "verified" for s in states)',

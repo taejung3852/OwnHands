@@ -2,7 +2,7 @@
 from collections import Counter, defaultdict
 from .model import canonical_json
 
-RULES_VERSION = 1
+RULES_VERSION = 2
 
 
 def _summary(states):
@@ -52,7 +52,7 @@ def _runs(records):
     return results, conflicts
 
 
-def evaluate_claim(criterion, observations, test_plan):
+def evaluate_claim(criterion, observations, test_plan, diagnostics=()):
     """Caller resolves evidence/scope. Store recomputes before persisting this result."""
     checks = []
     for check in criterion['checks']:
@@ -93,7 +93,12 @@ def evaluate_claim(criterion, observations, test_plan):
                 if not comparable:
                     reasons.append('before_missing_incomparable_or_wrong_result')
             state = 'inconclusive' if reasons else 'verified'
-        checks.append({**check, 'status': state,
+        relevant_diagnostics = [d for d in diagnostics
+            if d.get('criterion_id') == criterion['id'] and d.get('check_id') == check['check_id']
+            and (d.get('phase') == 'after' or criterion['comparison'] != 'current')]
+        if relevant_diagnostics and state == 'verified':
+            state, reasons = 'inconclusive', ['relevant_evidence_invalid']
+        checks.append({**check, 'status': state, 'diagnostics': relevant_diagnostics,
             'reason_codes': sorted(set(reasons)) or ['requirements_observed'],
             'observations': [r['ref'] for r in records],
             'evidence': [e for r in records for e in r['data']['evidence']],
@@ -107,7 +112,7 @@ def evaluate_claim(criterion, observations, test_plan):
 
 
 def evaluate_review(criteria, observations, test_plan, blockers, findings, exclusions, diagnostics):
-    claims = [evaluate_claim(c, observations, test_plan) for c in criteria]
+    claims = [evaluate_claim(c, observations, test_plan, diagnostics) for c in criteria]
     required = [c for c in claims if c['required']]
     complete = all(c['status'] == 'verified' for c in required)
     excluded = {e['criterion_id'] for e in exclusions}

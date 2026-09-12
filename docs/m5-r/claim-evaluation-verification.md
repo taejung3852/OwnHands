@@ -1,6 +1,6 @@
 # #82 검증 기록 — 2026-09-13
 
-## 결과와 범위
+## 초기 구현 결과와 범위
 
 기준 main: `ab1c3476c31d1c1420e064af86e21a76b19cfb1d` (PR #86 merge).
 브랜치: `feat/issue-82-claim-evaluation`.
@@ -93,3 +93,34 @@ git diff --check
 - Dashboard UI·자동 수용·전체 의존성 분석·전체 강제 재검사는 구현하지 않았다.
 - journal을 직접 SQL로 위조하거나 producer가 제출하지 않은 실행을 탐지하는
   인증 체계를 구현하지 않았다.
+
+
+## 독립 검수 후 Evidence 무결성 집계 보완
+
+`bba474c` 이후 독립 검수에서 발견한 조합을 추가했다. 기존 423개 테스트와
+8개 조건 반전 검증으로 놓친 경계이므로 이전 통과를 이 조합의 검증으로 승계하지 않는다.
+
+- 재현: 실패 Observation 저장 → 원본 손상 → 같은 check에 정상 pass 추가.
+- 수정 전: Claim verified / required_complete=true / blockers=[]로 저장 가능.
+- 수정 후: 해당 check/Claim inconclusive / required_complete=false /
+  invalid_required_evidence blocker. 거부된 Observation 식별자와 진단을 보존한다.
+- 수정은 Claim 집계 전 관련 진단을 반영하는 작은 공통 규칙이다. Store를
+  우회하는 별도 판정은 추가하지 않았다. rules_version을 2로 올리고 과거 보고서는 보존한다.
+
+추가 회귀 테스트 4개(비교 유형 table 3행 포함):
+
+| 경계 | 기대/실행 결과 |
+|---|---|
+| 필수 실패 손상 + 정상 pass, 다른 check 정상 | 손상 관련 check만 inconclusive, 정상 check verified, 필수 완료 false, 저장 blocked |
+| optional 실패 손상 + pass, 별도 required criterion 정상 | optional inconclusive, required verified, 필수 완료 true, needs-review, blocker 없음 |
+| 손상 근거 + 독립적으로 확인된 유효 실패 + pass | failed 우선 유지, 필수 완료 false, 손상 진단 보존 |
+| Before 손상 + 유효 Before/After, current/preserve/improve | current verified + attention 유지; preserve/improve inconclusive + blocked |
+
+실패 테스트를 먼저 실행하여 잘못된 verified를 4회 assertion failure로 재현했다.
+수정 후 집중 36개 통과(2.062초), 전체 427개 통과(10.586초).
+기존 8개와 새 `ignore-relevant-invalid-evidence`를 포함해 조건 반전 **9/9 검출**.
+새 조건을 제거하면 assertion failure 4개, 실행 오류 0개로 검출된다.
+나머지 변이도 모두 assertion으로 검출됐으며 실행 오류는 0개다.
+
+M3 live probe는 여전히 `live fixture content drift: AGENTS.md`로 실행 거부.
+실환경 검증 미확인 경계는 유지한다. 이번 보완은 로컬 커밋만 생성하며 푸시/병합하지 않는다.

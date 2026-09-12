@@ -31,7 +31,7 @@ class ClaimEvaluationTests(unittest.TestCase):
 
     def observe(self, result='pass', phase='after', check='normal', execution_id=None,
                 environment=None, code=None, meaning='d' * 64, failure_kind=None,
-                execution_status='completed', end_code=None, origin='live', test_id=None, criterion='c1', environment_complete=True):
+                execution_status='completed', end_code=None, origin='live', test_id=None, criterion='c1', environment_complete=True, content=None):
         self.counter += 1
         code = code or self.code
         execution = {'id': execution_id or 'run:' + str(self.counter), 'status': execution_status,
@@ -47,7 +47,7 @@ class ClaimEvaluationTests(unittest.TestCase):
         eid = 'evidence:' + str(self.counter)
         EvidenceStore(self.catalog, EventLog(self.catalog)).put(EvidenceDraft(
             eid, self.task.task_id, 'c1', 'test_execution', 'test:' + check, check,
-            result, 'observed', fields, ('fixture result=' + result).encode(),
+            result, 'observed', fields, content or ('fixture result=' + result).encode(),
             'fixture runner', 'not_needed'), lambda b: b)
         binding = self.store.bind_evidence('binding:' + str(self.counter), self.scope, eid)
         data = {'contract_version': 2, 'spec': self.spec, 'spec_approval': self.approval,
@@ -362,6 +362,84 @@ class ClaimEvaluationTests(unittest.TestCase):
         fresh=self.store.freshness(ref,self.spec,changed,self.env,{'test:normal':'d'*64})
         self.assertEqual(fresh['state'],'stale')
         self.assertEqual(self.store.get(ref)['data']['claims'][0]['status'],'verified')
+
+
+    def corrupt_evidence(self, evidence_id):
+        from pathlib import Path
+        raw = EvidenceStore(self.catalog, EventLog(self.catalog)).resolve(evidence_id)
+        Path(raw.object_path).write_bytes(b'corrupted evidence')
+
+    def test_corrupt_failure_plus_pass_cannot_complete_required_check(self):
+        self.configure(checks=('normal', 'retry'))
+        bad = self.observe('fail')
+        self.corrupt_evidence('evidence:1')
+        self.observe()
+        self.observe(check='retry')
+        data = self.evaluate()
+        claim = data['claims'][0]
+        self.assertEqual(claim['status'], 'inconclusive')
+        self.assertEqual([c['status'] for c in claim['checks']], ['inconclusive', 'verified'])
+        self.assertFalse(data['required_complete'])
+        self.assertEqual(data['coverage']['required']['verified'], 0)
+        self.assertEqual(data['review_state'], 'blocked')
+        self.assertEqual(data['blockers'], [{'criterion_id': 'c1', 'check_id': 'normal',
+            'reason': 'invalid_required_evidence', 'source': bad['id']}])
+        self.assertEqual(claim['checks'][0]['diagnostics'][0]['rejected_input_id'], bad['id'])
+        stored = self.store.append('review', 'integrity-report', self.scope, data)
+        self.assertFalse(self.store.get(stored)['data']['required_complete'])
+        self.assertNotIn(bad, claim['observations'])
+
+    def test_corrupt_optional_failure_does_not_undo_required_completion(self):
+        self.configure(optional=True)
+        spec = copy.deepcopy(self.store.get(self.spec)['data'])
+        spec['criteria'].append({'id': 'c2', 'text': 'Required goal', 'required': True,
+            'comparison': 'current', 'checks': [{'check_id': 'normal', 'statement': 'Required behavior',
+                                               'role': 'success_condition'}]})
+        self.spec = self.store.append('spec', 'spec:82', self.issue_scope, spec)
+        self.approval = self.approve(self.spec)
+        self.observe('fail')
+        self.corrupt_evidence('evidence:1')
+        self.observe()
+        self.observe(criterion='c2')
+        inputs = self.inputs()
+        inputs['test_plan'].append({'criterion_id': 'c2', 'check_id': 'normal',
+                                   'test_id': 'test:normal', 'test_meaning': 'd' * 64})
+        data = self.store.evaluate_review(self.scope, inputs)
+        self.assertEqual(data['claims'][0]['status'], 'inconclusive')
+        self.assertEqual(data['claims'][1]['status'], 'verified')
+        self.assertEqual(data['coverage']['required']['verified'], 1)
+        self.assertTrue(data['required_complete'])
+        self.assertEqual(data['blockers'], [])
+        self.assertEqual(data['review_state'], 'needs-review')
+
+    def test_corruption_does_not_override_independently_observed_failure(self):
+        self.observe('fail')
+        self.corrupt_evidence('evidence:1')
+        self.observe('fail', content=b'independent observed requirement violation')
+        self.observe()
+        data = self.evaluate()
+        self.assertEqual(data['claims'][0]['status'], 'failed')
+        self.assertFalse(data['required_complete'])
+        self.assertEqual(data['review_state'], 'needs-review')
+        self.assertEqual(data['blockers'], [])
+        self.assertTrue(data['diagnostics'])
+
+    def test_corrupt_before_plus_valid_after_respects_comparison_type(self):
+        cases = [('current', 'pass', 'verified', True, 'needs-review'),
+                 ('preserve', 'pass', 'inconclusive', False, 'blocked'),
+                 ('improve', 'fail', 'inconclusive', False, 'blocked')]
+        for comparison, valid_before, expected, complete, review in cases:
+            with self.subTest(comparison=comparison):
+                self.configure(comparison)
+                bad = self.observe('fail', phase='before', content=('bad ' + comparison).encode())
+                self.corrupt_evidence('evidence:' + str(self.counter))
+                left = self.observe(valid_before, phase='before', content=('good ' + comparison).encode())
+                self.observe()
+                data = self.evaluate(before=[left])
+                self.assertEqual(data['claims'][0]['status'], expected)
+                self.assertEqual(data['required_complete'], complete)
+                self.assertEqual(data['review_state'], review)
+                self.assertEqual(data['diagnostics'][0]['rejected_input_id'], bad['id'])
 
 
 if __name__ == '__main__':

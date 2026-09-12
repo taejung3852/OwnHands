@@ -124,6 +124,16 @@ for the same execution/test/check produce inconclusive with both sources; a
 separate confirmed failure still wins. No After observation means unobserved;
 partial coverage or insufficient comparison produces inconclusive.
 
+Integrity diagnostics are applied to the matching criterion/check before Claim
+aggregation (`rules_version: 2`). A valid pass alongside unusable related evidence
+is inconclusive, not verified. Required completion becomes false and the existing
+`invalid_required_evidence` blocker applies. The rejected identifier/diagnostic is
+retained on the check without adding an invalid reference to its evidence closure.
+A separately confirmed violation remains failed. Invalid Before evidence does not
+invalidate a current check, and optional integrity gaps do not block required
+completion. Existing stored rule-v1 reports are not rewritten; new evaluations use
+rule v2 and append rejects a result calculated with the old rules.
+
 All checks verified → Claim verified. Any check failed → Claim failed. All checks
 unobserved → Claim unobserved. Other incomplete combinations → inconclusive.
 
