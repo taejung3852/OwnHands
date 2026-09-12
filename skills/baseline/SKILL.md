@@ -45,4 +45,6 @@ If the current working tree is clean, observe in-place. If the tree contains unc
    - Run tests corresponding to `improve` criteria (TDD Red) ➔ Verify they fail as expected.
 4. **Persist Baseline Record**:
    - Store the baseline artifact in `LifecycleStore` linked to the active attempt scope.
+   - Use `contract_version: 2`, preserve pre-change `provenance` and record v2 execution receipts per `../../docs/m5-r/claim-evaluation-contract.md`.
+   - If an existing defect is observed, show evidence and ask the user whether to include it, create a separate issue, or defer. Do not automatically expand scope or create an issue. Work confirmed independent may continue; dependent or uncertain work waits.
    - Hand off to implementation.

@@ -101,7 +101,8 @@ def inspect_stage(store, stage: str, action: str, scope: dict, inputs: dict, req
 
     if stage == "review" and action == "compose" and {"spec", "approval", "environment", "baseline"} <= set(records):
         baseline_data = records["baseline"]["data"]
-        mismatches = [name for name in ("spec", "approval", "environment")
+        fields = ("spec", "approval") if baseline_data.get("contract_version") == 2 else ("spec", "approval", "environment")
+        mismatches = [name for name in fields
                       if baseline_data.get("spec_approval" if name == "approval" else name) != inputs[name]]
         if mismatches:
             invalid = True

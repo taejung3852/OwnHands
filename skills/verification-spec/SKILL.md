@@ -48,6 +48,8 @@ Consult `references/criteria-guide.md` for in-depth examples and edge cases.
    - Follow the standard markdown format in `references/spec-template.md`.
    - Assign unique criterion IDs (e.g., `crit-1`, `crit-2`).
    - Mark whether each criterion is `required: true|false`.
+   - For #82 use `contract_version: 2` and give each criterion a nonempty `checks` list of `{check_id, statement, role}` (`success_condition` or `counterexample`). Agree the required situations before implementation. All checks support the Claim; optional goals are separate optional criteria. Test selection remains the agent's job.
+   - See `../../docs/m5-r/claim-evaluation-contract.md` for the storage/API contract.
 3. **Connect to TDD / SDD Methodology**:
    - For TDD workflows, define the exact failing test observation that will serve as the Red baseline. Consult `references/tdd-mapping.md`.
 4. **Obtain Human Approval**:

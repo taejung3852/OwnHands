@@ -161,7 +161,7 @@ class LifecycleStore:
                 comparable_data = dict(stored_data)
                 if kind == "review":
                     comparable_data.pop("review_state", None)
-                if stored_data == data or comparable_data == data:
+                if (stored_data == data or comparable_data == data) and data.get("contract_version") != 2:
                     existing = reference(kind, logical_id, latest["revision"], latest["record_hash"])
                     self._get_with_closure(existing, set())
                     return existing
@@ -374,6 +374,30 @@ class LifecycleStore:
         self._validate_owner(validate_scope(scope))
         return inspect_stage(self, stage, action, scope, inputs, request_context)
 
+    def evaluate_review(self, scope: dict, inputs: dict) -> dict:
+        """Resolve a complete input set in one transaction; never run tests."""
+        from .evaluation_store import compose_review
+        with self._transaction():
+            self._verify_journal()
+            return compose_review(self, scope, json.loads(canonical_json(inputs)))
+
+    def review_status(self, review_ref: dict) -> dict:
+        """Report unreadable evidence or new records without rewriting a Snapshot."""
+        from .evaluation_store import _collect
+        with self._transaction():
+            try:
+                record = self.get(review_ref)
+            except ValueError as error:
+                return {"readable": False, "reason": str(error)}
+            if record["kind"] != "review":
+                raise ValueError("review_status requires a review")
+            if record["data"].get("contract_version") != 2:
+                return {"readable": True, "contract_version": 1}
+            _, diagnostics, refs = _collect(self, record["scope"], record["data"]["evaluation_inputs"])
+            return {"readable": True, "contract_version": 2,
+                    "new_evidence_available": fingerprint(refs) != record["data"]["observation_set_hash"],
+                    "diagnostics": diagnostics}
+
     def freshness(self, review_ref: dict, spec_ref: dict, code_ref: dict,
                   environment_ref: dict, test_meanings: dict[str, str]) -> dict:
         review = self.get(review_ref)
@@ -415,6 +439,20 @@ class LifecycleStore:
             raise ValueError("task belongs to another project")
 
     def _validate_artifact(self, kind: str, logical_id: str, scope: dict, data: dict) -> None:
+        if kind in {"spec", "baseline", "observation", "review"}:
+            version = data.get("contract_version", 1)
+            if type(version) is not int or version not in {1, 2}:
+                raise ValueError("unsupported artifact contract version")
+            if version == 2:
+                from .evaluation_store import validate_v2, validate_review
+                if kind == "review":
+                    validate_review(self, scope, data)
+                    return
+                validate_v2(self, kind, scope, data)
+            elif kind != "spec":
+                spec = self._require_kind(data.get("spec"), "spec", scope)
+                if spec["data"].get("contract_version") == 2:
+                    raise ValueError("v2 Spec cannot use legacy evaluation contract")
         if kind == "work_issue":
             if set(scope) != {"project_id"}:
                 raise ValueError("work_issue must use project scope")
