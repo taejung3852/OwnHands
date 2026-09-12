@@ -1,3 +1,4 @@
+"""Historical M4.5 compatibility contract; active registry lives in test_control_boundary."""
 from __future__ import annotations
 
 import copy
@@ -66,7 +67,7 @@ class McpContract25ToolsTests(unittest.TestCase):
         self.root = Path(self.temp_dir.name)
         self.data_dir = self.root / "data"
         self.data_paths = DataPaths.resolve(self.data_dir)
-        self.server = McpServer(data_root=self.data_dir)
+        self.server = McpServer(data_root=self.data_dir, legacy_tools=True)
 
         # Initialize catalog and a canonical task in catalog
         with Catalog.open(self.data_paths) as catalog:

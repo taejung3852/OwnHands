@@ -1,3 +1,4 @@
+"""Historical M4.5 compatibility contract; active registry lives in test_control_boundary."""
 from __future__ import annotations
 
 import json
@@ -14,7 +15,7 @@ class McpServerTests(unittest.TestCase):
         self.root = Path(self.temp_dir.name)
         (self.root / "AGENTS.md").write_text("# Project Agents\nFollow the rules.\n", encoding="utf-8")
         data_root = self.root / "data"
-        self.server = McpServer(data_root=data_root)
+        self.server = McpServer(data_root=data_root, legacy_tools=True)
         from devharness.catalog import Catalog
         from devharness.identity import IdentityRegistry
         from devharness.paths import DataPaths

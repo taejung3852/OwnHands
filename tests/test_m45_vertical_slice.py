@@ -1,3 +1,4 @@
+"""Historical M4.5 compatibility contract; active registry lives in test_control_boundary."""
 from __future__ import annotations
 
 import json
@@ -26,7 +27,7 @@ class M45VerticalSliceIntegrationTests(unittest.TestCase):
         (self.project_dir / "AGENTS_SOFT.md").write_text("Always execute on all tasks.\n", encoding="utf-8")
 
         self.data_root = self.root / "data"
-        self.server = McpServer(data_root=self.data_root)
+        self.server = McpServer(data_root=self.data_root, legacy_tools=True)
 
         with Catalog.open(DataPaths.resolve(self.data_root)) as catalog:
             from devharness.identity import IdentityRegistry
@@ -159,7 +160,7 @@ class M45VerticalSliceIntegrationTests(unittest.TestCase):
     def test_stdio_subprocess_e2e_roundtrip(self) -> None:
         # Launch real stdio MCP server process
         process = subprocess.Popen(
-            [sys.executable, "-m", "devharness", "mcp-server", "--data-root", str(self.data_root)],
+            [sys.executable, "-m", "devharness", "mcp-server", "--legacy-tools", "--data-root", str(self.data_root)],
             cwd=self.repo_root,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,

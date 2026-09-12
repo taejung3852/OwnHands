@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol
 
+from .run_records import AppServerRecord, AppServerRun
+
 
 _APPROVAL_METHODS = {
     "item/commandExecution/requestApproval",
@@ -45,33 +47,6 @@ class AppServerConfig:
     reasoning_effort: str
     absolute_timeout_seconds: float | None = None
     trust_project_for_run: bool = False
-
-
-@dataclass(frozen=True)
-class AppServerRecord:
-    kind: str
-    method: str
-    payload_hash: str
-    request_id: int | str | None = None
-    thread_id: str | None = None
-    turn_id: str | None = None
-    item_id: str | None = None
-    item_type: str | None = None
-    status: str | None = None
-    decision: str | None = None
-    exit_code: int | None = None
-    probe: str | None = None
-
-
-@dataclass(frozen=True)
-class AppServerRun:
-    records: list[AppServerRecord]
-    thread_id: str
-    turn_id: str
-    terminal_status: str
-    instruction_sources: list[str]
-    codex_version: str
-    protocol_fingerprint: str
 
 
 class JsonRpcTransport(Protocol):
