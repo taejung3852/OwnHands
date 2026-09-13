@@ -261,7 +261,7 @@ class DashboardReadModelTests(unittest.TestCase):
         review = f.store.append("review", "review:required-zero", f.scope,
                                 f.store.evaluate_review(f.scope, inputs))
         snapshot = self.append_snapshot(review, "snapshot:required-zero")
-        legacy = self.simple_snapshot("legacy", title="Legacy review", status="unobserved")
+        legacy = self.simple_snapshot("legacy", title="Legacy review", status="verified")
         reader = self.open_reader()
         zero = reader.read_detail(reader.snapshot_key(snapshot))
         old = reader.read_detail(reader.snapshot_key(legacy["snapshot"]))
@@ -270,6 +270,9 @@ class DashboardReadModelTests(unittest.TestCase):
         self.assertEqual(zero["counts"]["excluded_optional_count"], 1)
         self.assertEqual(old["source_contract_version"], 1)
         self.assertEqual(old["claims"][0]["checks"], [])
+        self.assertEqual(len(old["claims"][0]["observations"]), 1)
+        legacy_key = old["claims"][0]["observations"][0]["evidence_links"][0]["evidence_key"]
+        self.assertEqual(reader.read_evidence(old["snapshot_key"], legacy_key)["availability"], "available")
 
     def test_f04_comparisons_keep_missing_before_conflicts_and_every_run(self):
         f = self.fixture
@@ -289,6 +292,21 @@ class DashboardReadModelTests(unittest.TestCase):
         self.assertEqual(sum(len(check["before"]) for check in claim["checks"]), 2)
         self.assertTrue(claim["checks"][0]["conflicts"])
         self.assertFalse(claim["checks"][1]["comparisons"][0]["comparable"])
+
+    def test_f04_additional_observation_remains_drillable_without_a_claim(self):
+        f = self.fixture
+        f.configure("current")
+        f.observe()
+        extra = f.observe("fail", check="outside", criterion=None)
+        review = f.store.append("review", "review:f04-additional", f.scope, f.evaluate())
+        snapshot = self.append_snapshot(review, "snapshot:f04-additional")
+        reader = self.open_reader()
+        vm = reader.read_detail(reader.snapshot_key(snapshot))
+        self.assertEqual([item["ref"] for item in vm["additional_observations"]], [extra])
+        evidence_key = vm["additional_observations"][0]["evidence_links"][0]["evidence_key"]
+        evidence = reader.read_evidence(vm["snapshot_key"], evidence_key)
+        self.assertIsNone(evidence["claim_id"])
+        self.assertEqual(evidence["check_id"], "outside")
 
     def test_f05_context_uses_registered_current_inputs_without_rewriting_snapshot(self):
         f = self.fixture
@@ -339,6 +357,22 @@ class DashboardReadModelTests(unittest.TestCase):
         self.assertEqual(context["freshness"], "unknown")
         self.assertIn("test_meaning_unknown:test:normal", context["reasons"])
 
+    def test_f05_known_change_stays_stale_when_another_current_input_is_missing(self):
+        f = self.fixture
+        f.configure("current")
+        f.observe()
+        review = f.store.append("review", "review:f05-partial-inputs", f.scope, f.evaluate())
+        snapshot = self.append_snapshot(review, "snapshot:f05-partial-inputs")
+        changed_code = f.store.append(
+            "code_state", "code:f05-changed", f.scope, f.code_state_data("changed")
+        )
+        f.store.activate(changed_code)
+        reader = self.open_reader()
+        context = reader.read_context(reader.snapshot_key(snapshot))
+        self.assertEqual(context["freshness"], "stale")
+        self.assertIn("code_state_changed", context["reasons"])
+        self.assertIn("environment_missing", context["reasons"])
+
     def test_f06_evidence_keys_are_snapshot_scoped_and_partial_is_not_ready(self):
         f = self.fixture
         f.configure(checks=("normal", "retry"))
@@ -387,6 +421,20 @@ class DashboardReadModelTests(unittest.TestCase):
                  for check in detail["claims"][0]["checks"]]
         self.assertEqual({link["availability"] for link in links}, {"missing", "purged"})
         self.assertEqual(detail["context"]["read_health"], "partial")
+
+    def test_f06_evidence_count_uses_unique_evidence_ids_not_binding_count(self):
+        f = self.fixture
+        f.configure("current")
+        observation = f.observe()
+        second_binding = f.store.bind_evidence("binding:duplicate", f.scope, "evidence:1")
+        duplicated = f.store.get(observation)["data"]
+        duplicated["evidence"].append(second_binding)
+        f.store.append("observation", "obs:duplicate-binding", f.scope, duplicated)
+        review = f.store.append("review", "review:f06-unique-count", f.scope, f.evaluate())
+        snapshot = self.append_snapshot(review, "snapshot:f06-unique-count")
+        reader = self.open_reader()
+        check = reader.read_detail(reader.snapshot_key(snapshot))["claims"][0]["checks"][0]
+        self.assertEqual(check["evidence_count"], 1)
 
     def test_f06_foreign_project_snapshot_is_the_same_not_found(self):
         f = self.fixture
@@ -490,6 +538,17 @@ class DashboardReadModelTests(unittest.TestCase):
             reader.read_list(cursor="not-a-cursor")
         self.assertEqual(invalid.exception.code, "INVALID_QUERY")
 
+        with self.assertRaises(ReadModelError) as wrong_shape:
+            reader.read_list(cursor=reader._encode_cursor([]))
+        self.assertEqual(wrong_shape.exception.code, "INVALID_QUERY")
+
+        cursor_data = reader._decode_cursor(first["next_cursor"])
+        cursor_data["last"] = ["bad"]
+        with self.assertRaises(ReadModelError) as invalid_last:
+            reader.read_list(q="저장", cursor=reader._encode_cursor(cursor_data), limit=1,
+                             presentations=cached, ready_sequence=5)
+        self.assertEqual(invalid_last.exception.code, "INVALID_QUERY")
+
     def test_f08_one_source_change_retries_but_continuous_change_fails(self):
         item = self.simple_snapshot("change", title="Changing source", status="unobserved")
         reader = self.open_reader()
@@ -524,6 +583,22 @@ class DashboardReadModelTests(unittest.TestCase):
             with self.assertRaises(ReadModelError) as caught:
                 reader.read_detail(key)
         self.assertEqual(caught.exception.code, "SOURCE_CHANGED")
+
+    def test_f08_cursor_rejects_raw_health_change_that_reorders_the_list(self):
+        self.simple_snapshot("cursor-first", title="Needs review", status="unobserved")
+        self.simple_snapshot(
+            "cursor-second", title="Ready", status="verified", activate_inputs=True
+        )
+        reader = self.open_reader()
+        first = reader.read_list(limit=1)
+        self.assertIsNotNone(first["next_cursor"])
+        raw = self.fixture.catalog.connection.execute(
+            "SELECT evidence_id FROM evidence ORDER BY created_at, evidence_id DESC LIMIT 1"
+        ).fetchone()[0]
+        EvidenceStore(self.fixture.catalog, EventLog(self.fixture.catalog)).resolve(raw).object_path.unlink()
+        with self.assertRaises(ReadModelError) as caught:
+            reader.read_list(cursor=first["next_cursor"], limit=1)
+        self.assertEqual(caught.exception.code, "LIST_CHANGED")
 
     def test_f08_empty_list_differs_from_direct_not_found_and_integrity_error(self):
         reader = self.open_reader()

@@ -46,7 +46,7 @@ class DashboardReadModel:
         })
 
     def read_detail(self, snapshot_key: str) -> dict:
-        return self._consistent(lambda: self._public(self._build_state(snapshot_key)))
+        return self._consistent(lambda: self._public(self._build_state(snapshot_key)), with_token=True)
 
     def read_claim(self, snapshot_key: str, claim_id: str) -> dict:
         def build():
@@ -64,7 +64,7 @@ class DashboardReadModel:
             if entry is None:
                 raise ReadModelError("NOT_FOUND", _NOT_FOUND)
             return self._evidence_vm(snapshot_key, evidence_key, entry)
-        return self._consistent(build)
+        return self._consistent(build, with_token=True)
 
     def read_context(self, snapshot_key: str) -> dict:
         return self._consistent(lambda: self._build_state(snapshot_key)["context"])
@@ -86,16 +86,16 @@ class DashboardReadModel:
             filter, q, cursor_data, limit, presentations, ready_sequence
         ))
 
-    def _consistent(self, build):
+    def _consistent(self, build, *, with_token=False):
         try:
             for _ in range(2):
                 start = self._source_head()
                 result = build()
                 end = self._source_head()
                 if start == end:
-                    if isinstance(result, dict):
+                    if with_token and isinstance(result, dict):
                         result = dict(result)
-                        result["read_token"] = fingerprint({"source": start, "result": result})
+                        result["read_token"] = fingerprint({"source": start})
                     return result
             raise ReadModelError("SOURCE_CHANGED", "Dashboard sources changed while reading", retryable=True)
         except ReadModelError:
@@ -177,9 +177,18 @@ class DashboardReadModel:
         evidence_entries = {}
         claims = self._claims(review, review_ref, spec, index, diagnostics,
                               snapshot_ref, evidence_entries)
+        additional_observations = []
+        for observation_ref in review["data"].get("additional_observations", []):
+            record = index.get(self._ref_id(observation_ref))
+            if record is None:
+                raise ValueError("additional observation is outside snapshot closure")
+            additional_observations.append(self._observation_vm(
+                record, observation_ref, None, record["data"].get("check_id"), index,
+                diagnostics, snapshot_ref, evidence_entries,
+            ))
         counts = self._counts(claims, review["data"].get("exclusions", []))
         context = self._context(snapshot, snapshot_ref, review, review_ref, closure.read_health)
-        presentation = self._presentation(snapshot_key, snapshot_ref, issue, issue_ref, counts,
+        presentation = self._presentation(snapshot_key, issue, issue_ref, review_ref, counts,
                                           context, presentations, ready_sequence)
         problems = self._problems(review, review_ref, claims, closure.diagnostics, evidence_entries)
         state = review["data"].get("review_state")
@@ -202,6 +211,7 @@ class DashboardReadModel:
             "context": context,
             "presentation": presentation,
             "claims": claims,
+            "additional_observations": additional_observations,
             "problems": problems,
             "context_notices": self._context_notices(context),
             "remaining_problem_count": max(0, len(problems) - 3),
@@ -231,6 +241,16 @@ class DashboardReadModel:
                     check, claim_id, claim_index, check_index, review_ref, index,
                     diagnostics, snapshot_ref, evidence_entries,
                 ))
+            observations = []
+            if not checks:
+                for observation_ref in stored.get("observations", []):
+                    record = index.get(self._ref_id(observation_ref))
+                    if record is None:
+                        raise ValueError("claim observation is outside snapshot closure")
+                    observations.append(self._observation_vm(
+                        record, observation_ref, claim_id, record["data"].get("check_id"),
+                        index, diagnostics, snapshot_ref, evidence_entries,
+                    ))
             result.append({
                 "id": claim_id,
                 "text": criterion["text"],
@@ -238,6 +258,7 @@ class DashboardReadModel:
                 "comparison": criterion["comparison"],
                 "status": stored["status"],
                 "checks": checks,
+                "observations": observations,
                 "source": self._pointer(review_ref, f"/claims/{claim_index}"),
             })
         return result
@@ -266,9 +287,11 @@ class DashboardReadModel:
                 "before_refs": comparison.get("before", []),
                 "after_refs": comparison.get("after", []),
             })
-        evidence_ids = {entry["evidence_key"] for vm in observations for entry in vm["evidence_links"]}
-        unavailable = {entry["evidence_key"] for vm in observations for entry in vm["evidence_links"]
-                       if entry["availability"] != "available"}
+        evidence_ids = {evidence_entries[link["evidence_key"]]["evidence_id"]
+                        for vm in observations for link in vm["evidence_links"]}
+        unavailable = {evidence_entries[link["evidence_key"]]["evidence_id"]
+                       for vm in observations for link in vm["evidence_links"]
+                       if link["availability"] != "available"}
         base_pointer = f"/claims/{claim_index}/checks/{check_index}"
         return {
             "id": check["check_id"],
@@ -463,10 +486,23 @@ class DashboardReadModel:
                     reasons.append(name + "_missing")
                 else:
                     input_refs.append(value)
+            changed = []
+            if current_spec is not None and review["data"].get("spec") != current_spec:
+                changed.append("spec_changed")
+            for name, current in (("code_state", current_code), ("environment", current_environment)):
+                if current is None:
+                    continue
+                reviewed = self.lifecycle.get(review["data"][name])
+                active = self.lifecycle.get(current)
+                if reviewed["data"].get("fingerprint") != active["data"].get("fingerprint"):
+                    changed.append(name + "_changed")
+            if changed:
+                freshness = "stale"
+                reasons.extend(changed)
             if read_health != "complete":
                 reasons.append("evidence_unavailable")
-            elif current_spec and current_code and current_environment:
-                meanings, conflicts = self._current_test_meanings(
+            elif not changed and current_spec and current_code and current_environment:
+                meanings, _ = self._current_test_meanings(
                     scope, current_spec, current_approval, current_code, current_environment
                 )
                 compared = self.lifecycle.freshness(
@@ -475,7 +511,7 @@ class DashboardReadModel:
                 freshness = compared["state"]
                 reasons.extend(name + "_changed" if name in {"spec", "code_state", "environment"}
                                else name for name in compared["changed"])
-                unknown = set(compared["unknown"]) | conflicts
+                unknown = set(compared["unknown"])
                 reasons.extend("test_meaning_unknown:" + name for name in sorted(unknown))
         if read_health != "complete":
             new_evidence = None
@@ -517,7 +553,7 @@ class DashboardReadModel:
         return ({test_id: next(iter(meanings)) for test_id, meanings in values.items()
                  if test_id not in conflicts}, conflicts)
 
-    def _presentation(self, snapshot_key, snapshot_ref, issue, issue_ref, counts,
+    def _presentation(self, snapshot_key, issue, issue_ref, review_ref, counts,
                       context, presentations, ready_sequence):
         fallback = {
             "status": "unavailable" if context["read_health"] != "complete" else "absent",
@@ -527,7 +563,7 @@ class DashboardReadModel:
             "headline": {"text": issue["data"]["title"], "kind": "intent",
                          "sources": [self._pointer(issue_ref, "/title")]},
             "summary": [{"text": f"{counts['all']['total']}개 조건 중 {counts['all']['verified']}개가 확인됐습니다.",
-                         "kind": "observed", "sources": [self._pointer(snapshot_ref, "/review")]}],
+                         "kind": "observed", "sources": [self._pointer(review_ref, "/claims")]}],
             "key_changes": [],
             "attention_items": [],
             "next_checks": [],
@@ -631,13 +667,24 @@ class DashboardReadModel:
         query_hash = fingerprint({"filter": filter_name, "q": normalized, "limit": limit})
         head = self._source_head()
         if cursor is not None:
+            if not isinstance(cursor, dict):
+                raise ReadModelError("INVALID_QUERY", "Cursor is invalid")
+            expected_keys = {"version", "head", "query", "last", "ready_sequence",
+                             "list_fingerprint"}
+            if set(cursor) != expected_keys:
+                raise ReadModelError("INVALID_QUERY", "Cursor is invalid")
             if cursor.get("version") != 1 or cursor.get("query") != query_hash:
                 raise ReadModelError("INVALID_QUERY", "Cursor does not match this query")
+            cap = cursor.get("ready_sequence")
+            last = cursor.get("last")
+            valid_last = (isinstance(last, list) and len(last) == 4
+                          and all(type(item) is int for item in last[:3])
+                          and isinstance(last[3], str))
+            if (type(cap) is not int or cap < 0 or not valid_last
+                    or not isinstance(cursor.get("list_fingerprint"), str)):
+                raise ReadModelError("INVALID_QUERY", "Cursor is invalid")
             if cursor.get("head") != head:
                 raise ReadModelError("LIST_CHANGED", "Dashboard list changed", retryable=True)
-            cap = cursor.get("ready_sequence")
-            if type(cap) is not int or cap < 0 or not isinstance(cursor.get("last"), list):
-                raise ReadModelError("INVALID_QUERY", "Cursor is invalid")
         else:
             cap = ready_sequence
         latest = {}
@@ -647,6 +694,20 @@ class DashboardReadModel:
                 latest[group] = snapshot
         states = [self._build_state(self.snapshot_key(self._ref(snapshot)), presentations, cap)
                   for snapshot in latest.values()]
+        list_fingerprint = fingerprint(sorted((
+            {
+                "snapshot_key": state["snapshot_key"],
+                "review_state": state["review_state"],
+                "read_health": state["context"]["read_health"],
+                "freshness": state["context"]["freshness"],
+                "sort_key": self._sort_key(state),
+                "search_text": self._search_text(state),
+                "presentation": state["presentation"],
+            }
+            for state in states
+        ), key=lambda item: item["snapshot_key"]))
+        if cursor is not None and cursor["list_fingerprint"] != list_fingerprint:
+            raise ReadModelError("LIST_CHANGED", "Dashboard list changed", retryable=True)
         if filter_name != "all":
             states = [state for state in states if self._matches_filter(state, filter_name)]
         if normalized:
@@ -662,11 +723,14 @@ class DashboardReadModel:
         if remaining:
             next_cursor = self._encode_cursor({"version": 1, "head": head, "query": query_hash,
                                                "last": list(self._sort_key(page[-1])),
-                                               "ready_sequence": cap})
+                                               "ready_sequence": cap,
+                                               "list_fingerprint": list_fingerprint})
         return {
             "items": [self._card(state) for state in page],
             "next_cursor": next_cursor,
-            "list_token": fingerprint({"head": head, "query": query_hash, "ready_sequence": cap}),
+            "list_token": fingerprint({"head": head, "query": query_hash,
+                                       "ready_sequence": cap,
+                                       "list_fingerprint": list_fingerprint}),
             "summary_search": "cached_only",
         }
 
@@ -727,9 +791,11 @@ class DashboardReadModel:
         try:
             raw = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
             envelope = json.loads(raw)
-            if set(envelope) != {"value", "checksum"}:
+            if not isinstance(envelope, dict) or set(envelope) != {"value", "checksum"}:
                 raise ValueError
             if envelope["checksum"] != fingerprint(canonical_json(envelope["value"]).encode()):
+                raise ValueError
+            if not isinstance(envelope["value"], dict):
                 raise ValueError
             return envelope["value"]
         except (TypeError, ValueError, UnicodeError, json.JSONDecodeError, binascii.Error):
