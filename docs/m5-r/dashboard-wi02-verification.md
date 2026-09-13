@@ -4,22 +4,24 @@
 
 - 대상: Dashboard Snapshot View Model, Claim 집계, 문제 인덱스, scoped Evidence, 현재 맥락 overlay, 목록 선택·검색·페이지 처리.
 - 기준 main: `07809a0675a00d73f16da77c98cfd47d65fd1c8e` (PR #90 병합 커밋).
-- 검증한 구현 커밋: `300349ebaa3b7869afe3c8208cfed84e543c82b5`.
+- 검증한 구현 커밋: `4ee60532661411c9252aa2029218c450cd582a49`.
 - 실행 브랜치: `feat/dashboard-wi02-view-model`.
 - 환경: Python `3.12.14`, macOS 로컬 fixture.
 - 원칙: 저장된 Claim/Review 판정은 복사하며 `evaluate_review`를 조회 경로에서 호출하지 않는다.
 
 ## TDD 관찰
 
-최초 `tests/test_dashboard_read_model.py` 실행은 10/10 테스트가 `Dashboard read model is not implemented` 단언으로 실패했다. fixture 구성 오류나 저장소 예외가 아니라 WI-02 모듈 부재 때문에 실패함을 확인한 뒤 최소 구현을 추가했다. 이후 required-zero/legacy, foreign project, missing/purged 경계를 보강했다. 독립 재검수에서 재현된 known-change+missing, legacy/additional Observation Evidence, 고유 Evidence ID, raw 상태 cursor, malformed cursor 반례도 각각 실패를 확인한 뒤 수정했다. 최종 신규 테스트는 17개다.
+최초 `tests/test_dashboard_read_model.py` 실행은 10/10 테스트가 `Dashboard read model is not implemented` 단언으로 실패했다. fixture 구성 오류나 저장소 예외가 아니라 WI-02 모듈 부재 때문에 실패함을 확인한 뒤 최소 구현을 추가했다. 이후 required-zero/legacy, foreign project, missing/purged 경계를 보강했다. 독립 재검수에서 재현된 known-change+missing, legacy/additional Observation Evidence, 고유 Evidence ID, raw 상태 cursor, malformed cursor 반례도 각각 실패를 확인한 뒤 수정했다.
+
+PR 검토 후 active가 이전 Snapshot인 목록, blocked 원인, needs-review의 problem 우선순위 원인 테스트를 추가했다. 구현 전에는 각각 `active_snapshot_key` 부재와 일반 `state_reason` 값으로 실패했고 최소 수정 후 통과했다. 최종 신규 테스트는 20개다.
 
 ## F01–F09 결과
 
 | ID | 고정 입력/공격 | 관찰 결과 | Evidence |
 |---|---|---|---|
-| F01 | 같은 issue/attempt의 여러 Snapshot, Snapshot 뒤 WorkIssue 제목 revision 추가 | 목록은 journal sequence가 가장 큰 저장 Snapshot만 선택하고, 상세는 선택 Snapshot closure의 옛 제목·Spec·Review만 사용 | E02 |
+| F01 | 같은 issue/attempt의 여러 Snapshot, active가 이전 Snapshot, Snapshot 뒤 WorkIssue 제목 revision 추가 | 목록은 journal sequence가 가장 큰 저장 Snapshot만 선택하되 `active_snapshot_key`로 이전 active를 구분하고, 상세는 선택 Snapshot closure의 옛 제목·Spec·Review만 사용 | E02 |
 | F02 | required 5, optional 2, excluded 1, 네 Claim 상태, required 0, legacy v1 | `all=7/verified=3/failed=1/inconclusive=1/unobserved=2`; 제외 선택도 분모 유지; required 0과 v1 `checks=[]` 및 원본 Observation/Evidence 경로 보존 | E02 |
-| F03 | blocker, failure, finding, inconclusive, unobserved, exclusion | 저장 verdict를 유지하며 source pointer+kind 단위로만 중복 제거; blocker 우선, 전체 문제와 `remaining_problem_count` 보존 | E02 |
+| F03 | blocker, failure, finding, diagnostic/conflict, inconclusive, unobserved, exclusion | 저장 verdict를 유지하며 source pointer+kind 단위로만 중복 제거; `blocked`는 blocker, `needs-review`는 problem 우선순위의 첫 실제 원인을 `state_reason`으로 사용; 전체 문제와 `remaining_problem_count` 보존 | E02 |
 | F04 | Before conflict, 반복 실행, preserve check의 Before 부재, Claim 밖 additional Observation | 저장 Claim/check 상태와 모든 Before/After 실행을 유지; 비교 불가를 PASS로 승격하지 않으며 additional Observation의 scoped Evidence도 조회 가능 | E02, E04 |
 | F05 | active 입력 부재, semantic recapture, meaning 충돌, 새 Evidence/Snapshot/attempt | 부재·meaning 충돌은 unknown, 동일 fingerprint 재수집은 current; 다른 입력이 없어도 확인된 code 차이는 stale; 새 Evidence와 attempt는 별도 축이며 Snapshot counts 불변 | E02 |
 | F06 | 다른 project, 다른 Snapshot key, raw corrupt/missing/purged, 동일 Evidence의 복수 binding | 범위 밖 key는 동일 `NOT_FOUND`; partial에서 저장 verdict와 조회 상태를 분리하고 fallback 강제; 정상 metadata/형제 근거 유지; 수량은 고유 Evidence ID 기준 | E01, E04 |
@@ -31,11 +33,11 @@
 
 ```text
 PYTHONPATH=src ../ownhands-80/.venv/bin/python -m unittest tests.test_dashboard_read_model tests.test_dashboard_readonly -v
-Ran 33 tests in 3.122s
+Ran 36 tests in 2.704s
 OK
 
 PYTHONPATH=src ../ownhands-80/.venv/bin/python -m unittest discover -s tests -q
-Ran 466 tests in 16.668s
+Ran 469 tests in 16.126s
 OK
 
 PYTHONPATH=src ../ownhands-80/.venv/bin/python tests/run_claim_mutations.py
@@ -58,7 +60,7 @@ exit 0
 
 1차 독립 재검수는 Critical 0건, Important 5건이었다. 확인된 차이와 입력 누락의 동시 처리, legacy/additional Observation Evidence 경로, raw 상태의 cursor 결합, 고유 Evidence ID 집계, malformed cursor 경계를 모두 재현 테스트로 고정하고 `300349e`에서 수정했다.
 
-수정본 독립 재검수는 제품 코드와 테스트 `300349e` 및 후속 문서 정합성을 확인했다. 독립 실행에서 대상 33개, 전체 466개, `git diff --check`가 통과했고 남은 Critical/Important 이슈가 없어 **WI-02 병합 가능** 판정을 받았다. 이 판정은 아래 미실행 범위를 포함하지 않는다.
+수정본 독립 재검수는 제품 코드와 테스트 `300349e` 및 후속 문서 정합성을 확인했다. 독립 실행에서 대상 33개, 전체 466개, `git diff --check`가 통과했고 남은 Critical/Important 이슈가 없어 당시 WI-02 병합 가능 판정을 받았다. 이후 요청된 두 계약 보완 `4ee6053`은 위 대상·전체 회귀로 다시 검증했으며 별도 독립 재검수는 실행하지 않았다. 이 판정은 아래 미실행 범위를 포함하지 않는다.
 
 ## 미실행 및 후속 범위
 
