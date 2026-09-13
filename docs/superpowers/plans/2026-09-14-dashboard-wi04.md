@@ -91,6 +91,14 @@ fixture가 이미 같은 형태를 검증했다. 같은 cache key의 중복 생�
 | `SOURCE_CHANGED` / `LIST_CHANGED` / `RECIPE_CHANGED` | 409 |
 | `SOURCE_UNAVAILABLE` / `UNSUPPORTED_SCHEMA` / `SOURCE_INTEGRITY_ERROR` | 503 |
 
+성공 응답의 status도 고정한다. `ensure`는 SDD §6.3대로 `ready` 200, `pending` **202**,
+cooldown 중 `failed` 200이다. 읽기 전용 polling GET은 cache 상태와 무관하게 200이다.
+Presentation 상태를 transport 오류로 바꾸지 않는다.
+
+**원본이 아예 없을 때**(catalog 파일 부재)는 SDD §6.3대로 `GET /reviews`가 **200 + 빈 목록**이고
+직접 Snapshot/Claim/Evidence/Presentation key는 404다. 질의 검증은 그대로 선행하며, 이 경로에서
+DB를 만들거나 migration/reconcile하지 않는다. 파일은 있는데 읽을 수 없는 원본은 계속 503이다.
+
 `SOURCE_INTEGRITY_ERROR`는 **503**으로 고정한다. SDD §6.3이 "원본 journal 손상은 503
 SOURCE_INTEGRITY_ERROR"로 이미 정하고 있고, 이것은 서버 결함이 아니라 원본 상태이기 때문이다.
 

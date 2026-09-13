@@ -3,9 +3,11 @@ import hashlib
 import http.client
 import json
 import logging
+import sqlite3
 import threading
 import unittest
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -175,18 +177,44 @@ class DashboardApiTests(unittest.TestCase):
         self.assertEqual(before, self.builder.inventory(),
                          "GET must not create, migrate or reconcile the sources")
 
-    def test_f01_a_missing_source_is_reported_not_created(self):
+    def test_f01_a_missing_source_lists_empty_and_creates_nothing(self):
+        """SDD §6.3: with no source at all the list is an empty page, not a 503."""
         empty = Path(self.fixture.temp.name) / "empty-root"
         empty.mkdir()
         from devharness.paths import DataPaths
         server = self.serve(paths=DataPaths.resolve(empty))
         client = Client(server.address)
         self.assertEqual(client.login(server.token).status, 200)
-        response = client.get("/reviews")
-        self.assertEqual(response.status, 503)
-        self.assertEqual(response.code, "SOURCE_UNAVAILABLE")
+
+        listing = client.get("/reviews")
+        self.assertEqual(listing.status, 200)
+        self.assertEqual(listing.json["items"], [])
+        self.assertIsNone(listing.json["next_cursor"])
+        self.assertEqual(listing.json["summary_search"], "cached_only")
+        self.assertIn("list_token", listing.json)
+        self.assertEqual(client.get("/reviews?filter=needs-review").json["items"], [])
+
+        # A direct key is still an ordinary NOT_FOUND, never a source probe.
+        key = "0" * 64
+        for path in ("/snapshots/" + key,
+                     "/snapshots/" + key + "/claims/c1",
+                     "/snapshots/" + key + "/evidence/e1",
+                     "/snapshots/" + key + "/evidence/e1/content?field=raw",
+                     "/snapshots/" + key + "/presentation"):
+            response = client.get(path)
+            self.assertEqual(response.status, 404, path)
+            self.assertEqual(response.code, "NOT_FOUND")
+        ensure = client.post("/snapshots/" + key + "/presentation/ensure",
+                             body={"view_intent": "detail"})
+        self.assertEqual(ensure.status, 404)
+        self.assertEqual(self.generator.calls, [])
+
+        # Query validation still precedes the empty answer.
+        self.assertEqual(client.get("/reviews?filter=nope").status, 400)
+        self.assertEqual(client.get("/reviews?limit=0").status, 400)
+
         self.assertEqual(sorted(path.name for path in empty.iterdir()), [],
-                         "a missing source must never be created by a read")
+                         "a missing source must never be created, migrated or reconciled")
 
     # --- F02 ---------------------------------------------------------------
 
@@ -288,6 +316,42 @@ class DashboardApiTests(unittest.TestCase):
         self.assertEqual(response.json["status"], "failed")
         self.assertTrue(response.json["fallback"])
         self.assertNotIn("error", response.json)
+
+    def test_f04_generation_in_flight_is_202_and_settled_states_are_200(self):
+        """SDD §6.3: ensure answers 200 ready, 202 pending, 200 failed-in-cooldown."""
+        from devharness.dashboard.generator import GeneratorError
+        item = self.snapshot("f04-pending")
+        server = self.serve(generator=wi03.RecordingGenerator(error=GeneratorError("transport")))
+        client = self.client(server)
+        key = self.key_of(item)
+        path = "/snapshots/" + key + "/presentation/ensure"
+
+        failed = client.post(path, body={"view_intent": "detail"})
+        self.assertEqual(failed.status, 200, "a cooled-down failure is a normal state")
+        self.assertEqual(failed.json["status"], "failed")
+
+        # Another worker holds a live lease: generation is in flight, not settled.
+        future = datetime.fromtimestamp(self.clock.value + 40, timezone.utc).isoformat()
+        with sqlite3.connect(self.fixture.paths.root / "dashboard-presentation.sqlite3") as cache:
+            cache.execute("UPDATE presentations SET status='pending', lease_owner='other-worker',"
+                          " lease_expires_at=?, next_retry_at=NULL", (future,))
+        pending = client.post(path, body={"view_intent": "detail"})
+        self.assertEqual(pending.status, 202)
+        self.assertEqual(pending.json["status"], "pending")
+        self.assertNotIn("error", pending.json, "a Presentation state is not a transport error")
+
+        # Read-only polling stays 200 whatever the cache says.
+        poll = client.get("/snapshots/" + key + "/presentation")
+        self.assertEqual(poll.status, 200)
+        self.assertEqual(poll.json["status"], "pending")
+
+        ready = self.serve(generator=self.generator)
+        fresh = self.client(ready)
+        other = self.snapshot("f04-pending-ready")
+        response = fresh.post("/snapshots/" + self.key_of(other) + "/presentation/ensure",
+                              body={"view_intent": "detail"})
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.json["status"], "ready")
 
     def test_f04_an_unsupported_view_intent_is_a_client_error(self):
         item = self.snapshot("f04-intent")

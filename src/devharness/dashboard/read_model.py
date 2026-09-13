@@ -115,18 +115,36 @@ class DashboardReadModel:
                   cursor: str | None = None, limit: int = 20,
                   presentations: tuple[dict, ...] = (),
                   ready_sequence: int = 0) -> dict:
-        if filter not in _FILTERS:
-            raise ReadModelError("INVALID_QUERY", "Unsupported Dashboard filter")
-        if not isinstance(q, str) or len(q) > 200:
-            raise ReadModelError("INVALID_QUERY", "Search query must be at most 200 characters")
-        if type(limit) is not int or not 1 <= limit <= 50:
-            raise ReadModelError("INVALID_QUERY", "Limit must be between 1 and 50")
+        self._validate_list_query(filter, q, limit)
         if type(ready_sequence) is not int or ready_sequence < 0:
             raise ReadModelError("INVALID_QUERY", "ready_sequence must be a non-negative integer")
         cursor_data = self._decode_cursor(cursor) if cursor is not None else None
         return self._consistent(lambda: self._build_list(
             filter, q, cursor_data, limit, presentations, ready_sequence
         ))
+
+    @staticmethod
+    def _validate_list_query(filter: str, q: str, limit: int) -> None:
+        if filter not in _FILTERS:
+            raise ReadModelError("INVALID_QUERY", "Unsupported Dashboard filter")
+        if not isinstance(q, str) or len(q) > 200:
+            raise ReadModelError("INVALID_QUERY", "Search query must be at most 200 characters")
+        if type(limit) is not int or not 1 <= limit <= 50:
+            raise ReadModelError("INVALID_QUERY", "Limit must be between 1 and 50")
+
+    @classmethod
+    def empty_list(cls, *, filter: str = "all", q: str = "", cursor: str | None = None,
+                   limit: int = 20) -> dict:
+        """SDD §6.3: with no source at all the list is a valid empty page, not an error.
+
+        The query is still validated, and nothing here opens or creates a source.
+        """
+        cls._validate_list_query(filter, q, limit)
+        if cursor is not None:
+            cls._decode_cursor(cursor)
+        return {"items": [], "next_cursor": None,
+                "list_token": fingerprint({"head": "", "filter": filter, "q": q}),
+                "summary_search": "cached_only"}
 
     def _consistent(self, build, *, with_token=False):
         try:

@@ -34,10 +34,10 @@ PYTHONPATH=src uv run --python 3.12 python tests/run_claim_mutations.py
 
 | ID | 고정 입력/공격 | 관찰 결과 |
 |---|---|---|
-| F01 | readonly 원본 반복 GET, 그리고 source DB가 없는 data root | GET 전후 data root inventory 동일. 원본 없음은 503 `SOURCE_UNAVAILABLE`이고 **파일을 하나도 만들지 않는다**(migration/reconcile 0) |
+| F01 | readonly 원본 반복 GET, 그리고 source DB가 없는 data root | GET 전후 data root inventory 동일. 원본이 아예 없으면 `GET /reviews`는 **200 + 빈 목록**이고 직접 key는 404이며, 질의 검증(400)은 그대로 선행한다. 어느 경로에서도 **파일을 하나도 만들지 않는다**(migration/reconcile 0) |
 | F02 | 없는 snapshot key, 없는 claim id, 다른 Snapshot의 evidence key, 없는 evidence key | 모두 404이고 `error` 본문이 **바이트 단위로 동일**. 범위 밖 key와 없는 key를 구분할 수 없다 |
 | F03 | 6개 GET 경로 ×2회, writer/evaluator spy + provider ledger | `append/activate/bind_evidence/evaluate_review/put/purge` 호출 0, provider 호출 0 |
-| F04 | ensure miss → hit ×3, GET presentation, 실패 provider, 잘못된 view_intent | miss만 생성(호출 1), 이후 hit 0. 변경된 파일은 `dashboard-presentation.sqlite3` 하나뿐. `failed`는 200 정상 응답이며 transport 오류가 아니다. `drawer`/빈 값/누락 intent는 400 |
+| F04 | ensure miss → hit ×3, GET presentation, 실패 provider, 다른 worker의 유효 lease, 잘못된 view_intent | miss만 생성(호출 1), 이후 hit 0. 변경된 파일은 `dashboard-presentation.sqlite3` 하나뿐. status 매핑은 `ready` 200 / `pending` **202** / cooldown `failed` 200이며 read-only polling GET은 항상 200이다. Presentation 상태는 transport 오류와 섞이지 않는다(`error` 키 없음). `drawer`/빈 값/누락 intent는 400 |
 | F05 | 200KiB UTF-8 raw, 두 Evidence의 cursor 교차 | 모든 chunk ≤64KiB, 4개 이상으로 분할, 이어붙인 결과가 원문과 완전 일치. cursor는 opaque(경로·evidence id 노출 0)이며 다른 evidence·잘못된 값·빈 값·없는 field는 400 |
 | F06 | 정상 text / purged / binary / 미수집 field / missing / reference_only | `available` / `purged` / `unsupported(binary_content)` / `not_collected` / `missing` / `unsupported(reference_only)`로 정확히 구분. binary는 text `null`이며 강제 디코딩 0 |
 | F07 | `<script>`, ANSI `\x1b[31m`, `onerror=`, BEL | `Content-Type: application/json`, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'`. 제어 바이트는 `\x1b` 형태의 보이는 escape로만 전달되고 원문 markup은 데이터로 보존 |
@@ -57,6 +57,8 @@ CLI는 `dashboard` 명령이 data root·project·host·port를 그대로 전달�
 - **status 매핑**: 400 `INVALID_QUERY` / 401 `UNAUTHENTICATED` / 403 `ORIGIN_DENIED`·`CSRF_FAILED` /
   404 `NOT_FOUND` / 405 `METHOD_NOT_ALLOWED` / 409 `SOURCE_CHANGED`·`LIST_CHANGED`·`RECIPE_CHANGED` /
   503 `SOURCE_UNAVAILABLE`·`UNSUPPORTED_SCHEMA`·`SOURCE_INTEGRITY_ERROR`.
+  성공 status도 고정했다: `ensure`는 `ready` 200 / `pending` 202 / cooldown `failed` 200이고,
+  polling GET은 항상 200이다.
   `SOURCE_INTEGRITY_ERROR`는 **503**으로 고정했다. SDD §6.3이 "원본 journal 손상은 503"으로 이미
   정하고 있고, 이것은 서버 결함이 아니라 원본 상태이기 때문이다. message는 고정 문구뿐이다.
 - **cookie**: `HttpOnly; SameSite=Strict; Path=/api/dashboard/v1`. **`Secure`는 v1에서 켜지 않는다.**
@@ -78,10 +80,10 @@ CLI는 `dashboard` 명령이 data root·project·host·port를 그대로 전달�
 PYTHONPATH=src uv run --python 3.12 python -m unittest tests.test_dashboard_api \
   tests.test_dashboard_presentation tests.test_dashboard_read_model tests.test_dashboard_readonly \
   tests.test_skill_routing_fixtures tests.test_skills tests.test_skill_discovery_contract
-Ran 160 tests — OK
+Ran 161 tests — OK
 
 PYTHONPATH=src uv run --python 3.12 python -m unittest discover -s tests
-Ran 549 tests — OK
+Ran 550 tests — OK
 
 PYTHONPATH=src uv run --python 3.12 python tests/run_claim_mutations.py
 9/9 mutations killed, errors 0
@@ -109,6 +111,18 @@ exit 0
 | 7 | session이 만료되지 않고 무한히 쌓인다 | 상한 8개로 제한하고 가장 오래된 것을 버린다. 단일 사용자 로컬 범위임을 주석으로 명시 |
 
 재검수 후 Critical/Important 미해결 **0**.
+
+## PR #96 검토 반영
+
+merge 전 검토에서 승인 SDD와 어긋난 계약 2건을 지적받았다. 둘 다 실패 fixture를 먼저 확인(RED)한 뒤
+수정했고, 그 밖의 설계·범위는 바꾸지 않았다.
+
+| # | 지적 | 처리 |
+|---|---|---|
+| 1 | 원본 DB가 없을 때 `/reviews`가 503 `SOURCE_UNAVAILABLE`이었다. SDD §6.3은 **200 + 빈 목록**이다 | catalog 파일이 없으면 `DashboardReadModel.empty_list`가 질의 검증을 거친 빈 페이지를 돌려준다. 직접 Snapshot/Claim/Evidence/Presentation key와 `ensure`는 404를 유지하고, 파일은 여전히 하나도 만들지 않는다. 파일이 있는데 읽을 수 없는 원본은 계속 503이다. `test_f01_a_missing_source_lists_empty_and_creates_nothing`으로 대체 |
+| 2 | `ensure`가 `pending`에도 200을 돌려줬다. SDD §6.3은 **202**다 | `ready` 200 / `pending` 202 / cooldown `failed` 200으로 고정했다. 다른 worker가 유효 lease를 쥔 상태를 만들어 202를 확인하고, read-only polling GET은 200 유지임을 함께 고정했다. 응답에 `error` 키가 없다는 것도 확인한다. `test_f04_generation_in_flight_is_202_and_settled_states_are_200` 추가 |
+
+두 항목 반영 후 대상 161 / 전체 550 / mutation 9-9가 모두 통과했다.
 
 ## 미실행 및 후속 범위
 

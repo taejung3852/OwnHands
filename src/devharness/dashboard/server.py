@@ -186,6 +186,7 @@ class _Handler(BaseHTTPRequestHandler):
         template, code, status = "-", None, 200
         self._head = method == "HEAD"
         self._sent = False
+        self._status = 200
         try:
             self._drain()
             split = urlsplit(self.path)
@@ -198,7 +199,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._guard(method, route)
             query = parse_qs(split.query, keep_blank_values=True)
             payload = self._route(method, route, query, request_id)
-            self._respond(200, payload)
+            status = self._status
+            self._respond(status, payload)
         except _Denied as denied:
             code = denied.code
             status = self._fail(code, request_id)
@@ -296,7 +298,12 @@ class _Handler(BaseHTTPRequestHandler):
         if route == ["session"]:
             return self._exchange()
         server = self.dashboard
-        service, closers = server.open_service()
+        try:
+            service, closers = server.open_service()
+        except (sqlite3.Error, OSError):
+            if server.paths.catalog.exists():
+                raise  # a source that exists but cannot be read stays a 503
+            return self._absent(method, route, query)
         try:
             if method == "GET" and route == ["reviews"]:
                 return service.read_list(**self._list_query(query))
@@ -317,13 +324,23 @@ class _Handler(BaseHTTPRequestHandler):
             if method == "POST" and tail == ["presentation", "ensure"]:
                 body = self._body()
                 with server.generation:
-                    return service.ensure_presentation(
+                    value = service.ensure_presentation(
                         key, view_intent=body.get("view_intent"),
                         recipe_hash=body.get("recipe_hash"))
+                # SDD §6.3: generation in flight is 202; ready and a cooled-down
+                # failure are ordinary 200 states, never transport errors.
+                self._status = 202 if value["status"] == "pending" else 200
+                return value
             raise _Denied("NOT_FOUND" if method == "GET" else "METHOD_NOT_ALLOWED")
         finally:
             for close in closers:
                 close()
+
+    def _absent(self, method, route, query):
+        """No source on disk yet: an empty list, and NOT_FOUND for every direct key."""
+        if method == "GET" and route == ["reviews"]:
+            return DashboardReadModel.empty_list(**self._list_query(query))
+        raise _Denied("NOT_FOUND")
 
     def _exchange(self):
         server = self.dashboard
