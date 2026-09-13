@@ -142,7 +142,7 @@ merge 전 검토에서 3건을 추가로 요청받았다. 모두 실패 fixture�
 
 | # | 요청 | 처리 |
 |---|---|---|
-| 1 | `skills/dashboard/SKILL.md`의 "page navigation/inspection은 LLM을 절대 호출하지 않는다"가 최초 cache-miss view 예외와 모순 | 절대 금지 문구를 제거하고, 일반 GET·refresh·Drawer/Evidence 탐색·cache hit은 **호출 0**, **최초 real view intent**의 `ensure`만 server worker가 해당 cache key에 대해 **정확히 1회** 생성 가능으로 명시. 수동 생성/재생성 조작은 없다는 문장도 함께 고정. `test_dashboard_skill_allows_the_first_view_ensure_without_contradiction`이 옛 문구의 부재와 새 예외 문구의 존재를 양방향으로 검사 |
+| 1 | `skills/dashboard/SKILL.md`의 "page navigation/inspection은 LLM을 절대 호출하지 않는다"가 최초 cache-miss view 예외와 모순 | 절대 금지 문구를 제거하고, 일반 GET·refresh·Drawer/Evidence 탐색·cache hit은 **호출 0**, **최초 real view intent**의 `ensure`만 server worker에게 해당 cache key를 넘긴다고 명시. 같은 cache key에는 한 번에 하나의 생성만 진행하고(single-flight), 성공 후에는 다시 호출하지 않으며, 실패한 경우에만 정해진 retry policy에 따라 총 2회까지 시도한다. 수동 생성/재생성 조작은 없다는 문장도 함께 고정. `test_dashboard_skill_allows_the_first_view_ensure_without_contradiction`이 옛 문구의 부재와 새 예외 문구의 존재를 양방향으로 검사 |
 | 2 | SDD §7.3대로 allowlisted Spec 정보와 실제 변경 정보를 생성 입력에 포함 | `DashboardReadModel.read_generation_facts`를 추가해 승인 Spec 문서(path/text)와 Baseline↔Review code state의 **경로 단위 변경 목록**을 제공한다. §6.2 View Model은 바꾸지 않았고(브라우저는 이 값을 받지 않는다), raw·diff 본문·file mode/origin·commit은 제외했다. 40개 상한 초과는 `more_changed_files`로 명시하며 조용히 자르지 않는다. `test_f08_the_structured_input_carries_allowlisted_spec_and_change_facts`와 `test_f08_spec_and_change_pointers_may_ground_an_intent_sentence` 추가 |
 | 3 | `gap`이 verified Claim만 근거로 미확인처럼 표현하지 못하게 | grounding validation을 양방향으로 바꿔 `gap`은 비-verified Claim source 또는 Problem source를 최소 1개 인용하도록 요구한다. `test_f08_a_gap_may_not_rest_only_on_verified_claims`(반례)와 `test_f08_a_gap_may_not_hide_a_verified_claim_behind_a_real_problem`(정당한 gap은 계속 통과) 추가 |
 

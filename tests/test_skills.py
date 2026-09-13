@@ -125,10 +125,12 @@ class SkillDefinitionTests(unittest.TestCase):
         for required in (
             "the first real view intent",
             "`ensure`",
-            "exactly once",
+            "single-flight",
             "server worker",
+            "at most 2 attempts",
         ):
             self.assertIn(required, content, "missing first-view exception marker: " + required)
+        self.assertRegex(content, r"only a failed attempt may be retried")
         zero_call = next(line for line in content.splitlines()
                          if "cache hit" in line and "0" in line)
         for path in ("GET", "refresh", "Drawer"):

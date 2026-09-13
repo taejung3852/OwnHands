@@ -29,7 +29,7 @@ You prepare human-digestible presentation artifacts, visual summaries, and plain
 2. **Zero Runtime Overhead on Repeat Inspection**:
    - The dashboard UI (browser widget, web viewer, or console renderer) only reads persisted artifacts.
    - A plain GET, a page refresh, Drawer or Evidence navigation, and every cache hit call the provider, the ELI5 skill and diagram generators exactly 0 times.
-   - The single exception: **the first real view intent** for a Snapshot whose presentation is absent. That view's `ensure` lets the server worker generate **exactly once** for that cache key, and every later view of the same key is a cache hit. There is no manual generate or regenerate control.
+   - The single exception: **the first real view intent** for a Snapshot whose presentation is absent. That view's `ensure` hands the cache key to the server worker. Exactly one generation runs at a time per cache key (**single-flight**). After a success the provider is not called again for that key; only a failed attempt may be retried, and the fixed retry policy allows at most 2 attempts in total. There is no manual generate or regenerate control.
    - The server worker runs the fixed generation contract directly; no UI action re-runs router or skill selection through an LLM.
 3. **Snapshot + Recipe Caching**:
    - `recipe_hash` is a sha256 over the prompt version, output schema version, grounding policy version, locale, provider, model and generation parameters.
