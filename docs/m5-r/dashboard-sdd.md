@@ -208,13 +208,14 @@ ReviewCardVM = {
  presentation:Presentation, read_token:string
 }
 ReviewDetailVM = ReviewCardVM + {
- claims:ClaimVM[], problems:Problem[], context_notices:string[],
+ claims:ClaimVM[], additional_observations:ObservationVM[],
+ problems:Problem[], context_notices:string[],
  remaining_problem_count:int, source_contract_version:int,
  rules_version:int|null
 }
 ClaimVM = {id,text,required,comparison:current|preserve|improve,
  status:verified|failed|inconclusive|unobserved,
- checks:CheckVM[], source:SourcePointer}
+ checks:CheckVM[], observations:ObservationVM[], source:SourcePointer}
 CheckVM = {id,statement,role,status,reason_codes:string[],
  before:ObservationVM[],after:ObservationVM[],
  comparisons:ComparisonVM[],conflicts:SourcePointer[],
