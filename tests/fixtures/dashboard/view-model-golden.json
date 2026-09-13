@@ -1,0 +1,30 @@
+{
+  "counts": {
+    "all": {
+      "total": 7,
+      "verified": 3,
+      "failed": 1,
+      "inconclusive": 1,
+      "unobserved": 2
+    },
+    "required": {
+      "total": 5,
+      "verified": 2,
+      "failed": 1,
+      "inconclusive": 1,
+      "unobserved": 1
+    },
+    "optional": {
+      "total": 2,
+      "verified": 1,
+      "failed": 0,
+      "inconclusive": 0,
+      "unobserved": 1
+    },
+    "excluded_optional_count": 1
+  },
+  "review_state": "blocked",
+  "required_complete": false,
+  "source_contract_version": 2,
+  "rules_version": 2
+}
