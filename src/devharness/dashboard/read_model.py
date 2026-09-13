@@ -16,6 +16,8 @@ from ..lifecycle.model import NAMESPACE, canonical_json, fingerprint, reference
 _STATES = ("verified", "failed", "inconclusive", "unobserved")
 _FILTERS = {"all", "needs-review", "blocked", "stale", "ready"}
 _NOT_FOUND = "Dashboard resource was not found"
+# Long change sets are reported with an explicit remainder count, never silently cut.
+_CHANGED_FILE_LIMIT = 40
 
 
 class ReadModelError(Exception):
@@ -70,6 +72,13 @@ class DashboardReadModel:
 
     def read_context(self, snapshot_key: str) -> dict:
         return self._consistent(lambda: self._build_state(snapshot_key)["context"])
+
+    def read_generation_facts(self, snapshot_key: str) -> dict:
+        """Allowlisted Spec and registered change facts for Presentation grounding.
+
+        Deliberately outside the §6.2 View Model: the browser never receives this.
+        """
+        return self._consistent(lambda: self._build_state(snapshot_key)["_generation"])
 
     def read_list(self, *, filter: str = "all", q: str = "",
                   cursor: str | None = None, limit: int = 20,
@@ -220,6 +229,7 @@ class DashboardReadModel:
             "rules_version": review["data"].get("rules_version"),
             "_sequence": snapshot["sequence"],
             "_evidence": evidence_entries,
+            "_generation": self._generation_facts(review, spec, spec_ref),
         }
 
     @staticmethod
@@ -607,6 +617,46 @@ class DashboardReadModel:
                 result[name] = item[name]
         result.update(status="ready", fallback=False, reason_code=None)
         return result
+
+    def _generation_facts(self, review, spec, spec_ref):
+        """Spec document plus the registered path-level change between Baseline and Review.
+
+        Paths and change kinds only: no raw, no diff body, no file mode or origin.
+        """
+        document = spec["data"]["document"]
+        facts = {
+            "spec": {"path": document["path"], "text": document["text"],
+                     "source": self._pointer(spec_ref, "/document")},
+            "change": None,
+        }
+        code_ref = review["data"].get("code_state")
+        baseline_ref = review["data"].get("baseline")
+        if code_ref is None or baseline_ref is None:
+            return facts
+        code = self.lifecycle.get(code_ref)["data"]
+        baseline_code_ref = self.lifecycle.get(baseline_ref)["data"].get("code_state")
+        baseline_code = self.lifecycle.get(baseline_code_ref)["data"] if baseline_code_ref else None
+        after = {entry["path"]: entry["hash"] for entry in code.get("files", [])}
+        before = {entry["path"]: entry["hash"] for entry in (baseline_code or {}).get("files", [])}
+        changed = sorted(
+            [{"path": path, "change": "added" if path not in before else "modified"}
+             for path, value in after.items() if before.get(path) != value]
+            + [{"path": path, "change": "removed"} for path in before if path not in after],
+            key=lambda entry: entry["path"],
+        )
+        coverage = code.get("coverage")
+        facts["change"] = {
+            "source": self._pointer(code_ref, "/files"),
+            "baseline_source": self._pointer(baseline_code_ref, "/files") if baseline_code_ref else None,
+            # Only a complete pair of registered code states describes the whole change.
+            "comparable": bool(baseline_code) and coverage == "complete"
+                          and baseline_code.get("coverage") == "complete",
+            "coverage": coverage,
+            "excluded_path_count": len(code.get("exclusions", [])),
+            "files": changed[:_CHANGED_FILE_LIMIT],
+            "more_changed_files": max(0, len(changed) - _CHANGED_FILE_LIMIT),
+        }
+        return facts
 
     @staticmethod
     def _context_notices(context):

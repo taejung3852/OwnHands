@@ -47,7 +47,7 @@ PYTHONPATH=src uv run --python 3.12 python tests/run_claim_mutations.py
 | F05 | 같은 Snapshot에 새 code_state activate(stale overlay만 변경) | `freshness=stale`·`context_notices` 변경, presentation은 동일 headline으로 ready 유지, 추가 호출 0, row 1 |
 | F06 | timeout / 5xx / cooldown / 재시도 상한 / 시계 역행 | ready 저장 0, 60초 cooldown 준수, 자동 시도 최대 2, 이후 `failed` 고정. 시계를 100000초 되돌려도 추가 시도 0. fallback은 원본 제목+원본 집계로 제공 |
 | F07 | provider 미설정 / lease 만료 / 지연 응답 / 최종 시도 중 crash | 미설정은 `unavailable`·호출 0·row 0·cache 파일 없음. 유효 lease는 탈취 불가, 만료 후 잔여 1회만 재개(`attempt_count=2`). lease를 잃은 지연 응답은 폐기되고 ready 저장 0. 최종 시도 중 crash는 `failed`로 정착(무한 pending 없음) |
-| F08 | 다른 Snapshot pointer / 없는 pointer / 허위 count / verdict field / 미검증 Claim을 observed / Problem pointer를 observed / 범위 초과 단정 4종 / raw prompt injection | 전부 `invalid_output`으로 reject, ready 저장 0, 안전 fallback. 정당한 `gap`의 Problem 인용은 계속 허용. injection 문자열은 인용 데이터로만 전송되고 credential·raw·stdout·stderr·diff·evidence/code/environment ref는 전송 payload에 없음 |
+| F08 | 다른 Snapshot pointer / 없는 pointer / 허위 count / verdict field / 미검증 Claim을 observed / Problem pointer를 observed / **verified Claim만 근거로 삼은 gap** / 범위 초과 단정 4종 / raw prompt injection | 전부 `invalid_output`으로 reject, ready 저장 0, 안전 fallback. 정당한 근거(`gap`의 Problem·비-verified Claim 인용, `intent`의 Spec·변경 pointer 인용)는 계속 허용. injection 문자열은 인용 데이터로만 전송되고 credential·raw·stdout·stderr·diff·evidence/code/environment ref·file mode/origin/commit은 전송 payload에 없음 |
 | F09 | ready 생성 뒤 Evidence raw 손상(partial) | 신규 생성 금지(호출 0), 기존 생성문 표시 억제 후 deterministic fallback, `reason_code=source_partial`, 저장된 ready row는 삭제·변경 없이 보존 |
 | F10 | view_intent 계약 / 목록 카드 상태 / routing 계약 | `list_visible`·`detail`만 생성 가능, `drawer`/`refresh`/`content`/빈 값/대소문자 불일치는 `INVALID_QUERY`. 목록 카드가 상세와 동일한 `recipe_hash`·`failed`·`retry_after`를 반환. Skill routing은 cache hit·Drawer·refresh·Review 완료에서 dormant |
 | F11 | 원본 writer/evaluator spy + data root inventory 전후 비교 | `append`/`activate`/`bind_evidence`/`evaluate_review`/`put`/`purge` 호출 0. 변경된 경로는 `dashboard-presentation.sqlite3` 하나뿐, 권한 `0600`. 원본 DB 파일과 경로가 겹치면 생성 거부, schema version 불일치는 열기 거부 |
@@ -68,6 +68,15 @@ PYTHONPATH=src uv run --python 3.12 python tests/run_claim_mutations.py
   본문, 헤더, URL, credential이 들어가지 않는다(F06 redaction 검사).
 - **lease**: 획득 시 `attempt_count += 1`, lease 45초, provider 호출은 write transaction 밖에서만
   수행, 저장 직전 snapshot_ref와 structured input hash 재확인, `lease_owner`가 같을 때만 저장.
+- **생성 입력(SDD §7.3)**: WorkIssue, 승인 Spec 문서(path/text), 전체 Claim·check와 저장 status,
+  Before/After Observation 결과와 비교, Baseline↔Review code state의 경로 단위 변경 목록
+  (`added|modified|removed`), problem/제외, 저장 Review verdict. 변경 목록은 40개 상한을 넘으면
+  `more_changed_files`로 남은 개수를 명시하며 조용히 잘라내지 않는다. Baseline code state가 없거나
+  coverage가 complete가 아니면 `comparable=false`다. raw/diff 본문, file mode/origin, commit,
+  Evidence·code·environment ref는 보내지 않는다.
+- **grounding 양방향 규칙**: `observed`는 verified Claim source pointer만, `gap`은 기록된 gap
+  (비-verified Claim source 또는 Problem source)을 최소 1개 인용해야 한다. Spec 문서와 변경 목록
+  pointer는 `intent`/`inference` 근거로만 쓸 수 있다.
 - **cache 분리**: `<data root>/dashboard-presentation.sqlite3`, 권한 `0600`,
   `namespace=ownhands.dashboard.presentation`, `schema_version=1`. Review verdict/Claim
   count/freshness/HumanDecision 열은 존재하지 않는다.
@@ -78,10 +87,10 @@ PYTHONPATH=src uv run --python 3.12 python tests/run_claim_mutations.py
 PYTHONPATH=src uv run --python 3.12 python -m unittest tests.test_dashboard_presentation \
   tests.test_dashboard_read_model tests.test_dashboard_readonly \
   tests.test_skill_routing_fixtures tests.test_skills tests.test_skill_discovery_contract
-Ran 126 tests — OK
+Ran 131 tests — OK
 
 PYTHONPATH=src uv run --python 3.12 python -m unittest discover -s tests
-Ran 515 tests — OK
+Ran 520 tests — OK
 
 PYTHONPATH=src uv run --python 3.12 python tests/run_claim_mutations.py
 9/9 mutations killed, errors 0
@@ -126,6 +135,18 @@ exit 0
 | 6 | `COMMIT` 뒤의 후속 조회가 실패하면 `ROLLBACK`이 원 예외를 가릴 수 있었다 | 두 write transaction의 조기 반환을 제거해 transaction 밖에서만 후속 조회하도록 정리 |
 
 재검수 후 Critical/Important 미해결 **0**.
+
+## PR #94 검토 반영
+
+merge 전 검토에서 3건을 추가로 요청받았다. 모두 실패 fixture를 먼저 확인(RED)한 뒤 수정했다.
+
+| # | 요청 | 처리 |
+|---|---|---|
+| 1 | `skills/dashboard/SKILL.md`의 "page navigation/inspection은 LLM을 절대 호출하지 않는다"가 최초 cache-miss view 예외와 모순 | 절대 금지 문구를 제거하고, 일반 GET·refresh·Drawer/Evidence 탐색·cache hit은 **호출 0**, **최초 real view intent**의 `ensure`만 server worker가 해당 cache key에 대해 **정확히 1회** 생성 가능으로 명시. 수동 생성/재생성 조작은 없다는 문장도 함께 고정. `test_dashboard_skill_allows_the_first_view_ensure_without_contradiction`이 옛 문구의 부재와 새 예외 문구의 존재를 양방향으로 검사 |
+| 2 | SDD §7.3대로 allowlisted Spec 정보와 실제 변경 정보를 생성 입력에 포함 | `DashboardReadModel.read_generation_facts`를 추가해 승인 Spec 문서(path/text)와 Baseline↔Review code state의 **경로 단위 변경 목록**을 제공한다. §6.2 View Model은 바꾸지 않았고(브라우저는 이 값을 받지 않는다), raw·diff 본문·file mode/origin·commit은 제외했다. 40개 상한 초과는 `more_changed_files`로 명시하며 조용히 자르지 않는다. `test_f08_the_structured_input_carries_allowlisted_spec_and_change_facts`와 `test_f08_spec_and_change_pointers_may_ground_an_intent_sentence` 추가 |
+| 3 | `gap`이 verified Claim만 근거로 미확인처럼 표현하지 못하게 | grounding validation을 양방향으로 바꿔 `gap`은 비-verified Claim source 또는 Problem source를 최소 1개 인용하도록 요구한다. `test_f08_a_gap_may_not_rest_only_on_verified_claims`(반례)와 `test_f08_a_gap_may_not_hide_a_verified_claim_behind_a_real_problem`(정당한 gap은 계속 통과) 추가 |
+
+세 항목 반영 후 대상 131 / 전체 520 / mutation 9-9가 모두 통과했다.
 
 ## 미실행 및 후속 범위
 

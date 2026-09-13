@@ -99,10 +99,14 @@ reject 규칙(위반 시 ready 저장 0, 생성 실패로 계산해 재시도 �
   Claim count·verdict는 API/fallback이 원본에서 직접 계산하며 모델 출력은 절대 소유하지 않는다.
 - **verdict/count field 금지**: 출력 object의 어느 깊이에도 `counts/verdict/total/verified/failed/
   inconclusive/unobserved/required_complete/freshness/human_decision` key가 있으면 reject.
-- 상태 정합성: `kind="observed"` TextFact는 **저장 status가 `verified`인 Claim source pointer만**
-  인용할 수 있다. Problem pointer, WorkIssue 제목 pointer 등 verified Claim이 아닌 모든 pointer는
-  `observed` 근거가 될 수 없다. failed/unobserved/blocker는 `gap`으로만 표현 가능하다.
-  (독립 재검수에서 Problem pointer가 기본값 `verified`로 통과하던 구멍을 확인해 수정했다.)
+- 상태 정합성(양방향):
+  - `kind="observed"`는 **저장 status가 `verified`인 Claim source pointer만** 인용할 수 있다.
+    Problem pointer, WorkIssue 제목, Spec 문서, 변경 목록 pointer는 `observed` 근거가 될 수 없다.
+  - `kind="gap"`은 **실제 기록된 gap**(비-verified Claim source 또는 Problem source)을 최소 1개
+    인용해야 한다. verified Claim만 근거로 삼아 미확인처럼 말하는 문장은 reject한다.
+  - Spec 문서/변경 목록 pointer는 `intent`·`inference` 근거로만 쓸 수 있다.
+  (Problem pointer가 기본값 `verified`로 통과하던 구멍과 근거 없는 `gap` 구멍을 각각 재검수에서
+  확인해 수정했다.)
 - 금지 표현: `완전히 안전`, `모두 해결`, `merge 가능`, `현재도 최신`, `지금도 최신`, `이후 새 근거 없음`.
 
 ### 2.6 `skills/dashboard/SKILL.md` 회귀 fixture
@@ -145,8 +149,12 @@ routing 계약을 `view_intent`와 cache 상태 기준으로 바꾼다.
 - 실제 model 의미 품질 18출력 검사와 사용자 이해 pilot (이슈 6)
 - **선택 raw 발췌 extractor**: SDD §7.3의 "raw 추가는 기본 0" 기본값을 채택해 v1 입력은 구조화
   전용이다. 입력에 포함되는 Spec/WorkIssue/problem 텍스트는 모두 untrusted quoted data로 감싼다.
-  구조화 입력에는 WorkIssue/Spec/전체 Claim·check/Before·After Observation 결과와 비교,
-  problem/제외, 저장 Review verdict가 들어간다. Evidence ref, code/environment ref, execution,
-  raw/stdout/stderr/diff는 보내지 않는다.
+  구조화 입력에는 WorkIssue, 승인 Spec 문서(path/text), 전체 Claim·check, Before·After
+  Observation 결과와 비교, Baseline↔Review code state의 **경로 단위 변경 목록**, problem/제외,
+  저장 Review verdict가 들어간다. Evidence ref, code/environment ref, execution, file mode/origin,
+  commit, raw/stdout/stderr/diff는 보내지 않는다.
+  변경 목록은 경로와 `added|modified|removed`만 담고 40개를 넘으면 `more_changed_files`로 남은
+  개수를 명시한다. 조용히 잘라내지 않는다. Baseline code state가 없거나 coverage가 complete가
+  아니면 `comparable=false`로 표시해 전체 변경이라고 말할 수 없게 한다.
 - 두 번째 provider adapter
 - Claim/Review 재평가, 원본 Lifecycle/Evidence 쓰기

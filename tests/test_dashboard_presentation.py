@@ -611,6 +611,103 @@ class PresentationFixtureTests(unittest.TestCase):
                           "evidence_links", "code_ref", "environment_ref", "execution"):
             self.assertNotIn('"' + forbidden + '"', sent)
 
+    def changed_code_snapshot(self, suffix):
+        """A Snapshot whose Review code state differs from its Baseline code state."""
+        f = self.fixture
+        body = {"code_state_version": 1, "commit": "b" * 40,
+                "files": [{"path": "fixture", "origin": "tracked", "kind": "file",
+                           "mode": 0o644, "hash": fingerprint("changed")},
+                          {"path": "widget/new.py", "origin": "tracked", "kind": "file",
+                           "mode": 0o644, "hash": fingerprint("new")}],
+                "coverage": "complete", "exclusions": []}
+        changed = f.store.append("code_state", "code:" + suffix, f.scope,
+                                 {**body, "fingerprint": fingerprint(body)})
+        f.observe()
+        review = f.store.append("review", "review:" + suffix, f.scope, f.evaluate(code=changed))
+        return self.builder.append_snapshot(review, "snapshot:" + suffix)
+
+    def test_f08_the_structured_input_carries_allowlisted_spec_and_change_facts(self):
+        """SDD §7.3 lists Spec and change information among the required inputs."""
+        snapshot = self.changed_code_snapshot("f08-spec-change")
+        service = self.open_service()
+        key = service.snapshot_key(snapshot)
+        service.ensure_presentation(key, view_intent="detail")
+        sent = self.generator.calls[0]["input"]
+
+        self.assertEqual(sent["spec"]["path"], "docs/issues/80.md")
+        self.assertIn("Preserve widget", sent["spec"]["text"])
+        self.assertEqual(set(sent["spec"]["source"]), {"record_ref", "pointer"})
+
+        change = sent["change"]
+        self.assertEqual(change["files"],
+                         [{"path": "fixture", "change": "modified"},
+                          {"path": "widget/new.py", "change": "added"}])
+        self.assertTrue(change["comparable"])
+        self.assertEqual(change["coverage"], "complete")
+        self.assertEqual(change["more_changed_files"], 0)
+        self.assertEqual(set(change["source"]), {"record_ref", "pointer"})
+
+        serialized = canonical_json(sent)
+        for forbidden in ("stdout", "stderr", "diff", "object_path", "cas_hash", "raw",
+                          "evidence_links", "code_ref", "environment_ref", "execution",
+                          "mode", "origin", "commit"):
+            self.assertNotIn('"' + forbidden + '"', serialized)
+
+    def test_f08_spec_and_change_pointers_may_ground_an_intent_sentence(self):
+        snapshot = self.changed_code_snapshot("f08-change-cite")
+
+        def build(structured_input):
+            output = facts(structured_input)
+            output["key_changes"] = [
+                {"text": "위젯 저장 경로 파일을 정리했습니다.", "kind": "intent",
+                 "sources": [structured_input["change"]["source"]]},
+                {"text": "합의한 조건은 위젯 동작 보존입니다.", "kind": "intent",
+                 "sources": [structured_input["spec"]["source"]]},
+            ]
+            return output
+
+        service = self.open_service(generator=RecordingGenerator(build=build))
+        key = service.snapshot_key(snapshot)
+        self.assertEqual(service.ensure_presentation(key, view_intent="detail")["status"], "ready")
+
+    def test_f08_a_gap_may_not_rest_only_on_verified_claims(self):
+        """PR #94 review: an unverified-sounding sentence needs a recorded gap behind it."""
+        item = self.verified_snapshot("f08-gap-ground", title="근거 없는 미확인")
+
+        def build(structured_input):
+            output = facts(structured_input)
+            verified = [claim for claim in structured_input["claims"]
+                        if claim["status"] == "verified"]
+            self.assertTrue(verified)
+            output["attention_items"] = [{"text": "아직 확인되지 않은 부분이 있습니다.",
+                                          "kind": "gap",
+                                          "sources": [verified[0]["source"]]}]
+            return output
+
+        service = self.open_service(generator=RecordingGenerator(build=build))
+        key = service.snapshot_key(item["snapshot"])
+        value = service.ensure_presentation(key, view_intent="detail")
+        self.assertEqual(value["status"], "failed")
+        self.assertEqual(value["reason_code"], "invalid_output")
+        self.assertTrue(value["fallback"])
+
+    def test_f08_a_gap_may_not_hide_a_verified_claim_behind_a_real_problem(self):
+        """Mixing one real gap pointer in must not launder an unrelated verified Claim."""
+        item = self.builder.simple_snapshot("f08-gap-mixed", title="혼합 근거",
+                                            status="unobserved", activate_inputs=True)
+
+        def build(structured_input):
+            output = facts(structured_input)
+            gap = structured_input["claims"][0]
+            self.assertNotEqual(gap["status"], "verified")
+            output["attention_items"] = [{"text": "확인되지 않은 조건이 남아 있습니다.",
+                                          "kind": "gap", "sources": [gap["source"]]}]
+            return output
+
+        service = self.open_service(generator=RecordingGenerator(build=build))
+        key = service.snapshot_key(item["snapshot"])
+        self.assertEqual(service.ensure_presentation(key, view_intent="detail")["status"], "ready")
+
     # --- F09 ---------------------------------------------------------------
 
     def test_f09_partial_sources_block_generation_and_suppress_a_stored_presentation(self):

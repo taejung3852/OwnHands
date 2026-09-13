@@ -118,6 +118,22 @@ class SkillDefinitionTests(unittest.TestCase):
             self.assertIn(required, content, "missing WI-03 contract marker: " + required)
         self.assertRegex(content, r"stale[^\n]*(?:is not|NOT)[^\n]*regenerat")
 
+    def test_dashboard_skill_allows_the_first_view_ensure_without_contradiction(self) -> None:
+        """PR #94 review: the absolute no-LLM rule contradicted the first cache-miss view."""
+        content = (self.skills_dir / "dashboard" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertNotIn("MUST NEVER invoke the LLM", content)
+        for required in (
+            "the first real view intent",
+            "`ensure`",
+            "exactly once",
+            "server worker",
+        ):
+            self.assertIn(required, content, "missing first-view exception marker: " + required)
+        zero_call = next(line for line in content.splitlines()
+                         if "cache hit" in line and "0" in line)
+        for path in ("GET", "refresh", "Drawer"):
+            self.assertIn(path, zero_call, "zero-call line must name " + path)
+
     def test_using_ownhands_routing_table_matches_the_snapshot_cache_contract(self) -> None:
         content = (self.skills_dir / "using-ownhands" / "SKILL.md").read_text(encoding="utf-8")
         self.assertNotIn("presentation missing/stale + requested", content)

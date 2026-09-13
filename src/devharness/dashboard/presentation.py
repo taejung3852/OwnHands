@@ -157,7 +157,7 @@ class PresentationService:
         if not self.config.configured:
             return self._fallback(detail, "unavailable", "provider_not_configured")
 
-        structured = self._structured_input(detail)
+        structured = self._structured_input(detail, self._facts(snapshot_key))
         cache_key = self._cache_key(detail)
         outcome, row = self._claim(cache_key, detail, fingerprint(structured))
         if outcome != "claimed":
@@ -306,7 +306,8 @@ class PresentationService:
             current = self.read_model.read_detail(snapshot_key)
             if (current["snapshot_ref"] != detail["snapshot_ref"]
                     or current["context"]["read_health"] != "complete"
-                    or fingerprint(self._structured_input(current)) != fingerprint(structured)):
+                    or fingerprint(self._structured_input(
+                        current, self._facts(snapshot_key))) != fingerprint(structured)):
                 error_code = "input_changed"
         connection.execute("BEGIN IMMEDIATE")
         try:
@@ -378,7 +379,10 @@ class PresentationService:
 
     # --- grounded input -----------------------------------------------------
 
-    def _structured_input(self, detail: dict) -> dict:
+    def _facts(self, snapshot_key: str) -> dict:
+        return self.read_model.read_generation_facts(snapshot_key)
+
+    def _structured_input(self, detail: dict, facts: dict) -> dict:
         """Allowlisted Snapshot facts only. No raw, no diff, no other Snapshot, no secret."""
         return {
             "schema_version": OUTPUT_SCHEMA_VERSION,
@@ -387,6 +391,8 @@ class PresentationService:
                          "created_at": detail["snapshot_created_at"]},
             "issue": {"title": detail["issue"]["title"],
                       "source": {"record_ref": detail["issue"]["ref"], "pointer": "/title"}},
+            "spec": facts["spec"],
+            "change": facts["change"],
             "review": {"review_state": detail["review_state"],
                        "state_reason": detail["state_reason"],
                        "required_complete": detail["required_complete"],
@@ -428,21 +434,30 @@ class PresentationService:
         if output["icon"] not in ICONS:
             raise ValueError("unexpected icon")
         self._reject_forbidden_keys(output)
-        allowed = {canonical_json(structured["issue"]["source"])}
-        status_by_pointer = {}
+        # `verified` backs an observed sentence; `gap` backs an unverified one. Everything
+        # else (issue title, Spec document, change set) grounds intent and inference only.
+        verified, gaps = set(), set()
+        allowed = {canonical_json(structured["issue"]["source"]),
+                   canonical_json(structured["spec"]["source"])}
+        change = structured["change"]
+        if change is not None:
+            allowed.add(canonical_json(change["source"]))
+            if change["baseline_source"] is not None:
+                allowed.add(canonical_json(change["baseline_source"]))
         for claim in structured["claims"]:
             pointer = canonical_json(claim["source"])
-            allowed.add(pointer)
-            status_by_pointer[pointer] = claim["status"]
+            (verified if claim["status"] == "verified" else gaps).add(pointer)
         for problem in structured["problems"]:
-            allowed.update(canonical_json(source) for source in problem["sources"])
-        self._fact(output["headline"], allowed, status_by_pointer, 60)
+            gaps.update(canonical_json(source) for source in problem["sources"])
+        gaps -= verified
+        allowed |= verified | gaps
+        self._fact(output["headline"], allowed, verified, gaps, 60)
         for name, (low, high) in SECTIONS.items():
             items = output[name]
             if not isinstance(items, list) or not low <= len(items) <= high:
                 raise ValueError("unexpected " + name + " length")
             for item in items:
-                self._fact(item, allowed, status_by_pointer, 120)
+                self._fact(item, allowed, verified, gaps, 120)
         return output
 
     @staticmethod
@@ -457,7 +472,7 @@ class PresentationService:
                 PresentationService._reject_forbidden_keys(child)
 
     @staticmethod
-    def _fact(value, allowed, status_by_pointer, limit) -> None:
+    def _fact(value, allowed, verified, gaps, limit) -> None:
         if not isinstance(value, dict) or set(value) != {"text", "kind", "sources"}:
             raise ValueError("unexpected TextFact schema")
         text, kind, sources = value["text"], value["kind"], value["sources"]
@@ -471,12 +486,14 @@ class PresentationService:
             raise ValueError("generation may not overstate the observed scope")
         if not isinstance(sources, list) or not sources:
             raise ValueError("TextFact needs at least one SourcePointer")
-        for source in sources:
-            pointer = canonical_json(source)
+        pointers = [canonical_json(source) for source in sources]
+        for pointer in pointers:
             if pointer not in allowed:
                 raise ValueError("SourcePointer is outside this Snapshot")
-            if kind == "observed" and status_by_pointer.get(pointer) != "verified":
+            if kind == "observed" and pointer not in verified:
                 raise ValueError("only a verified Claim may be reported as observed")
+        if kind == "gap" and not any(pointer in gaps for pointer in pointers):
+            raise ValueError("a gap must cite a recorded gap, not only verified Claims")
 
     def _provider(self):
         if self._generator is None:
