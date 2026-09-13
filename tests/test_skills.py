@@ -99,6 +99,32 @@ class SkillDefinitionTests(unittest.TestCase):
         self.assertIn("STAY DORMANT", meta.get("description", ""))
         self.assertIn("for a stored review", meta.get("description", ""))
 
+    def test_dashboard_skill_uses_the_snapshot_recipe_cache_contract(self) -> None:
+        """WI-03 (#93): the old (Spec, Review, CodeState) presentation contract is gone."""
+        content = (self.skills_dir / "dashboard" / "SKILL.md").read_text(encoding="utf-8")
+        for retired in (
+            "(Spec, Review, CodeState)",
+            "only upon explicit user request",
+            "making existing presentation artifacts stale",
+        ):
+            self.assertNotIn(retired, content, "retired presentation contract text: " + retired)
+        for required in (
+            "Snapshot Ref",
+            "recipe_hash",
+            "list_visible",
+            "detail",
+            "legacy",
+        ):
+            self.assertIn(required, content, "missing WI-03 contract marker: " + required)
+        self.assertRegex(content, r"stale[^\n]*(?:is not|NOT)[^\n]*regenerat")
+
+    def test_using_ownhands_routing_table_matches_the_snapshot_cache_contract(self) -> None:
+        content = (self.skills_dir / "using-ownhands" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertNotIn("presentation missing/stale + requested", content)
+        self.assertIn("first real Dashboard view intent", content)
+        self.assertIn("cache hit", content.lower())
+        self.assertIn("Review completion alone does not prepare a presentation", content)
+
     def test_active_skills_exact_contents_and_discovery(self) -> None:
         expected_active_skills = {
             "baseline",

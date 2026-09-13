@@ -45,8 +45,10 @@ class DashboardReadModel:
             "snapshot_ref": snapshot_ref,
         })
 
-    def read_detail(self, snapshot_key: str) -> dict:
-        return self._consistent(lambda: self._public(self._build_state(snapshot_key)), with_token=True)
+    def read_detail(self, snapshot_key: str, *, presentations: tuple[dict, ...] = (),
+                    ready_sequence: int = 0) -> dict:
+        return self._consistent(lambda: self._public(self._build_state(
+            snapshot_key, presentations, ready_sequence)), with_token=True)
 
     def read_claim(self, snapshot_key: str, claim_id: str) -> dict:
         def build():

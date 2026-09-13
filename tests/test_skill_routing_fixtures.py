@@ -24,7 +24,10 @@ class LifecycleRoutingContext:
     has_before_observation: bool = False
     implementation_complete: bool = False
     review_state: Literal["none", "current", "stale"] = "none"
-    dashboard_presentation: Literal["none", "current", "stale"] = "none"
+    # WI-03 (#93): the presentation cache is keyed by Snapshot Ref + recipe, so a stale
+    # freshness overlay is not a cache state and never a regeneration reason.
+    dashboard_presentation: Literal["missing", "ready"] = "missing"
+    view_intent: Literal["none", "list_visible", "detail", "drawer", "refresh"] = "none"
     wants_visualization: bool = False
     spec_approval_matches: bool = True
     code_state_matches: bool = True
@@ -62,11 +65,16 @@ def route_lifecycle_contract(context: LifecycleRoutingContext) -> str | None:
     if context.phase == "post_implementation" and context.review_state == "stale":
         return "review"
 
-    # 3. Dashboard presentation on-demand
-    if context.wants_visualization and context.review_state in {"current", "stale"}:
-        if context.dashboard_presentation in {"none", "stale"}:
+    # 3. Dashboard presentation on first real view intent or explicit request (#93)
+    asks_for_presentation = context.wants_visualization or context.view_intent in {
+        "list_visible", "detail"
+    }
+    if asks_for_presentation and context.review_state in {"current", "stale"}:
+        if context.dashboard_presentation == "missing":
             return "dashboard"
-        return None  # Cache hit: current presentation is read statically without skill invocation
+        return None  # Cache hit: the stored presentation is read without skill invocation
+    if context.view_intent in {"drawer", "refresh"}:
+        return None  # Read-only inspection never invokes a skill or an LLM
 
     # 4. Post-implementation review & verification
     if context.phase == "post_implementation" or context.intent == "implementation_completed":
@@ -193,7 +201,7 @@ class SkillRoutingFixtureTests(unittest.TestCase):
             work_item_defined=True,
             spec_state="approved",
             review_state="current",
-            dashboard_presentation="none",
+            dashboard_presentation="missing",
             wants_visualization=True,
         )
         self.assertEqual(route_lifecycle_contract(ctx), "dashboard")
@@ -207,10 +215,71 @@ class SkillRoutingFixtureTests(unittest.TestCase):
             work_item_defined=True,
             spec_state="approved",
             review_state="current",
-            dashboard_presentation="current",  # Current presentation exists
+            dashboard_presentation="ready",  # Cached presentation exists
             wants_visualization=True,
         )
         # Static read-only UI; skill is NOT invoked
+        self.assertIsNone(route_lifecycle_contract(ctx))
+
+    # --- Group 3b: WI-03 (#93) Snapshot+recipe presentation cache contract ---
+
+    def dashboard_context(self, **overrides):
+        """Build a post-review dashboard context on the WI-03 routing contract."""
+        self.assertIn("view_intent", LifecycleRoutingContext.__dataclass_fields__,
+                      "routing contract does not model a Dashboard view intent yet")
+        base = dict(
+            intent="view_dashboard",
+            phase="post_implementation",
+            work_item_defined=True,
+            spec_state="approved",
+            review_state="current",
+            dashboard_presentation="missing",
+            wants_visualization=False,
+            view_intent="none",
+        )
+        base.update(overrides)
+        return LifecycleRoutingContext(**base)
+
+    def test_f10_a_real_first_view_intent_with_a_cache_miss_prepares_the_presentation(self) -> None:
+        for intent in ("list_visible", "detail"):
+            with self.subTest(view_intent=intent):
+                ctx = self.dashboard_context(view_intent=intent)
+                self.assertEqual(route_lifecycle_contract(ctx), "dashboard")
+
+    def test_f10_a_cache_hit_is_dormant_on_every_view_path(self) -> None:
+        for intent in ("list_visible", "detail", "drawer", "refresh"):
+            with self.subTest(view_intent=intent):
+                ctx = self.dashboard_context(view_intent=intent, dashboard_presentation="ready")
+                self.assertIsNone(route_lifecycle_contract(ctx))
+
+    def test_f10_drawer_and_refresh_never_prepare_a_presentation(self) -> None:
+        for intent in ("drawer", "refresh"):
+            with self.subTest(view_intent=intent):
+                ctx = self.dashboard_context(view_intent=intent)
+                self.assertIsNone(route_lifecycle_contract(ctx))
+        # Without a view intent or an explicit request the router keeps its normal
+        # post-implementation route; the one forbidden answer is `dashboard`.
+        self.assertNotEqual(route_lifecycle_contract(self.dashboard_context()), "dashboard")
+
+    def test_f10_review_completion_alone_never_prepares_a_presentation(self) -> None:
+        ctx = self.dashboard_context(intent="implementation_completed", view_intent="none")
+        self.assertNotEqual(route_lifecycle_contract(ctx), "dashboard")
+
+    def test_f10_an_explicit_user_request_still_prepares_a_missing_presentation(self) -> None:
+        ctx = self.dashboard_context(wants_visualization=True, view_intent="none")
+        self.assertEqual(route_lifecycle_contract(ctx), "dashboard")
+        hit = self.dashboard_context(wants_visualization=True, dashboard_presentation="ready")
+        self.assertIsNone(route_lifecycle_contract(hit))
+
+    def test_f10_a_stale_snapshot_overlay_is_not_a_regeneration_reason(self) -> None:
+        self.assertNotIn(
+            "stale",
+            getattr(LifecycleRoutingContext.__dataclass_fields__["dashboard_presentation"].type,
+                    "__args__", ("stale",)),
+            "a stale overlay must not be a presentation cache state",
+        )
+        ctx = self.dashboard_context(view_intent="detail", dashboard_presentation="ready",
+                                     code_state_matches=False)
         self.assertIsNone(route_lifecycle_contract(ctx))
 
     def test_stale_spec_routes_to_verification_spec(self) -> None:
