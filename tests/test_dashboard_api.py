@@ -549,6 +549,73 @@ class DashboardApiTests(unittest.TestCase):
         self.assertEqual(client.post(path, body={"view_intent": "detail"}).status, 200)
         self.assertEqual(len(self.generator.calls), 1)
 
+    def test_f10_a_rejected_post_leaves_the_connection_usable(self):
+        """Review finding: an undrained body was parsed as the next request."""
+        item = self.snapshot("f10-keepalive")
+        server = self.serve()
+        client = self.client(server)
+        key = self.key_of(item)
+        body = json.dumps({"view_intent": "detail"}).encode()
+        connection = http.client.HTTPConnection(*server.address, timeout=30)
+        self.addCleanup(connection.close)
+        connection.request("POST", PREFIX + "/snapshots/" + key + "/presentation/ensure",
+                           body=body, headers={"Host": client.authority,
+                                               "Cookie": client.cookie,
+                                               "Content-Type": "application/json"})
+        first = connection.getresponse()
+        first.read()
+        self.assertEqual(first.status, 403)
+
+        connection.request("GET", PREFIX + "/reviews",
+                           headers={"Host": client.authority, "Cookie": client.cookie})
+        second = connection.getresponse()
+        payload = second.read()
+        self.assertEqual(second.status, 200, "the next request must not read the stale body")
+        self.assertNotIn(b"<!DOCTYPE", payload, "this API never emits HTML")
+        self.assertIn("items", json.loads(payload))
+        self.assertEqual(self.generator.calls, [])
+
+    def test_f10_a_non_ascii_credential_is_refused_not_crashed(self):
+        """Review finding: hmac.compare_digest raises TypeError on non-ASCII str."""
+        item = self.snapshot("f10-unicode")
+        server = self.serve()
+        client = self.client(server)
+        key = self.key_of(item)
+        refused = client.send("POST", PREFIX + "/snapshots/" + key + "/presentation/ensure",
+                              body={"view_intent": "detail"},
+                              headers={"X-OwnHands-CSRF": "caf\u00e9"}, csrf=False)
+        self.assertEqual(refused.status, 403)
+        self.assertEqual(refused.code, "CSRF_FAILED")
+
+        anonymous = Client(server.address)
+        response = anonymous.send("POST", PREFIX + "/session",
+                                  body={"token": "t\u00f6k\u00e9n"}, csrf=False)
+        self.assertEqual(response.status, 401)
+        self.assertEqual(response.code, "UNAUTHENTICATED")
+        for payload in (1, None, [], {"token": ["a"]}, {}):
+            body = payload if isinstance(payload, dict) else {"token": payload}
+            self.assertEqual(anonymous.send("POST", PREFIX + "/session",
+                                            body=body, csrf=False).status, 401)
+        self.assertEqual(self.generator.calls, [])
+
+    def test_f10_a_head_request_carries_no_body(self):
+        """Review finding: a body on HEAD desyncs the next keep-alive response."""
+        self.snapshot("f10-head")
+        server = self.serve()
+        client = self.client(server)
+        connection = http.client.HTTPConnection(*server.address, timeout=30)
+        self.addCleanup(connection.close)
+        connection.request("HEAD", PREFIX + "/reviews",
+                           headers={"Host": client.authority, "Cookie": client.cookie})
+        response = connection.getresponse()
+        self.assertEqual(response.read(), b"")
+        self.assertEqual(response.getheader("Content-Length"), "0")
+        connection.request("GET", PREFIX + "/reviews",
+                           headers={"Host": client.authority, "Cookie": client.cookie})
+        following = connection.getresponse()
+        self.assertEqual(following.status, 200)
+        self.assertIn("items", json.loads(following.read()))
+
     # --- F11 ---------------------------------------------------------------
 
     def test_f11_reader_errors_keep_a_fixed_status_and_envelope(self):
@@ -639,6 +706,39 @@ class DashboardApiTests(unittest.TestCase):
         self.assertNotIn(b"more bytes appended", response.body)
         if response.status == 200:
             self.assertEqual(response.json["availability"], "corrupt")
+
+    def test_f12_every_window_is_integrity_verified_before_delivery(self):
+        """SDD §6.4 requires full hash verification before each returned window."""
+        f = self.fixture
+        f.configure("current")
+        f.observe(content=b"x" * (400 * 1024))
+        review = f.store.append("review", "review:f12-verify", f.scope, f.evaluate())
+        snapshot = self.builder.append_snapshot(review, "snapshot:f12-verify")
+        server = self.serve()
+        client = self.client(server)
+        key = self.key_of({"snapshot": snapshot})
+        evidence_key = self.evidence_key(client, key)
+        base = "/snapshots/" + key + "/evidence/" + evidence_key + "/content?field=raw"
+
+        reads = []
+        original = EvidenceStore._validate_object
+
+        def counted(record):
+            reads.append(record.evidence_id)
+            return original(record)
+
+        with patch.object(EvidenceStore, "_validate_object", staticmethod(counted)):
+            cursor = None
+            chunks = 0
+            while True:
+                field = client.get(base + ("&cursor=" + cursor if cursor else "")).json
+                chunks += 1
+                cursor = field["next_cursor"]
+                if cursor is None:
+                    break
+        self.assertGreaterEqual(chunks, 6, "400KiB must take several windows")
+        self.assertGreaterEqual(len(reads), chunks,
+                                "no window is served without re-verifying size and hash")
 
     # --- F13 ---------------------------------------------------------------
 

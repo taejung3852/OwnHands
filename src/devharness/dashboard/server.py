@@ -28,6 +28,8 @@ PREFIX = "/api/dashboard/v1"
 COOKIE = "ownhands_dashboard"
 CSRF_HEADER = "X-OwnHands-CSRF"
 LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+MAX_BODY = 64 * 1024
+MAX_SESSIONS = 8
 
 STATUS = {
     "INVALID_QUERY": 400,
@@ -60,6 +62,14 @@ MESSAGES = {
     "UNSUPPORTED_SCHEMA": "Dashboard source schema is not supported",
 }
 RETRYABLE = {"SOURCE_CHANGED", "LIST_CHANGED", "SOURCE_UNAVAILABLE"}
+
+
+def _same(offered: object, expected: str) -> bool:
+    """Constant-time compare over bytes: a client may send any encoding at all."""
+    if not isinstance(offered, str):
+        return False
+    return hmac.compare_digest(offered.encode("utf-8", "surrogatepass"),
+                               expected.encode("utf-8"))
 
 
 class _Denied(Exception):
@@ -174,7 +184,10 @@ class _Handler(BaseHTTPRequestHandler):
         request_id = uuid.uuid4().hex
         started = time.monotonic()
         template, code, status = "-", None, 200
+        self._head = method == "HEAD"
+        self._sent = False
         try:
+            self._drain()
             split = urlsplit(self.path)
             segments = [unquote(part) for part in split.path.split("/") if part]
             prefix = [part for part in PREFIX.split("/") if part]
@@ -188,23 +201,44 @@ class _Handler(BaseHTTPRequestHandler):
             self._respond(200, payload)
         except _Denied as denied:
             code = denied.code
-            status = STATUS[code]
-            self._respond(status, self._envelope(code, request_id))
+            status = self._fail(code, request_id)
         except ReadModelError as error:
             code = error.code if error.code in STATUS else "SOURCE_INTEGRITY_ERROR"
-            status = STATUS[code]
-            self._respond(status, self._envelope(code, request_id, error.retryable))
+            status = self._fail(code, request_id, error.retryable)
         except (sqlite3.Error, OSError):
-            code, status = "SOURCE_UNAVAILABLE", 503
-            self._respond(status, self._envelope(code, request_id))
-        except (ValueError, RuntimeError):
-            code, status = "SOURCE_INTEGRITY_ERROR", 503
-            self._respond(status, self._envelope(code, request_id))
+            code = "SOURCE_UNAVAILABLE"
+            status = self._fail(code, request_id)
+        except (TypeError, ValueError, RuntimeError):
+            code = "SOURCE_INTEGRITY_ERROR"
+            status = self._fail(code, request_id)
         finally:
             server.logger.info(
                 "request_id=%s method=%s route=%s status=%s code=%s latency_ms=%d",
                 request_id, method, template, status, code or "-",
                 int((time.monotonic() - started) * 1000))
+
+    def _fail(self, code: str, request_id: str, retryable: bool | None = None) -> int:
+        """Report an error unless the successful response is already on the wire."""
+        status = STATUS[code]
+        if not self._sent:
+            self._respond(status, self._envelope(code, request_id, retryable))
+        return status
+
+    def _drain(self) -> None:
+        """Read the request body up front so a rejected POST cannot desync the connection."""
+        self._raw = b""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self.close_connection = True
+            return
+        if length <= 0:
+            return
+        if length > MAX_BODY:
+            # Too large to drain politely; answer and hang up instead.
+            self.close_connection = True
+            return
+        self._raw = self.rfile.read(length)
 
     @staticmethod
     def _template(route) -> str:
@@ -214,9 +248,6 @@ class _Handler(BaseHTTPRequestHandler):
             return "/reviews"
         if route[:1] == ["snapshots"]:
             tail = route[2:]
-            names = {("claims",): "/claims/{claim_id}",
-                     ("evidence",): "/evidence/{evidence_key}",
-                     ("presentation",): "/presentation"}
             if not tail:
                 return "/snapshots/{snapshot_key}"
             if tail[0] == "claims" and len(tail) == 2:
@@ -229,7 +260,6 @@ class _Handler(BaseHTTPRequestHandler):
                 return "/snapshots/{snapshot_key}/presentation"
             if tail == ["presentation", "ensure"]:
                 return "/snapshots/{snapshot_key}/presentation/ensure"
-            _ = names
         return "-"
 
     # --- boundary checks ----------------------------------------------------
@@ -250,8 +280,7 @@ class _Handler(BaseHTTPRequestHandler):
         session = self._session()
         if session is None:
             raise _Denied("UNAUTHENTICATED")
-        if method == "POST" and not hmac.compare_digest(
-                self.headers.get(CSRF_HEADER) or "", session):
+        if method == "POST" and not _same(self.headers.get(CSRF_HEADER), session):
             raise _Denied("CSRF_FAILED")
 
     def _session(self) -> str | None:
@@ -298,11 +327,14 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _exchange(self):
         server = self.dashboard
-        offered = self._body().get("token")
-        if not isinstance(offered, str) or not hmac.compare_digest(offered, server.token):
+        if not _same(self._body().get("token"), server.token):
             raise _Denied("UNAUTHENTICATED")
         session = secrets.token_urlsafe(32)
         csrf = secrets.token_urlsafe(32)
+        # ponytail: a local Dashboard needs a handful of sessions; drop the oldest
+        # beyond that rather than building expiry machinery for one user.
+        while len(server.sessions) >= MAX_SESSIONS:
+            server.sessions.pop(next(iter(server.sessions)))
         server.sessions[session] = csrf
         self._cookie = ("%s=%s; HttpOnly; SameSite=Strict; Path=%s"
                         % (COOKIE, session, PREFIX))
@@ -325,14 +357,10 @@ class _Handler(BaseHTTPRequestHandler):
                 "cursor": self._one(query, "cursor", None), "limit": limit}
 
     def _body(self) -> dict:
-        try:
-            length = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
-            raise ReadModelError("INVALID_QUERY", "Body length is invalid") from None
-        if length <= 0 or length > 64 * 1024:
+        if not self._raw:
             return {}
         try:
-            value = json.loads(self.rfile.read(length))
+            value = json.loads(self._raw)
         except (ValueError, UnicodeError):
             raise ReadModelError("INVALID_QUERY", "Body is not valid JSON") from None
         return value if isinstance(value, dict) else {}
@@ -344,7 +372,8 @@ class _Handler(BaseHTTPRequestHandler):
                 "request_id": request_id}
 
     def _respond(self, status: int, payload) -> None:
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        body = b"" if self._head else json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self._sent = True
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -356,4 +385,5 @@ class _Handler(BaseHTTPRequestHandler):
         if cookie:
             self.send_header("Set-Cookie", cookie)
         self.end_headers()
-        self.wfile.write(body)
+        if body:
+            self.wfile.write(body)

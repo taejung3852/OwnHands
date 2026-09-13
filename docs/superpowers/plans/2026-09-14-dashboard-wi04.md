@@ -67,7 +67,12 @@ fixture가 이미 같은 형태를 검증했다. 같은 cache key의 중복 생�
 - `Host` header가 실제 bind한 `host:port`와 다르면 403 `ORIGIN_DENIED`.
 - `Origin`이 있으면 `http://<bind host>:<port>`와 정확히 같아야 한다. 그 외 Origin과 모든 CORS
   preflight는 403. CORS 허용 header를 아예 내보내지 않는다.
-- 상태를 바꾸는 `POST`는 `X-OwnHands-CSRF` header가 세션의 csrf token과 같아야 한다(`compare_digest`).
+- 요청 body는 경로 파싱 직후 먼저 읽어 둔다. 거부된 POST가 body를 남기면 keep-alive 연결에서 다음
+  요청이 그 바이트를 request line으로 읽어 응답이 어긋난다(재검수에서 실측).
+- credential 비교는 **bytes**로 한다. `hmac.compare_digest`는 str에서 비-ASCII를 `TypeError`로 거부하며,
+  `/session`은 인증 전 경로라 그대로 두면 누구나 연결을 끊을 수 있다.
+- HEAD 응답에는 body를 싣지 않는다.
+- 상태를 바꾸는 `POST`는 `X-OwnHands-CSRF` header가 세션의 csrf token과 같아야 한다(constant-time).
   없거나 다르면 403 `CSRF_FAILED`이며 ensure는 실행하지 않는다. `/session` POST는 인증 전이라
   cookie가 없으므로 CSRF 검사 대상이 아니다.
 - GET은 부작용이 없다. 어떤 GET도 ensure를 호출하지 않는다.
