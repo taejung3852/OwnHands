@@ -42,8 +42,11 @@ When resolving next steps, evaluate state strictly in this order:
 | **[Pre-Implementation]** Approved Spec, no Baseline | **`baseline`** | Observe Before state & environment before editing. |
 | Implementation complete, verification/review requested | **`review`** | Run After tests, collect Evidence, assess regressions. |
 | **[Post-Implementation]** No valid Before baseline exists | **`review`** | With trusted pre-change provenance, prepare a missing-Before baseline; otherwise Observation Report / needs-input only, no baseline or formal Review writes. |
-| Review exists + presentation missing/stale + requested | **`dashboard`** | Prepare human-digestible visual presentation artifact. |
-| Review exists + presentation current + dashboard read | **None (Dormant)** | Cache hit: read stored presentation without invoking skills. |
+| Snapshot exists + presentation absent + explicit request or first real Dashboard view intent (`list_visible` or `detail`) | **`dashboard`** | Prepare the human-digestible presentation for that exact Snapshot Ref and recipe. |
+| Snapshot exists + presentation cached for the same Snapshot Ref and recipe | **None (Dormant)** | Cache hit: read the stored presentation without invoking skills. |
+| Dashboard GET, page refresh, Drawer/Evidence navigation | **None (Dormant)** | Read-only inspection stays outside skill and LLM invocation. |
+| Review just completed, no Dashboard view yet | **None (Dormant)** | Review completion alone does not prepare a presentation. |
+| Same Snapshot turned stale (freshness overlay only) | **None (Dormant)** | Freshness is a dynamic overlay, not a presentation cache key. |
 | **[Freshness]** Requirements or criteria change | **`verification-spec`** | Re-draft and obtain new approval. |
 | **[Freshness]** Code modified after review | **`review`** | Review is stale; re-run verification. |
 | **[Freshness]** [Pre-impl] Environment / test meaning change | **`baseline`** | Re-capture Before baseline. |
@@ -60,3 +63,5 @@ When resolving next steps, evaluate state strictly in this order:
 | "Tests pass, so I can create a formal Review without a Spec." | Formal Review strictly requires `VerificationSpec + SpecApproval`. | Route to `verification-spec` (or observation fallback). |
 | "I will run work-map, baseline, and review all at once." | Chaining multiple heavy skills overwhelms context. | Route to ONE skill only. |
 | "I will invoke context-validation or execution-control." | Legacy 4-tier skills are for historical/compat only. | Use the 5 new lifecycle skills. |
+| "The review finished, so I should build the dashboard now." | Review completion alone does not prepare a presentation. | Wait for an explicit request or the first real Dashboard view intent. |
+| "The presentation is cached but the snapshot went stale; regenerate." | Freshness is a dynamic overlay; the cache key is Snapshot Ref + recipe. | Stay dormant and let the API render the freshness notice. |
