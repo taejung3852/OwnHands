@@ -18,6 +18,13 @@ _FILTERS = {"all", "needs-review", "blocked", "stale", "ready"}
 _NOT_FOUND = "Dashboard resource was not found"
 # Long change sets are reported with an explicit remainder count, never silently cut.
 _CHANGED_FILE_LIMIT = 40
+_CONTENT_FIELDS = ("raw", "stdout", "stderr", "diff", "command")
+_CONTENT_BYTES = 64 * 1024
+_TOO_LARGE_BYTES = 64 * 1024 * 1024
+_CURSOR_KEYS = {"snapshot_key", "evidence_key", "field", "content_hash", "offset"}
+# C0 controls and DEL become visible escapes so no terminal or renderer ever executes them.
+_CONTROL = {code: "\\x%02x" % code for code in range(0x20) if code not in (9, 10, 13)}
+_CONTROL[0x7F] = "\\x7f"
 
 
 class ReadModelError(Exception):
@@ -69,6 +76,30 @@ class DashboardReadModel:
                 raise ReadModelError("NOT_FOUND", _NOT_FOUND)
             return self._evidence_vm(snapshot_key, evidence_key, entry)
         return self._consistent(build, with_token=True)
+
+    def read_content(self, snapshot_key: str, evidence_key: str, field: str,
+                     cursor: str | None = None) -> dict:
+        """One bounded window of a stored Evidence field. Never the whole file at once."""
+        if field not in _CONTENT_FIELDS:
+            raise ReadModelError("INVALID_QUERY", "Unsupported Dashboard content field")
+        position = 0
+        expected_hash = None
+        if cursor is not None:
+            data = self._decode_cursor(cursor)
+            if (set(data) != _CURSOR_KEYS or data["snapshot_key"] != snapshot_key
+                    or data["evidence_key"] != evidence_key or data["field"] != field
+                    or type(data["offset"]) is not int or data["offset"] < 0):
+                raise ReadModelError("INVALID_QUERY", "Cursor is invalid")
+            position, expected_hash = data["offset"], data["content_hash"]
+
+        def build():
+            state = self._build_state(snapshot_key)
+            entry = state["_evidence"].get(evidence_key)
+            if entry is None:
+                raise ReadModelError("NOT_FOUND", _NOT_FOUND)
+            return self._content_vm(snapshot_key, evidence_key, entry, field,
+                                    position, expected_hash)
+        return self._consistent(build)
 
     def read_context(self, snapshot_key: str) -> dict:
         return self._consistent(lambda: self._build_state(snapshot_key)["context"])
@@ -731,6 +762,67 @@ class DashboardReadModel:
             "raw": raw,
             "cas_hash": None if record is None else record.content_hash,
         }
+
+    def _content_vm(self, snapshot_key, evidence_key, entry, field, position, expected_hash):
+        vm = self._evidence_vm(snapshot_key, evidence_key, entry)
+        base = dict(vm[field], next_cursor=None, truncated=False)
+        if base["availability"] != "available":
+            return dict(base, text=None)
+        content_hash = vm["cas_hash"]
+        if field == "raw":
+            if (vm["metadata"].get("content_size") or 0) > _TOO_LARGE_BYTES:
+                return dict(base, availability="too_large", text=None,
+                            reason_code="raw_too_large")
+            try:
+                payload = EvidenceStore.open_readonly(self.catalog).read_content(
+                    entry["evidence_id"])
+            except (ValueError, OSError):
+                # Size or hash moved under us: report it, never mix two revisions.
+                return dict(base, availability="corrupt", text=None,
+                            reason_code="evidence_corrupt")
+        else:
+            payload = base["text"].encode("utf-8")
+            content_hash = fingerprint(payload)
+        if expected_hash is not None and expected_hash != content_hash:
+            return dict(base, availability="corrupt", text=None, reason_code="content_changed")
+        if b"\x00" in payload:
+            return dict(base, availability="unsupported", text=None,
+                        reason_code="binary_content")
+        try:
+            payload.decode("utf-8")
+        except UnicodeDecodeError:
+            return dict(base, availability="unsupported", text=None,
+                        reason_code="binary_content")
+        if position > len(payload):
+            raise ReadModelError("INVALID_QUERY", "Cursor is invalid")
+        text, consumed = self._window(payload, position)
+        following = position + consumed
+        cursor = None if following >= len(payload) else self._encode_cursor({
+            "snapshot_key": snapshot_key, "evidence_key": evidence_key, "field": field,
+            "content_hash": content_hash, "offset": following,
+        })
+        return dict(base, text=text, next_cursor=cursor, truncated=cursor is not None)
+
+    @staticmethod
+    def _window(payload, position):
+        """Return at most 64KiB of escaped text and how many source bytes it consumed."""
+        limit = _CONTENT_BYTES
+        while True:
+            window = payload[position:position + limit]
+            while window:
+                try:
+                    text = window.decode("utf-8")
+                    break
+                except UnicodeDecodeError:
+                    window = window[:-1]  # a chunk edge split a multi-byte character
+            else:
+                text = ""
+            escaped = text.translate(_CONTROL)
+            # ponytail: halve on overflow instead of measuring each escape; control-dense
+            # content is rare and the loop ends in a handful of steps.
+            if len(escaped.encode("utf-8")) <= _CONTENT_BYTES or limit <= 1024:
+                return escaped, len(window)
+            limit //= 2
 
     def _build_list(self, filter_name, query, cursor, limit, presentations, ready_sequence):
         normalized = unicodedata.normalize("NFKC", query).casefold()

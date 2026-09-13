@@ -36,10 +36,35 @@ def main() -> int:
     )
     lint.add_argument("--root", type=Path, required=True)
     lint.add_argument("--sources", type=Path, required=True)
+    dashboard = subparsers.add_parser("dashboard", help="run the local read-only Dashboard")
+    dashboard.add_argument("--data-root", type=Path, help="local data root to read")
+    dashboard.add_argument("--project-id", required=True, help="the one project this run serves")
+    dashboard.add_argument("--host", default="127.0.0.1", help="loopback host to bind")
+    dashboard.add_argument("--port", type=int, default=8765)
     mcp = subparsers.add_parser("mcp-server", help="run stdio MCP server")
     mcp.add_argument("--data-root", type=Path, help="local data root for evidence")
     mcp.add_argument("--legacy-tools", action="store_true", help="enable historical M4.5 tools")
     arguments = parser.parse_args()
+
+    if arguments.command == "dashboard":
+        from .dashboard.server import DashboardServer
+        from .paths import DataPaths
+        try:
+            server = DashboardServer(DataPaths.resolve(arguments.data_root), arguments.project_id,
+                                     host=arguments.host, port=arguments.port)
+        except ValueError as error:
+            parser.error(str(error))
+        server.start()
+        # The boot token goes to the local user on stdout only: never a URL, log or response.
+        print(f"dashboard=http://{server.authority}{'/api/dashboard/v1'}")
+        print(f"token={server.token}", flush=True)
+        try:
+            server._thread.join()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            server.stop()
+        return 0
 
     if arguments.command == "mcp-server":
         from .mcp.server import McpServer
