@@ -5,9 +5,9 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
-from ..catalog import Catalog
+from ..catalog import Catalog, require_rollback_journal
 from ..evidence import EvidenceStore
 from ..events import EventLog
 from ..identity import IdentityRegistry
@@ -89,26 +89,44 @@ class LifecycleStore:
 
     def __init__(self, catalog: Catalog, path: Path | str | None = None) -> None:
         self.catalog = catalog
+        self.readonly = catalog.readonly
         self.path = Path(path) if path is not None else catalog.paths.root / "lifecycle-v1.sqlite3"
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.connection = sqlite3.connect(self.path, isolation_level=None)
+        if self.readonly:
+            require_rollback_journal(self.path)
+            self.connection = sqlite3.connect(self.path.resolve().as_uri() + '?mode=ro',
+                                               uri=True, isolation_level=None)
+            self.connection.execute('PRAGMA query_only=ON')
+        else:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.connection = sqlite3.connect(self.path, isolation_level=None)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys=ON")
-        self.connection.executescript(_SCHEMA)
-        self.connection.execute(
-            "INSERT OR IGNORE INTO lifecycle_metadata(key, value) VALUES ('namespace', ?)",
-            (NAMESPACE,),
-        )
-        self.connection.execute(
-            "INSERT OR IGNORE INTO lifecycle_metadata(key, value) VALUES ('schema_version', ?)",
-            (str(SCHEMA_VERSION),),
-        )
+        if not self.readonly:
+            self.connection.executescript(_SCHEMA)
+            self.connection.execute(
+                "INSERT OR IGNORE INTO lifecycle_metadata(key, value) VALUES ('namespace', ?)",
+                (NAMESPACE,),
+            )
+            self.connection.execute(
+                "INSERT OR IGNORE INTO lifecycle_metadata(key, value) VALUES ('schema_version', ?)",
+                (str(SCHEMA_VERSION),),
+            )
         try:
             self._validate_metadata()
             self._verify_journal()
         except BaseException:
             self.connection.close()
             raise
+
+    @classmethod
+    def open_readonly(cls, catalog: Catalog, path: Path | str | None = None) -> "LifecycleStore":
+        if not catalog.readonly:
+            raise ValueError('lifecycle reader requires a read-only catalog')
+        return cls(catalog, path)
+
+    def _require_writable(self) -> None:
+        if self.readonly:
+            raise PermissionError('lifecycle store is read-only')
 
     def close(self) -> None:
         self.connection.close()
@@ -120,8 +138,10 @@ class LifecycleStore:
         self.close()
 
     @contextmanager
-    def _transaction(self) -> Iterator[sqlite3.Connection]:
-        self.connection.execute("BEGIN IMMEDIATE")
+    def _transaction(self, *, write: bool = True) -> Iterator[sqlite3.Connection]:
+        if write:
+            self._require_writable()
+        self.connection.execute("BEGIN IMMEDIATE" if write else "BEGIN")
         try:
             yield self.connection
         except BaseException:
@@ -136,6 +156,7 @@ class LifecycleStore:
             raise ValueError("unsupported lifecycle namespace or schema version")
 
     def append(self, kind: str, logical_id: str, scope: dict, data: dict) -> dict:
+        self._require_writable()
         if kind not in KINDS:
             raise ValueError(f"unsupported lifecycle artifact kind: {kind}")
         logical_id = require_text(logical_id, "logical_id")
@@ -203,14 +224,21 @@ class LifecycleStore:
         self._verify_journal()
         return self._get_with_closure(artifact_ref, set())
 
-    def _get_with_closure(self, artifact_ref: dict, visited: set[str]) -> dict:
+    def _get_with_closure(self, artifact_ref: dict, visited: set[str], *,
+                          inspect_evidence: Callable[[dict], None] | None = None,
+                          records: list[dict] | None = None) -> dict:
         row = self._row_for_reference(artifact_ref)
         record = self._record(row)
         if record["hash"] in visited:
             return record
         visited.add(record["hash"])
+        if records is not None:
+            records.append(record)
         if record["kind"] == "evidence_binding":
-            self._validate_legacy_evidence(record["scope"], record["data"]["evidence_id"])
+            if inspect_evidence is None:
+                self._validate_legacy_evidence(record["scope"], record["data"]["evidence_id"])
+            else:
+                inspect_evidence(record)
         for path, child_ref in references(record["data"]):
             child = self._record(self._row_for_reference(child_ref))
             if record["kind"] == "attempt" and path == ("previous",):
@@ -218,10 +246,16 @@ class LifecycleStore:
                     raise ValueError("previous attempt must belong to the same issue")
             else:
                 self.assert_reference_scope(child_ref, record["scope"])
-            self._get_with_closure(child_ref, visited)
+            self._get_with_closure(child_ref, visited, inspect_evidence=inspect_evidence, records=records)
         return record
 
+    def inspect_closure(self, artifact_ref: dict):
+        """Read verified lifecycle metadata with explicit inaccessible-Evidence diagnostics."""
+        from .reading import inspect_closure
+        return inspect_closure(self, artifact_ref)
+
     def activate(self, artifact_ref: dict, *, approval: dict | None = None, slot: str = "current") -> dict:
+        self._require_writable()
         record = self.get(artifact_ref)
         if record["kind"] not in {
             "attempt", "spec", "code_state", "environment", "baseline", "review", "snapshot"
@@ -317,6 +351,7 @@ class LifecycleStore:
         }
 
     def bind_evidence(self, logical_id: str, scope: dict, evidence_id: str) -> dict:
+        self._require_writable()
         scope = validate_scope(scope)
         self._validate_legacy_evidence(scope, evidence_id)
         return self.append("evidence_binding", logical_id, scope, {"evidence_id": evidence_id})
@@ -384,7 +419,7 @@ class LifecycleStore:
     def review_status(self, review_ref: dict) -> dict:
         """Report unreadable evidence or new records without rewriting a Snapshot."""
         from .evaluation_store import _collect
-        with self._transaction():
+        with self._transaction(write=False):
             try:
                 record = self.get(review_ref)
             except ValueError as error:

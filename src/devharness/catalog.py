@@ -297,11 +297,47 @@ def _legacy_events_for_v3_migration(
     return rows
 
 
+def require_rollback_journal(path: Path) -> None:
+    """Reject WAL before SQLite can create source-side WAL/SHM files.
+
+    OwnHands sources use rollback journals. Do not use immutable=1 here:
+    ignoring committed WAL frames would return an incomplete source snapshot.
+    """
+    with path.open('rb') as source:
+        header = source.read(20)
+    if header[18:20] == b'\x02\x02':
+        raise RuntimeError('WAL sources are unsupported by the read-only reader')
+
+
 class Catalog:
-    def __init__(self, paths: DataPaths, connection: sqlite3.Connection) -> None:
+    def __init__(self, paths: DataPaths, connection: sqlite3.Connection, *, readonly: bool = False) -> None:
         self.paths = paths
         self.path = paths.catalog
         self.connection = connection
+        self.readonly = readonly
+
+    @classmethod
+    def open_readonly(cls, paths: DataPaths | Path | str) -> "Catalog":
+        """Open an existing current-schema catalog without initialization or repair."""
+        if not isinstance(paths, DataPaths):
+            paths = DataPaths.resolve(paths)
+        require_rollback_journal(paths.catalog)
+        connection = sqlite3.connect(paths.catalog.resolve().as_uri() + '?mode=ro',
+                                     uri=True, autocommit=True)
+        connection.row_factory = sqlite3.Row
+        catalog = cls(paths, connection, readonly=True)
+        try:
+            connection.execute('PRAGMA query_only=ON')
+            connection.execute('PRAGMA foreign_keys=ON')
+            if catalog.query_value("SELECT value FROM schema_metadata WHERE key='schema_version'") != str(SCHEMA_VERSION):
+                raise RuntimeError('unsupported read-only catalog schema version')
+            cls._validate_v3_schema_contract(connection)
+            if catalog.query_value('PRAGMA integrity_check') != 'ok':
+                raise RuntimeError('SQLite catalog integrity check failed')
+        except BaseException:
+            connection.close()
+            raise
+        return catalog
 
     @classmethod
     def open(cls, paths: DataPaths | Path | str) -> "Catalog":
@@ -870,6 +906,8 @@ class Catalog:
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
+        if self.readonly:
+            raise PermissionError('catalog is read-only')
         self.connection.execute("BEGIN IMMEDIATE")
         try:
             yield self.connection

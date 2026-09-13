@@ -128,15 +128,27 @@ class EvidenceStore:
     def __init__(self, catalog: Catalog, events: EventLog) -> None:
         self.catalog = catalog
         self.events = events
-        self.catalog.paths.objects.mkdir(parents=True, exist_ok=True, mode=0o700)
-        os.chmod(self.catalog.paths.objects, 0o700)
-        self.reconcile_objects()
+        if not catalog.readonly:
+            self.catalog.paths.objects.mkdir(parents=True, exist_ok=True, mode=0o700)
+            os.chmod(self.catalog.paths.objects, 0o700)
+            self.reconcile_objects()
+
+    @classmethod
+    def open_readonly(cls, catalog: Catalog) -> "EvidenceStore":
+        if not catalog.readonly:
+            raise ValueError('Evidence reader requires a read-only catalog')
+        return cls(catalog, EventLog(catalog))
+
+    def _require_writable(self) -> None:
+        if self.catalog.readonly:
+            raise PermissionError('Evidence store is read-only')
 
     def put(
         self,
         draft: EvidenceDraft,
         redactor: Callable[[bytes], bytes],
     ) -> EvidenceRecord:
+        self._require_writable()
         self._validate(draft)
         task_exists = self.catalog.query_value(
             "SELECT 1 FROM tasks WHERE task_id=?", (draft.task_id,)
@@ -284,6 +296,7 @@ class EvidenceStore:
         return RetentionPolicy(mode=row["mode"], days=row["days"])
 
     def set_retention(self, policy: RetentionPolicy) -> None:
+        self._require_writable()
         if policy.mode == "keep_until_user_deletes":
             if policy.days is not None:
                 raise ValueError("days must be null for keep_until_user_deletes")
@@ -299,6 +312,7 @@ class EvidenceStore:
             )
 
     def purge(self, evidence_id: str, reason: str) -> None:
+        self._require_writable()
         reason = _required_text(reason, "reason")
         purged_at = _now()
         trash_path: Path | None = None
@@ -363,6 +377,7 @@ class EvidenceStore:
             trash_path.unlink()
 
     def reconcile_objects(self, grace_period_seconds: int = 300) -> list[Path]:
+        self._require_writable()
         if (
             not isinstance(grace_period_seconds, int)
             or isinstance(grace_period_seconds, bool)
