@@ -194,8 +194,7 @@ class DashboardReadModel:
         state = review["data"].get("review_state")
         labels = {"ready": "판단 가능", "needs-review": "확인 필요", "blocked": "검증 차단"}
         label = "자료 확인 필요" if closure.read_health != "complete" else labels.get(state, "자료 확인 필요")
-        reason = ("일부 근거를 읽을 수 없습니다" if closure.read_health != "complete"
-                  else "저장된 Review 판정을 표시합니다")
+        reason = self._state_reason(state, closure.read_health, problems)
         return {
             "snapshot_key": snapshot_key,
             "snapshot_ref": snapshot_ref,
@@ -410,7 +409,7 @@ class DashboardReadModel:
         for i, blocker in enumerate(data.get("blockers", [])):
             add("blocker", f"/blockers/{i}", claim_id=blocker.get("criterion_id"),
                 check_id=blocker.get("check_id"), reason=blocker.get("reason", "blocker"),
-                description=blocker.get("source", blocker.get("reason", "blocker")))
+                description=blocker.get("reason", "blocker"))
         for i, claim in enumerate(data.get("claims", [])):
             checks = claim.get("checks", [])
             if checks:
@@ -458,6 +457,22 @@ class DashboardReadModel:
             0 if item["kind"] == "blocker" and item["required"] else priority[item["kind"]],
             item["id"],
         ))
+
+    @staticmethod
+    def _state_reason(state, read_health, problems):
+        if state == "blocked":
+            cause = next((item for item in problems if item["kind"] == "blocker"), None)
+        elif state == "needs-review":
+            kinds = {"failure", "finding", "diagnostic", "conflict",
+                     "inconclusive", "unobserved"}
+            cause = next((item for item in problems if item["kind"] in kinds), None)
+        else:
+            cause = None
+        if cause is not None:
+            return cause["description"]
+        if read_health != "complete":
+            return "일부 근거를 읽을 수 없습니다"
+        return "저장된 Review 판정을 표시합니다"
 
     def _context(self, snapshot, snapshot_ref, review, review_ref, read_health):
         scope = snapshot["scope"]
@@ -524,6 +539,7 @@ class DashboardReadModel:
                       and record["sequence"] > snapshot["sequence"]]
         if candidates:
             newer = self.snapshot_key(self._ref(candidates[-1]))
+        active_snapshot = self.lifecycle.current("snapshot", scope)
         return {
             "freshness": freshness,
             "reasons": sorted(set(reasons)),
@@ -533,6 +549,8 @@ class DashboardReadModel:
             "new_evidence_available": new_evidence,
             "superseded_attempt": superseded,
             "newer_snapshot_key": newer,
+            "active_snapshot_key": (None if active_snapshot is None
+                                    else self.snapshot_key(active_snapshot)),
             "read_health": read_health,
         }
 

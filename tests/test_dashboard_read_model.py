@@ -253,6 +253,35 @@ class DashboardReadModelTests(unittest.TestCase):
         self.assertEqual(len({(p["kind"], json.dumps(p["sources"], sort_keys=True))
                               for p in vm["problems"]}), len(vm["problems"]))
 
+    def test_f03_blocked_state_reason_uses_the_stored_blocker(self):
+        item = self.simple_snapshot(
+            "blocked-reason", title="Blocked reason", blocked=True
+        )
+        reader = self.open_reader()
+        vm = reader.read_detail(reader.snapshot_key(item["snapshot"]))
+        blocker = next(problem for problem in vm["problems"] if problem["kind"] == "blocker")
+        self.assertEqual(vm["review_state"], "blocked")
+        self.assertEqual(vm["state_reason"], blocker["description"])
+        self.assertEqual(vm["state_reason"], "required_input_unavailable")
+
+    def test_f03_needs_review_state_reason_uses_problem_priority(self):
+        f = self.fixture
+        f.configure("current")
+        observation = f.observe("fail")
+        inputs = f.inputs()
+        inputs["findings"] = [{"reason": "secondary_finding", "detail": "Secondary finding",
+                               "observations": [observation]}]
+        review = f.store.append(
+            "review", "review:state-reason", f.scope, f.store.evaluate_review(f.scope, inputs)
+        )
+        snapshot = self.append_snapshot(review, "snapshot:state-reason")
+        reader = self.open_reader()
+        vm = reader.read_detail(reader.snapshot_key(snapshot))
+        cause = next(problem for problem in vm["problems"] if problem["kind"] != "blocker")
+        self.assertEqual(vm["review_state"], "needs-review")
+        self.assertEqual(cause["kind"], "failure")
+        self.assertEqual(vm["state_reason"], cause["description"])
+
     def test_f02_required_zero_and_legacy_review_do_not_invent_completion_or_checks(self):
         f = self.fixture
         f.configure(optional=True)
@@ -548,6 +577,20 @@ class DashboardReadModelTests(unittest.TestCase):
             reader.read_list(q="저장", cursor=reader._encode_cursor(cursor_data), limit=1,
                              presentations=cached, ready_sequence=5)
         self.assertEqual(invalid_last.exception.code, "INVALID_QUERY")
+
+    def test_f01_latest_stored_snapshot_reports_older_active_snapshot(self):
+        item = self.simple_snapshot("active-older", title="Active older", status="verified")
+        self.fixture.store.activate(item["snapshot"])
+        newer = self.fixture.store.append(
+            "snapshot", "snapshot:active-newer", item["scope"], {"review": item["review"]}
+        )
+        reader = self.open_reader()
+        page = reader.read_list(limit=10)
+        card = next(entry for entry in page["items"]
+                    if entry["scope"]["issue_id"] == item["scope"]["issue_id"])
+        self.assertEqual(card["snapshot_key"], reader.snapshot_key(newer))
+        self.assertEqual(card["context"]["active_snapshot_key"], reader.snapshot_key(item["snapshot"]))
+        self.assertNotEqual(card["snapshot_key"], card["context"]["active_snapshot_key"])
 
     def test_f08_one_source_change_retries_but_continuous_change_fails(self):
         item = self.simple_snapshot("change", title="Changing source", status="unobserved")
