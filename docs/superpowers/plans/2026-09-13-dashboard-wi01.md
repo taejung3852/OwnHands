@@ -18,6 +18,16 @@
 - 순수 조회는 chmod/reconcile/purge/Event append/Claim 평가를 수행하지 않는다.
 - 같은 정상 metadata와 다른 손상 raw를 가진 fixture에서 partial과 정상 sibling을 함께 반환한다. raw 손상 상태를 Claim 재판정으로 승격하지 않는다.
 - ELI5는 승인된 provider 중립 경계+v1 adapter 하나. WI-03에서 구현하며 WI-01에 추상 provider 코드를 미리 추가하지 않는다.
+- 기존 rollback-journal DB만 지원한다. WAL은 SQLite 연결 전에 거부하여 원본 sidecar 생성을 방지한다.
+
+## Execution status (2026-09-13)
+
+Task 1–3 completed. Task 4 verification completed: targeted16/full449 pass,
+#82 mutations9/9 detected, raw-validator bypass2/2 detected. Independent review's
+WAL and malformed raw-path findings have regression fixtures and fixes.
+Below checklists retain the original pre-implementation plan; authoritative
+execution results are in `docs/m5-r/dashboard-wi01-verification.md`.
+PR publication follows the final verification commit. No merge is authorized.
 
 ## 완료 조건 / 실패 fixture 먼저 고정
 

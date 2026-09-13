@@ -141,8 +141,49 @@ class DashboardReadonlyTests(unittest.TestCase):
     def test_missing_raw_is_not_recreated(self):
         _, reader = self.open_reader()
         self.raw.object_path.unlink()
-        self.assertEqual(reader.inspect_closure(self.snapshot).diagnostics[0].availability, 'missing')
+        result = reader.inspect_closure(self.snapshot)
+        self.assertEqual(len(result.diagnostics), 1)
+        self.assertEqual(result.diagnostics[0].availability, 'missing')
         self.assertFalse(self.raw.object_path.exists())
+
+    def test_directory_raw_preserves_healthy_sibling(self):
+        _, reader = self.open_reader()
+        self.raw.object_path.unlink()
+        self.raw.object_path.mkdir()
+        before = self.inventory()
+        result = reader.inspect_closure(self.snapshot)
+        self.assertEqual(len(result.diagnostics), 1)
+        self.assertEqual(result.diagnostics[0].availability, 'corrupt')
+        self.assertIn(self.right['hash'], {r['hash'] for r in result.records})
+        self.assertEqual(before, self.inventory())
+
+    def test_wal_catalog_rejected_before_sidecar_creation(self):
+        self.fixture.catalog.connection.execute('PRAGMA journal_mode=WAL')
+        self.fixture.catalog.close()
+        before = self.inventory()
+        with self.assertRaisesRegex(RuntimeError, 'WAL'):
+            Catalog.open_readonly(self.fixture.paths)
+        self.assertEqual(before, self.inventory())
+
+    def test_corrupt_raw_parent_preserves_healthy_sibling(self):
+        _, reader = self.open_reader()
+        self.raw.object_path.unlink()
+        self.raw.object_path.parent.rmdir()
+        self.raw.object_path.parent.write_bytes(b'corrupt shard')
+        result = reader.inspect_closure(self.snapshot)
+        self.assertEqual(len(result.diagnostics), 1)
+        self.assertEqual(result.diagnostics[0].availability, 'corrupt')
+        self.assertIn(self.right['hash'], {r['hash'] for r in result.records})
+
+    def test_wal_lifecycle_rejected_before_sidecar_creation(self):
+        self.fixture.store.connection.execute('PRAGMA journal_mode=WAL')
+        self.fixture.store.close()
+        catalog = Catalog.open_readonly(self.fixture.paths)
+        self.addCleanup(catalog.close)
+        before = self.inventory()
+        with self.assertRaisesRegex(RuntimeError, 'WAL'):
+            LifecycleStore.open_readonly(catalog)
+        self.assertEqual(before, self.inventory())
 
     def test_purged_raw_stays_purged(self):
         _, reader = self.open_reader()

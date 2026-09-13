@@ -66,7 +66,7 @@ def inspect_closure(store: 'LifecycleStore', artifact_ref: dict) -> ClosureRead:
             rejected('missing', 'Evidence object is missing')
         except PermissionError:
             rejected('denied', 'Evidence object is inaccessible')
-        except ValueError:
+        except (ValueError, IsADirectoryError, NotADirectoryError):
             rejected('corrupt', 'Evidence object failed integrity validation')
 
     with store._transaction(write=False):

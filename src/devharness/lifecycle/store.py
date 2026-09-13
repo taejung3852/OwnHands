@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterator
 
-from ..catalog import Catalog
+from ..catalog import Catalog, require_rollback_journal
 from ..evidence import EvidenceStore
 from ..events import EventLog
 from ..identity import IdentityRegistry
@@ -92,6 +92,7 @@ class LifecycleStore:
         self.readonly = catalog.readonly
         self.path = Path(path) if path is not None else catalog.paths.root / "lifecycle-v1.sqlite3"
         if self.readonly:
+            require_rollback_journal(self.path)
             self.connection = sqlite3.connect(self.path.resolve().as_uri() + '?mode=ro',
                                                uri=True, isolation_level=None)
             self.connection.execute('PRAGMA query_only=ON')

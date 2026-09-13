@@ -297,6 +297,18 @@ def _legacy_events_for_v3_migration(
     return rows
 
 
+def require_rollback_journal(path: Path) -> None:
+    """Reject WAL before SQLite can create source-side WAL/SHM files.
+
+    OwnHands sources use rollback journals. Do not use immutable=1 here:
+    ignoring committed WAL frames would return an incomplete source snapshot.
+    """
+    with path.open('rb') as source:
+        header = source.read(20)
+    if header[18:20] == b'\x02\x02':
+        raise RuntimeError('WAL sources are unsupported by the read-only reader')
+
+
 class Catalog:
     def __init__(self, paths: DataPaths, connection: sqlite3.Connection, *, readonly: bool = False) -> None:
         self.paths = paths
@@ -309,6 +321,7 @@ class Catalog:
         """Open an existing current-schema catalog without initialization or repair."""
         if not isinstance(paths, DataPaths):
             paths = DataPaths.resolve(paths)
+        require_rollback_journal(paths.catalog)
         connection = sqlite3.connect(paths.catalog.resolve().as_uri() + '?mode=ro',
                                      uri=True, autocommit=True)
         connection.row_factory = sqlite3.Row
