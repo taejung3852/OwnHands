@@ -94,7 +94,7 @@
 
 ### 4.2 목록 선택·검색·정렬
 
-1. 권한 허용된 단일 project의 저장된 Snapshot을 issue/attempt별 묶어 가장 큰 journal sequence 1개를 기본 표시한다. 활성화 기록이 없어도 저장된 Snapshot은 표시한다. 활성 Snapshot과 최신 저장 Snapshot이 다르면 라벨로 구별한다. 과거 Snapshot은 직접 URL/근거 연결로 조회 가능하나 별도 Audit History 화면은 만들지 않는다.
+1. 권한 허용된 단일 project의 저장된 Snapshot을 issue/attempt별 묶어 가장 큰 journal sequence 1개를 기본 표시한다. 활성화 기록이 없어도 저장된 Snapshot은 표시한다. 동적 `active_snapshot_key`가 최신 저장 Snapshot의 `snapshot_key`와 다르면 라벨로 구별한다. 과거 Snapshot은 직접 URL/근거 연결로 조회 가능하나 별도 Audit History 화면은 만들지 않는다.
 2. group rank: 원본 needs-review=0, blocked=1, 그 외 stale=2, 그 외 ready=3. unreadable/unknown verdict는 rank=0의 **자료 확인 필요** 보조 그룹이며 enum 변경이 아니다. ready+unknown은 rank=3 안에서 current보다 먼저. 같은 rank는 Snapshot sequence 내림차순, 마지막 동률은 snapshot_key 오름차순.
 3. 필터는 중복 가능한 predicate: 확인 필요=needs-review 또는 unreadable; 차단=blocked; stale=freshness stale; 판단 가능=ready. 판단 가능 필터도 stale/unknown 라벨을 숨기지 않는다. 전체가 기본값.
 4. 검색은 Unicode 정규화·대소문자 무시 부분 일치로 Snapshot에 결합된 issue 제목 및 **이미 저장된** ELI5 headline/summary에 적용한다. 미생성 요약은 검색할 수 없으므로 '생성된 요약과 작업 제목에서 검색' 문구를 표시한다. 검색 때문에 보이지 않는 Snapshot의 요약을 생성하지 않는다.
@@ -112,6 +112,7 @@
 | 임의 상태 + unknown | 원본 상태 **(현재 적용 여부 미확인)** | 무엇이 없어 비교 못 하는지 표시. 녹색 현재 badge 금지 | 조회만 |
 | 새 관련 Observation 존재 | 원본 상태 유지 | '이 보고서 이후 새 근거가 등록됐습니다. 결과에는 아직 반영되지 않았습니다' | 기존 근거 조회. 새 결과처럼 합산하지 않음 |
 | 최신 다른 Snapshot 존재 | 현재 보고 있는 원본 상태 | '더 최근 보고서가 있습니다' 링크. 자동 이동 금지 | 명시적 새 Snapshot 이동 |
+| 최신 저장 Snapshot과 active Snapshot 불일치 | 최신 저장 Snapshot의 원본 상태 | 현재 선택을 `active_snapshot_key`로 별도 표시. 두 Snapshot의 내용·판정 혼합 금지 | active 또는 최신 저장 Snapshot으로 명시적 이동 |
 | 필수 0, 선택만 존재 | 원본 상태 유지 | '필수 항목 없음'. required_complete=true를 '제품 완료'로 번역하지 않음 | 선택 결과 조회 |
 | 선택 제외 + unobserved | 원본 상태 유지 | 미확인 수에 포함, '선택 조건·이번 범위 제외'와 이유 표시; 필수 장애로 표현 금지 | 제외 근거 조회 |
 | Review 없음/DB 없음 | 결과 없음 | '저장된 검토 결과가 없습니다'; DB 자동 생성 없음 | 목록 조회만 |
@@ -126,6 +127,7 @@
 
 - dedup은 같은 source pointer와 같은 problem kind에만 적용한다. 다른 실행의 실패는 묶어 요약해도 전체 목록에서 사라지지 않는다.
 - 상단 주의 카드 최대 3개: required blocker → observed failure → integrity/conflict → 미확인/판단불가 → 선택 제외 순서. 나머지는 '추가 N건' 조회로 모두 제공한다. 단순 선택 제외는 경고성 위험이 아니라 범위 설명이다.
+- `state_reason`은 새 상태 판단이나 일반 설명을 만들지 않는다. `blocked`는 저장 blocker의 원인을, `needs-review`는 blocker를 제외한 `problem_set` 우선순위의 첫 실제 원인 description을 사용한다. 대응 원인이 없을 때만 결정적 안전 문구로 fallback한다.
 - next_checks는 실제 문제/새 근거/stale source에 연결된 0~3개 정보 문장. 추가 발견/진단만으로 needs-review인 경우도 안내 가능하도록 D2 예외를 명시한다. 실행 명령/버튼·근거 없는 영향 추정은 넣지 않는다.
 - unknown만 있으면 '다음 확인'을 발명하지 않고 최신성 배너에서 비교 불가 이유를 설명한다.
 - total/required/optional 각각 `{total, verified, failed, inconclusive, unobserved}`. 각 그룹의 합은 total과 같아야 한다. all은 required+optional이며 제외된 선택도 분모에 포함한다. excluded_optional_count는 별도 보조 수치다.
@@ -185,7 +187,8 @@ Problem = {id:string, kind:failure|inconclusive|unobserved|blocker|finding|
 ContextOverlay = {freshness:current|stale|unknown, reasons:string[],
   basis:registered_inputs, checked_at:ISO8601, input_refs:Ref[],
   new_evidence_available:bool|null, superseded_attempt:bool,
-  newer_snapshot_key:string|null, read_health:ReadHealth}
+  newer_snapshot_key:string|null, active_snapshot_key:string|null,
+  read_health:ReadHealth}
 Presentation = {status:absent|pending|ready|failed|unavailable,
   presentation_id:string|null, recipe_hash:string, icon:string,
   headline:TextFact, summary:TextFact[], key_changes:TextFact[],
@@ -208,13 +211,14 @@ ReviewCardVM = {
  presentation:Presentation, read_token:string
 }
 ReviewDetailVM = ReviewCardVM + {
- claims:ClaimVM[], problems:Problem[], context_notices:string[],
+ claims:ClaimVM[], additional_observations:ObservationVM[],
+ problems:Problem[], context_notices:string[],
  remaining_problem_count:int, source_contract_version:int,
  rules_version:int|null
 }
 ClaimVM = {id,text,required,comparison:current|preserve|improve,
  status:verified|failed|inconclusive|unobserved,
- checks:CheckVM[], source:SourcePointer}
+ checks:CheckVM[], observations:ObservationVM[], source:SourcePointer}
 CheckVM = {id,statement,role,status,reason_codes:string[],
  before:ObservationVM[],after:ObservationVM[],
  comparisons:ComparisonVM[],conflicts:SourcePointer[],
@@ -342,10 +346,10 @@ Warm Paper Neutral 배경과 Ledger Indigo 제목/링크를 기본으로 카드 
 | Test | fixture/조작 | 기대 관찰 | R | E |
 |---|---|---|---|---|
 | T01 | 전체GET/ensure/hit/failure/raw를 ro 원본과 write-deny spy로 실행; DB 없음; orphan CAS 존재 | 원본 생성/쓰기/chmod/reconcile/이벤트/실행0, orphan 유지, cache만 변경 | R01 | E01 |
-| T02 | 2issues×2attempts×여러revision, 중복 상태, cursor 중 원본 변경, 미생성 요약 검색 | 정해진rank/분모/개수, 중복 없음, 옛cursor409, 검색 생성0 | R02 | E02 |
+| T02 | 2issues×2attempts×여러revision, active가 이전 Snapshot, 중복 상태, cursor 중 원본 변경, 미생성 요약 검색 | 정해진rank/분모/개수, 최신 저장 key와 active key 구분, 중복 없음, 옛cursor409, 검색 생성0 | R02 | E02 |
 | T03 | 3페이지+Drawer, loading/fallback/partial,3viewport,keyboard/zoom | 탐색/focus 복귀, 읽기 좋은 배치, 실행 버튼 없음 | R03,R05,R08,R11,R13 | E03 |
 | T04 | required5/optional2,excluded1,4개 상태,required0,legacy v1 | counts 합 일치, 필수 없음/선택 제외 표시, test/check 수 혼입0 | R04 | E02 |
-| T05 | all verified+finding,current+Before conflict,failed이지만gaps 빈 배열,blocked+failure | 이유/안내의 source 존재, 숨긴 문제0, 전체drill-down | R05 | E02,E03 |
+| T05 | all verified+finding,current+Before conflict,failed이지만gaps 빈 배열,blocked+failure | blocked는 blocker, needs-review는 problem 우선순위의 실제 원인을 state_reason으로 사용, 숨긴 문제0, 전체drill-down | R05 | E02,E03 |
 | T06 | preserve/improve/current,Before 없음,의미/환경 불일치,같은 환경 다른ID,반복pass+fail | 원본 판정 유지, 누락PASS화0, 모든 실행 표시, foreign ref404 | R06 | E02,E04 |
 | T07 | 다른Task/같은Task 다른Snapshot key,purged/missing/corrupt,HTML/ANSI,path traversal,binary,대형raw,secret | 누설/실행0, availability 정확, 원본 불변, 정상 형제 근거 유지 | R07 | E04 |
 | T08 | semantic recapture,active입력 없음,test meaning 충돌,새attempt/Evidence/Snapshot,journal손상 | stale/unknown/current/새근거 독립, 옛cache 재생성0, 원본 혼합0 | R08 | E02,E03 |
