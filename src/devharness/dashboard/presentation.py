@@ -133,7 +133,10 @@ class PresentationService:
 
     def read_list(self, **query) -> dict:
         rows, bound = self._ready_rows()
-        return self.read_model.read_list(presentations=rows, ready_sequence=bound, **query)
+        listing = self.read_model.read_list(presentations=rows, ready_sequence=bound, **query)
+        for card in listing["items"]:
+            card["presentation"] = self._present(card)
+        return listing
 
     def read_presentation(self, snapshot_key: str) -> dict:
         return self.read_detail(snapshot_key)["presentation"]
@@ -247,41 +250,52 @@ class PresentationService:
         connection = self._connect()
         connection.execute("BEGIN IMMEDIATE")
         try:
-            row = connection.execute(
-                "SELECT * FROM presentations WHERE cache_key=?", (cache_key,)).fetchone()
-            now = self._clock()
-            if row is not None:
-                if row["status"] == "ready":
-                    connection.execute("COMMIT")
-                    return "ready", row
-                if row["status"] == "pending" and self._epoch(row["lease_expires_at"]) > now:
-                    connection.execute("COMMIT")
-                    return "pending", row
-                if row["attempt_count"] >= MAX_ATTEMPTS or self._epoch(row["next_retry_at"]) > now:
-                    connection.execute("COMMIT")
-                    return "failed", row
-            owner = uuid.uuid4().hex
-            attempt = (row["attempt_count"] if row is not None else 0) + 1
-            snapshot_ref = detail["snapshot_ref"]
-            connection.execute(
-                """INSERT INTO presentations(
-                     cache_key, snapshot_key, review_snapshot_id, snapshot_ref, fingerprint,
-                     recipe_hash, structured_input_hash, status, attempt_count,
-                     lease_owner, lease_expires_at)
-                   VALUES (?,?,?,?,?,?,?,'pending',?,?,?)
-                   ON CONFLICT(cache_key) DO UPDATE SET
-                     status='pending', attempt_count=excluded.attempt_count,
-                     lease_owner=excluded.lease_owner, lease_expires_at=excluded.lease_expires_at,
-                     structured_input_hash=excluded.structured_input_hash,
-                     next_retry_at=NULL, error_code=NULL""",
-                (cache_key, detail["snapshot_key"], snapshot_ref["id"],
-                 canonical_json(snapshot_ref), snapshot_ref["hash"], self.recipe_hash,
-                 input_hash, attempt, owner, self.timestamp(LEASE_SECONDS)),
-            )
+            outcome, result = self._decide(connection, cache_key, detail, input_hash)
             connection.execute("COMMIT")
         except BaseException:
             connection.execute("ROLLBACK")
             raise
+        return outcome, result
+
+    def _decide(self, connection, cache_key, detail, input_hash):
+        row = connection.execute(
+            "SELECT * FROM presentations WHERE cache_key=?", (cache_key,)).fetchone()
+        now = self._clock()
+        if row is not None:
+            if row["status"] == "ready":
+                return "ready", row
+            if row["status"] == "pending" and self._epoch(row["lease_expires_at"]) > now:
+                return "pending", row
+            if row["attempt_count"] >= MAX_ATTEMPTS or self._epoch(row["next_retry_at"]) > now:
+                if row["status"] == "pending":
+                    # A worker died holding the last attempt: settle it instead of
+                    # leaving the row pending with nothing left to resume it.
+                    connection.execute(
+                        """UPDATE presentations SET status='failed', lease_owner=NULL,
+                           lease_expires_at=NULL,
+                           error_code=COALESCE(error_code, 'lease_expired')
+                           WHERE cache_key=?""", (cache_key,))
+                    row = connection.execute(
+                        "SELECT * FROM presentations WHERE cache_key=?", (cache_key,)).fetchone()
+                return "failed", row
+        owner = uuid.uuid4().hex
+        attempt = (row["attempt_count"] if row is not None else 0) + 1
+        snapshot_ref = detail["snapshot_ref"]
+        connection.execute(
+            """INSERT INTO presentations(
+                 cache_key, snapshot_key, review_snapshot_id, snapshot_ref, fingerprint,
+                 recipe_hash, structured_input_hash, status, attempt_count,
+                 lease_owner, lease_expires_at)
+               VALUES (?,?,?,?,?,?,?,'pending',?,?,?)
+               ON CONFLICT(cache_key) DO UPDATE SET
+                 status='pending', attempt_count=excluded.attempt_count,
+                 lease_owner=excluded.lease_owner, lease_expires_at=excluded.lease_expires_at,
+                 structured_input_hash=excluded.structured_input_hash,
+                 next_retry_at=NULL, error_code=NULL""",
+            (cache_key, detail["snapshot_key"], snapshot_ref["id"],
+             canonical_json(snapshot_ref), snapshot_ref["hash"], self.recipe_hash,
+             input_hash, attempt, owner, self.timestamp(LEASE_SECONDS)),
+        )
         return "claimed", {"lease_owner": owner, "attempt": attempt}
 
     def _settle(self, cache_key, snapshot_key, detail, structured, lease, output, error_code):
@@ -299,9 +313,8 @@ class PresentationService:
             row = connection.execute(
                 "SELECT * FROM presentations WHERE cache_key=?", (cache_key,)).fetchone()
             if row is None or row["lease_owner"] != lease["lease_owner"]:
-                connection.execute("COMMIT")
-                return self._from_row(detail, self._row(cache_key))
-            if error_code is not None:
+                pass  # The lease moved on: this response is late and is discarded.
+            elif error_code is not None:
                 connection.execute(
                     """UPDATE presentations SET status='failed', error_code=?, next_retry_at=?,
                        lease_owner=NULL, lease_expires_at=NULL WHERE cache_key=?""",
@@ -385,7 +398,13 @@ class PresentationService:
                 "source": claim["source"],
                 "checks": [{"id": check["id"], "statement": check["statement"],
                             "role": check["role"], "status": check["status"],
-                            "reason_codes": check["reason_codes"]}
+                            "reason_codes": check["reason_codes"],
+                            "before": [self._observed(value) for value in check["before"]],
+                            "after": [self._observed(value) for value in check["after"]],
+                            "comparisons": [{name: value[name] for name in
+                                             ("test_id", "comparable", "environment",
+                                              "test_meaning", "expected_before")}
+                                            for value in check["comparisons"]]}
                            for check in claim["checks"]],
             } for claim in detail["claims"]],
             "problems": [{"id": problem["id"], "kind": problem["kind"],
@@ -394,6 +413,12 @@ class PresentationService:
                           "description": problem["description"], "sources": problem["sources"]}
                          for problem in detail["problems"]],
         }
+
+    @staticmethod
+    def _observed(observation: dict) -> dict:
+        """Execution meaning and result only: no refs, no evidence links, no raw."""
+        return {name: observation[name] for name in
+                ("phase", "result", "basis", "test_id", "test_meaning")}
 
     # --- output validation --------------------------------------------------
 
@@ -450,7 +475,7 @@ class PresentationService:
             pointer = canonical_json(source)
             if pointer not in allowed:
                 raise ValueError("SourcePointer is outside this Snapshot")
-            if kind == "observed" and status_by_pointer.get(pointer, "verified") != "verified":
+            if kind == "observed" and status_by_pointer.get(pointer) != "verified":
                 raise ValueError("only a verified Claim may be reported as observed")
 
     def _provider(self):

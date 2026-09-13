@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
+from http.client import HTTPException
 from typing import Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -123,7 +124,7 @@ class OpenAICompatibleGenerator:
             raise GeneratorError("http_status", status=error.code) from None
         except TimeoutError:
             raise GeneratorError("timeout") from None
-        except (URLError, OSError) as error:
+        except (URLError, OSError, HTTPException) as error:
             if isinstance(getattr(error, "reason", None), TimeoutError):
                 raise GeneratorError("timeout") from None
             raise GeneratorError("transport") from None

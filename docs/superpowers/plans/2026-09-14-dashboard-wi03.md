@@ -99,8 +99,10 @@ reject 규칙(위반 시 ready 저장 0, 생성 실패로 계산해 재시도 �
   Claim count·verdict는 API/fallback이 원본에서 직접 계산하며 모델 출력은 절대 소유하지 않는다.
 - **verdict/count field 금지**: 출력 object의 어느 깊이에도 `counts/verdict/total/verified/failed/
   inconclusive/unobserved/required_complete/freshness/human_decision` key가 있으면 reject.
-- 상태 정합성: `kind="observed"` TextFact가 인용한 Claim pointer의 저장 status가 `verified`가
-  아니면 reject. failed/unobserved는 `gap`으로만 표현 가능하다.
+- 상태 정합성: `kind="observed"` TextFact는 **저장 status가 `verified`인 Claim source pointer만**
+  인용할 수 있다. Problem pointer, WorkIssue 제목 pointer 등 verified Claim이 아닌 모든 pointer는
+  `observed` 근거가 될 수 없다. failed/unobserved/blocker는 `gap`으로만 표현 가능하다.
+  (독립 재검수에서 Problem pointer가 기본값 `verified`로 통과하던 구멍을 확인해 수정했다.)
 - 금지 표현: `완전히 안전`, `모두 해결`, `merge 가능`, `현재도 최신`, `지금도 최신`, `이후 새 근거 없음`.
 
 ### 2.6 `skills/dashboard/SKILL.md` 회귀 fixture
@@ -129,6 +131,8 @@ routing 계약을 `view_intent`와 cache 상태 기준으로 바꾼다.
    import 오류가 아니라 **단언 실패**로 RED가 되도록 WI-02와 같은 `try/except ImportError` 패턴을 쓴다.
 2. `tests/test_skill_routing_fixtures.py`, `tests/test_skills.py`에 F10과 Skill 본문 fixture를 추가해 RED 확인.
 3. `generator.py` → `presentation.py` → `read_model.py` 전달 인자 → Skill 문서 순으로 최소 구현.
+   목록 카드와 상세는 같은 cache 상태 overlay(`recipe_hash`, `pending/failed`, `next_retry_at`)를
+   반환한다. viewport ensure가 카드의 `recipe_hash`를 그대로 되돌려 보낼 수 있어야 한다.
 4. 대상 테스트 → 전체 회귀 → `tests/run_claim_mutations.py`.
 5. `docs/m5-r/dashboard-issue03-verification.md` 작성. 실제 model 미실행이면 `semantic_quality=unverified`.
 6. 독립 재검수 → Critical/Important 미해결 0.
@@ -141,5 +145,8 @@ routing 계약을 `view_intent`와 cache 상태 기준으로 바꾼다.
 - 실제 model 의미 품질 18출력 검사와 사용자 이해 pilot (이슈 6)
 - **선택 raw 발췌 extractor**: SDD §7.3의 "raw 추가는 기본 0" 기본값을 채택해 v1 입력은 구조화
   전용이다. 입력에 포함되는 Spec/WorkIssue/problem 텍스트는 모두 untrusted quoted data로 감싼다.
+  구조화 입력에는 WorkIssue/Spec/전체 Claim·check/Before·After Observation 결과와 비교,
+  problem/제외, 저장 Review verdict가 들어간다. Evidence ref, code/environment ref, execution,
+  raw/stdout/stderr/diff는 보내지 않는다.
 - 두 번째 provider adapter
 - Claim/Review 재평가, 원본 Lifecycle/Evidence 쓰기

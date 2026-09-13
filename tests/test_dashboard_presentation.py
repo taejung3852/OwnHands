@@ -4,6 +4,7 @@ import hashlib
 import json
 import sqlite3
 import threading
+from http.client import IncompleteRead
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -506,6 +507,41 @@ class PresentationFixtureTests(unittest.TestCase):
         self.assertEqual(value["status"], "failed")
         self.assertEqual(value["reason_code"], "invalid_output")
 
+    def test_f08_a_problem_pointer_may_not_be_reported_as_a_success_observation(self):
+        """Review finding: every grounded pointer carries its own state, not just Claims."""
+        item = self.builder.simple_snapshot("f08-problem", title="문제 인용", status="failed",
+                                            blocked=True, activate_inputs=True)
+
+        def build(structured_input):
+            output = facts(structured_input)
+            problem = next(value for value in structured_input["problems"]
+                           if value["kind"] in ("failure", "blocker", "inconclusive", "unobserved"))
+            output["summary"][1] = {"text": "이 검증에서는 저장 동작을 확인했습니다.",
+                                    "kind": "observed", "sources": problem["sources"]}
+            return output
+
+        service = self.open_service(generator=RecordingGenerator(build=build))
+        key = service.snapshot_key(item["snapshot"])
+        value = service.ensure_presentation(key, view_intent="detail")
+        self.assertEqual(value["status"], "failed")
+        self.assertEqual(value["reason_code"], "invalid_output")
+        self.assertTrue(value["fallback"])
+
+    def test_f08_a_gap_may_still_cite_the_problem_it_describes(self):
+        item = self.builder.simple_snapshot("f08-problem-gap", title="문제 인용 허용",
+                                            status="failed", blocked=True, activate_inputs=True)
+
+        def build(structured_input):
+            output = facts(structured_input)
+            problem = structured_input["problems"][0]
+            output["attention_items"] = [{"text": "확인되지 않은 조건이 남아 있습니다.",
+                                          "kind": "gap", "sources": problem["sources"]}]
+            return output
+
+        service = self.open_service(generator=RecordingGenerator(build=build))
+        key = service.snapshot_key(item["snapshot"])
+        self.assertEqual(service.ensure_presentation(key, view_intent="detail")["status"], "ready")
+
     def test_f08_overreaching_success_claims_are_rejected(self):
         for phrase in ("완전히 안전합니다.", "모두 해결됐습니다.", "merge 가능합니다.",
                        "현재도 최신입니다."):
@@ -548,6 +584,32 @@ class PresentationFixtureTests(unittest.TestCase):
         self.assertNotIn("verdict", row)
         self.assertNotIn("freshness", row)
         self.assertNotIn("review_state", row)
+
+    def test_f08_the_structured_input_carries_before_after_results_and_comparisons(self):
+        """#93 lists Before/After structured results among the required generation inputs."""
+        f = self.fixture
+        f.configure("preserve")
+        f.observe("pass", phase="before")
+        f.observe("pass")
+        review = f.store.append("review", "review:f08-before-after", f.scope, f.evaluate())
+        snapshot = self.builder.append_snapshot(review, "snapshot:f08-before-after")
+        service = self.open_service()
+        key = service.snapshot_key(snapshot)
+        service.ensure_presentation(key, view_intent="detail")
+        check = self.generator.calls[0]["input"]["claims"][0]["checks"][0]
+        self.assertTrue(check["before"], "Before observations must reach the generator")
+        self.assertTrue(check["after"], "After observations must reach the generator")
+        self.assertEqual({"phase", "result", "basis", "test_id", "test_meaning"},
+                         set(check["after"][0]))
+        self.assertEqual(check["before"][0]["phase"], "before")
+        self.assertEqual(check["after"][0]["result"], "pass")
+        self.assertTrue(check["comparisons"])
+        self.assertEqual({"test_id", "comparable", "environment", "test_meaning",
+                          "expected_before"}, set(check["comparisons"][0]))
+        sent = canonical_json(self.generator.calls[0]["input"])
+        for forbidden in ("stdout", "stderr", "diff", "object_path", "cas_hash", "raw",
+                          "evidence_links", "code_ref", "environment_ref", "execution"):
+            self.assertNotIn('"' + forbidden + '"', sent)
 
     # --- F09 ---------------------------------------------------------------
 
@@ -608,6 +670,50 @@ class PresentationFixtureTests(unittest.TestCase):
         self.assertFalse(card["presentation"]["fallback"])
         self.assertEqual(after["summary_search"], "cached_only")
         self.assertEqual(len(self.generator.calls), 1)
+
+    def test_f10_list_cards_carry_the_cache_state_the_browser_needs_to_ensure(self):
+        """Review finding: the viewport ensure path needs recipe_hash and next_retry_at."""
+        item = self.verified_snapshot("f10-card-state", title="카드 상태")
+        service = self.open_service()
+        key = service.snapshot_key(item["snapshot"])
+        absent = service.read_list()["items"][0]["presentation"]
+        self.assertEqual(absent["status"], "absent")
+        self.assertEqual(absent["recipe_hash"], service.recipe_hash)
+
+        failing = self.open_service(generator=RecordingGenerator(error=GeneratorError("timeout")))
+        failing.ensure_presentation(key, view_intent="list_visible")
+        card = next(value for value in service.read_list()["items"]
+                    if value["snapshot_key"] == key)["presentation"]
+        self.assertEqual(card["status"], "failed")
+        self.assertEqual(card["reason_code"], "timeout")
+        self.assertEqual(card["recipe_hash"], service.recipe_hash)
+        self.assertIsNotNone(card["retry_after"])
+        self.assertTrue(card["fallback"])
+        # The card's own recipe_hash is what the browser posts back.
+        self.assertEqual(
+            service.ensure_presentation(key, view_intent="list_visible",
+                                        recipe_hash=card["recipe_hash"])["status"], "failed")
+
+    def test_f07_a_crash_on_the_final_attempt_settles_as_failed_not_pending(self):
+        """Review finding: the attempt cap must not strand a row in `pending`."""
+        item = self.verified_snapshot("f07-terminal", title="마지막 시도 크래시")
+        service = self.open_service()
+        key = service.snapshot_key(item["snapshot"])
+        crashed = self.open_service(generator=RecordingGenerator(error=GeneratorError("transport")))
+        crashed.ensure_presentation(key, view_intent="detail")
+        self.clock.advance(61)
+        crashed.ensure_presentation(key, view_intent="detail")
+        with sqlite3.connect(self.cache_path()) as connection:
+            connection.execute(
+                "UPDATE presentations SET status='pending', lease_owner='dead-worker',"
+                " lease_expires_at=?, next_retry_at=NULL", (service.timestamp(-10),))
+        self.clock.advance(10_000)
+        value = service.ensure_presentation(key, view_intent="detail")
+        self.assertEqual(value["status"], "failed")
+        self.assertTrue(value["fallback"])
+        self.assertIsNone(value["retry_after"])
+        self.assertEqual(service.read_presentation(key)["status"], "failed")
+        self.assertEqual(self.generator.calls, [])
 
     # --- F11 ---------------------------------------------------------------
 
@@ -761,6 +867,24 @@ class OpenAICompatibleAdapterTests(unittest.TestCase):
         self.assertNotIn("not json at all", str(invalid))
         _, unwrapped = self.call(json.dumps({"choices": []}).encode())
         self.assertEqual(unwrapped.code, "invalid_response")
+
+    def test_a_truncated_response_body_is_classified_as_transport(self):
+        """Review finding: IncompleteRead is neither OSError nor URLError."""
+        class Truncated:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def read(self, amount=None):
+                raise IncompleteRead(b"{\"choices\"", 42)
+
+        generator = OpenAICompatibleGenerator(self.config())
+        with patch("devharness.dashboard.generator.urlopen", lambda *a, **k: Truncated()):
+            with self.assertRaises(GeneratorError) as caught:
+                generator.generate({}, request_id="r1", timeout_seconds=30, idempotency_key="k:1")
+        self.assertEqual(caught.exception.code, "transport")
 
     def test_an_oversized_response_is_refused_without_being_parsed(self):
         payload = json.dumps({"choices": [{"message": {"content": "{}"}}]}).encode()
