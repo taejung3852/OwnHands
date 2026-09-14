@@ -90,7 +90,10 @@ class Client:
         return self.send("POST", PREFIX + path, **kwargs)
 
 
-class DashboardApiTests(unittest.TestCase):
+class DashboardHarness(unittest.TestCase):
+    """Server, client and lifecycle fixtures. Carries no tests of its own so a
+    suite that only needs the harness does not re-run this file's cases."""
+
     def setUp(self):
         self.assertIsNotNone(DashboardServer, "Dashboard HTTP server is not implemented")
         self.builder = wi02.DashboardReadModelTests()
@@ -164,6 +167,8 @@ class DashboardApiTests(unittest.TestCase):
                           lambda *args: original(*args[:-1], status)):
             yield
 
+
+class DashboardApiTests(DashboardHarness):
     # --- F01 ---------------------------------------------------------------
 
     def test_f01_reads_never_create_migrate_or_touch_the_sources(self):

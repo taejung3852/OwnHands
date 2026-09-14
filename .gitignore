@@ -5,3 +5,8 @@ __pycache__/
 .dev-harness/
 .codex-log/
 docs/spikes/raw/
+
+# packaging artifacts
+build/
+dist/
+*.egg-info/

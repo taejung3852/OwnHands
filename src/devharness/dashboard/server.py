@@ -63,6 +63,35 @@ MESSAGES = {
 }
 RETRYABLE = {"SOURCE_CHANGED", "LIST_CHANGED", "SOURCE_UNAVAILABLE"}
 
+# The only paths served outside the API. A literal allowlist: no path is ever
+# joined, so there is nothing for a traversal to reach and the data root is
+# not on a served tree at all.
+WEB = {
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    "/styles.css": ("styles.css", "text/css; charset=utf-8"),
+}
+# The document needs its own origin for script, style and fetch; the API keeps
+# the stricter default-src 'none'. Neither admits an external origin.
+DOCUMENT_CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; "
+                "connect-src 'self'; img-src 'self' data:; font-src 'self'; "
+                "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+
+
+_ASSETS: dict[str, bytes] = {}
+
+
+def asset(name: str) -> bytes:
+    """Read a shipped asset through the package so an installed wheel works too.
+
+    The files ship inside the package and never change while the process runs,
+    so one read each is enough.
+    """
+    if name not in _ASSETS:
+        from importlib import resources
+        _ASSETS[name] = (resources.files(__package__) / "web" / name).read_bytes()
+    return _ASSETS[name]
+
 
 def _same(offered: object, expected: str) -> bool:
     """Constant-time compare over bytes: a client may send any encoding at all."""
@@ -193,7 +222,18 @@ class _Handler(BaseHTTPRequestHandler):
             segments = [unquote(part) for part in split.path.split("/") if part]
             prefix = [part for part in PREFIX.split("/") if part]
             if segments[:len(prefix)] != prefix:
-                raise _Denied("NOT_FOUND")
+                # The app itself: reachable before a session exists, because the
+                # token screen has to render before anyone can authenticate.
+                self._origins()
+                if method != "GET":
+                    raise _Denied("METHOD_NOT_ALLOWED")
+                name, content_type = WEB.get(split.path, (None, None))
+                if name is None:
+                    raise _Denied("NOT_FOUND")
+                template = split.path
+                self._send(200, asset(name), content_type,
+                           DOCUMENT_CSP if name.endswith(".html") else "default-src 'none'")
+                return
             route = segments[len(prefix):]
             template = self._template(route)
             self._guard(method, route)
@@ -266,13 +306,16 @@ class _Handler(BaseHTTPRequestHandler):
 
     # --- boundary checks ----------------------------------------------------
 
-    def _guard(self, method: str, route) -> None:
+    def _origins(self) -> None:
         server = self.dashboard
         if (self.headers.get("Host") or "") != server.authority:
             raise _Denied("ORIGIN_DENIED")
         origin = self.headers.get("Origin")
         if origin is not None and origin != "http://" + server.authority:
             raise _Denied("ORIGIN_DENIED")
+
+    def _guard(self, method: str, route) -> None:
+        self._origins()
         if method in ("OPTIONS", "PUT", "DELETE", "HEAD"):
             raise _Denied("METHOD_NOT_ALLOWED")
         if route == ["session"]:
@@ -390,12 +433,17 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _respond(self, status: int, payload) -> None:
         body = b"" if self._head else json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self._send(status, body, "application/json", "default-src 'none'")
+
+    def _send(self, status: int, body: bytes, content_type: str, policy: str) -> None:
+        if self._head:
+            body = b""
         self._sent = True
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", "default-src 'none'")
+        self.send_header("Content-Security-Policy", policy)
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Cache-Control", "no-store")
         cookie = getattr(self, "_cookie", None)

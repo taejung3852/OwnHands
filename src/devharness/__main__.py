@@ -54,9 +54,13 @@ def main() -> int:
                                      host=arguments.host, port=arguments.port)
         except ValueError as error:
             parser.error(str(error))
-        server.start()
+        try:
+            server.start()
+        except OSError as error:
+            parser.error(f"cannot bind {arguments.host}:{arguments.port} ({error.strerror}); "
+                         "choose a free port with --port")
         # The boot token goes to the local user on stdout only: never a URL, log or response.
-        print(f"dashboard=http://{server.authority}{'/api/dashboard/v1'}")
+        print(f"dashboard=http://{server.authority}/")
         print(f"token={server.token}", flush=True)
         try:
             server._thread.join()
