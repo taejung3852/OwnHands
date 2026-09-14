@@ -141,6 +141,29 @@ python -m devharness dashboard --data-root <fixture> --project-id <id> --port 87
 | 1 | 생성이 끝나면 목록 pagination이 날아감 | 목록 카드의 ensure 완료 callback이 `render()`였다. 브라우저에서 `더 보기`로 24건을 본 뒤 `render()`를 호출하니 **19건으로 되돌아갔다**. 지적되지 않은 부작용이 하나 더 있었다 — `render()`는 `stopPolls(false)`로 `suspended`까지 비우므로 다른 카드의 일시정지된 polling도 함께 버려진다. 한편 스크롤 초기화는 실제로 일어나지 않았다(`paint()`가 `scrollY`를 건드리지 않는다) | `watchCard()`가 카드마다 repaint 함수를 등록하고, 생성이 끝나면 그 노드만 `replaceChild`로 교체한다. IntersectionObserver가 없는 경로도 같은 함수를 쓴다. 관찰: 24건 유지, 새 요약 문장 표시, `다른 작업의 검토 24건` 그대로 |
 | 2 | Claim과 무관한 Problem을 `선택`으로 오표시 | SDD §Problem은 `required: bool\|null`이고, `read_model.py:461`의 `required.get(claim_id)`는 `criterion_id` 없는 finding/diagnostic에 `None`을 준다. 실제로 읽어 `finding \| required = null \| claim_id = null`을 확인했다. 저장소의 기존 fixture 두 곳이 이미 이런 finding을 만든다 | `problemBadge()`가 `true`→`필수 · kind`, `false`→`선택 · kind`, `null`→**kind만** 표시한다. `조건 미지정` 같은 라벨은 '값이 빠졌다'는 뉘앙스를 주는데, finding/diagnostic은 Claim에 속하지 않는 문제라 애초에 진술할 필수/선택이 없다. 확인 결과 `required=null`은 `claim_id=null`일 때만 나오며, 제외된 선택 조건은 `required=false`로 정상 해석된다. 관찰: 같은 화면에 `필수 · failure`와 `finding`이 나란히 표시됨. 서버 계약도 API 테스트로 고정했다 |
 
+### 768×1024 · 200% zoom 수용 확인
+
+이슈 #97이 완료 기준으로 잡은 두 폭을 실제 브라우저에서 확인했다. 결과가 모두 통과라 코드는
+건드리지 않았다. 측정은 (a) 뷰포트를 벗어나는 요소 수, (b) 같은 레이어 안 텍스트 박스의 실제
+사각형 겹침 수, (c) 문서 가로 스크롤 여부다.
+
+| 조건 | 화면 | 가로 스크롤 | 뷰포트 초과 요소 | 텍스트 겹침 |
+|---|---|---|---|---|
+| 768×1024 | 목록 | 없음 (`scrollWidth 768 = clientWidth`) | 0 | 0 |
+| 768×1024 | 상세 + Drawer | 없음 | 0 | 0 (Drawer는 전폭 overlay라 같은 레이어끼리만 비교) |
+| 200% zoom (512×384 상당) | 목록 | 없음 (`512 = 512`) | 0 | 0 |
+| 200% zoom (512×384 상당) | 상세 + Drawer | 없음 | 0 | 0. Before/After가 `227px 227px`로 유지 |
+
+200% zoom은 1024×768 창을 200%로 확대했을 때의 CSS 뷰포트(512×384)를 그대로 만들어 측정했다.
+브라우저 zoom 단축키는 이 도구로 보낼 수 없어 레이아웃 등가 조건으로 대체했고, px 단위가
+확대되는 zoom의 성질은 동일하게 재현된다.
+
+**별도로 확인한 한계 — 텍스트 전용 확대(WCAG 1.4.4)는 동작하지 않는다.** 루트 font-size를 200%로
+올려도 `.caption` 12px, `.body-sm` 13px는 그대로였다. `styles.css`가 글자 크기를 전부 px로 고정하고
+있기 때문이다. 레이아웃이 깨지지 않은 게 아니라 **애초에 커지지 않는다.** 이슈 #97의 기준은
+"200% zoom"이고 zoom은 통과하므로 이번 범위에서는 고치지 않는다. rem 전환은 시트 전체를 바꾸는
+디자인 변경이라 별도 항목으로 남긴다.
+
 ## F01–F14 대응
 
 | ID | 이번 이슈에서 확보한 근거 | 상태 |
@@ -157,14 +180,15 @@ python -m devharness dashboard --data-root <fixture> --project-id <id> --port 87
 | F10 브라우저 세션 | 최초 로그인·새로고침·deep link·CSRF 소실·401. token 저장·URL 노출 0 | 부분 — 새 탭·서버 재시작은 미관찰 |
 | F11 정적 제공 | 설치 후 시작, MIME/CSP, allowlist 밖 404, traversal 0, API 오류 HTML화 0 | 확보 |
 | F12 오류 상태 | 401/404/409/503 매핑 구현 + 자동 테스트 | 부분 — 409 실제 경쟁은 자동 테스트로만 |
-| F13 시각/접근성 | 375·1440 관찰, 900px 전환, keep-all, focus trap, 44px 조작 | 부분 — 768·200% zoom 미관찰 |
+| F13 시각/접근성 | 375·768·1440·200% zoom(512 상당) 관찰, 900px 전환, keep-all, focus trap, 44px 조작 | 확보 — 단 텍스트 전용 확대는 px 고정으로 동작하지 않음(별도 항목) |
 | F14 읽기전용 회귀 | writer/evaluator spy 0, inventory 불변, 전체 579 + mutation 9/9 | 확보 |
 
 ## 미실행 및 후속 범위
 
 - **`semantic_quality=unverified`**. 실제 LLM 호출 0. 화면 검증은 provider 미설정 상태의
   결정적 fallback 기준이며, 18출력 의미 검사와 사용자 60초 이해도 pilot은 이슈 6 범위다.
-- 768×1024와 200% zoom은 실제 브라우저로 관찰하지 않았다. CSS 규칙은 있으나 미확인이다.
+- 텍스트 전용 확대(WCAG 1.4.4)는 `styles.css`의 px 고정 때문에 동작하지 않는다. 768×1024와
+  200% zoom은 관찰했고 통과했다. rem 전환은 시트 전체 변경이라 이번 범위 밖이다.
 - Safari 등 Chromium 외 브라우저는 실행하지 않았다. 지원 검증 완료라고 하지 않는다.
 - 실제 생성 왕복(202 pending → polling → ready), 서버 재시작 후 재접속, 새 탭은 자동 테스트
   또는 코드 경로로만 확인했고 브라우저 관찰은 없다. 다중 페이지 cursor는 이번에 관찰했다.
