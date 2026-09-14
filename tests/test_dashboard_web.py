@@ -152,6 +152,30 @@ class LegacyClaimApiTests(api.DashboardHarness):
         self.assertEqual(evidence.status, 200)
 
 
+class ProblemRequirementApiTests(api.DashboardHarness):
+    """A Problem that belongs to no criterion carries required=null, not false."""
+
+    def test_f03_a_finding_without_a_criterion_has_no_requirement(self):
+        builder = self.builder
+        fixture = self.fixture
+        observation = fixture.observe("fail")
+        inputs = fixture.inputs()
+        inputs["findings"] = [{"reason": "no_criterion_finding", "detail": "관련 조건 없음",
+                               "observations": [observation]}]
+        review = fixture.store.append("review", "review:null-required", fixture.scope,
+                                      fixture.store.evaluate_review(fixture.scope, inputs))
+        snapshot = builder.append_snapshot(review, "snapshot:null-required")
+        server = self.serve()
+        client = self.client(server)
+        key = self.key_of({"snapshot": snapshot})
+        problems = client.get("/snapshots/" + key).json["problems"]
+        findings = [item for item in problems if item["kind"] == "finding"]
+        self.assertTrue(findings, "the finding must reach the UI")
+        self.assertIsNone(findings[0]["claim_id"])
+        self.assertIsNone(findings[0]["required"],
+                          "SDD: required is bool|null and null is not optional")
+
+
 class ShippedAssetTests(unittest.TestCase):
     """The assets themselves must satisfy the contracts the server advertises."""
 
@@ -281,6 +305,24 @@ class ShippedAssetTests(unittest.TestCase):
         fallback = js.split("function claimObservations(")[1].split("\n}")[0]
         self.assertIn("claim.observations", fallback)
 
+    def test_a_finished_summary_repaints_its_card_not_the_whole_list(self):
+        """A full render() re-reads page one, dropping the pages the reader asked
+        for and clearing every other paused poll."""
+        js = self.files["app.js"]
+        observer = js.split("function viewportObserver(")[1].split("\n}")[0]
+        self.assertNotIn("render()", observer,
+                         "a finished summary must not re-render the whole screen")
+        self.assertIn("replaceChild", js, "the finished card is swapped in place")
+        screen = js.split("async function listScreen(")[1].split("\nfunction ")[0]
+        self.assertNotIn("render(); });", screen,
+                         "the no-observer fallback must repaint its cards too")
+
+    def test_a_problem_tied_to_no_criterion_is_not_called_optional(self):
+        """SDD: Problem.required is bool|null. null is not `선택`."""
+        js = self.files["app.js"]
+        self.assertNotRegex(js, r'problem\.required \? "필수" : "선택"')
+        self.assertIn("조건 미지정", js)
+
     def test_the_legacy_blurb_is_decided_before_it_is_printed(self):
         """`var` hoisting made this read undefined, so the blurb never rendered."""
         body = self.files["app.js"].split("function evidenceList(")[1].split("\n}")[0]
@@ -302,9 +344,15 @@ class ShippedAssetTests(unittest.TestCase):
         attempt was unreachable for the life of the session."""
         js = self.files["app.js"]
         self.assertIn("function ensurable(", js)
-        # the status literal survives only inside the predicate; every trigger calls it
+        # the status literal survives only inside the predicate, and no trigger
+        # decides for itself: the two list paths go through watchCard, and the
+        # detail path tests the predicate directly.
         self.assertEqual(js.count('status === "absent"'), 1)
-        self.assertEqual(js.count('ensurable('), 6)
+        triggers = [line for line in js.splitlines()
+                    if re.search(r"[^a-zA-Z]ensure\(", line) and "function ensure(" not in line]
+        self.assertEqual(len(triggers), 3, triggers)
+        self.assertIn("if (!ensurable(card.presentation)) return;",
+                      js.split("function watchCard(")[1].split("\n}")[0])
         predicate = js.split("function ensurable(")[1].split("\n}")[0]
         self.assertIn('"failed"', predicate)
         self.assertIn("retry_after", predicate)

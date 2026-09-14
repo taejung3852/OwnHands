@@ -18,6 +18,7 @@ var suspended = new Map();    /* polls paused while the tab was hidden */
 var cooldown = new Map();     /* snapshot key -> epoch ms before a retry is allowed */
 var polls = new Map();       /* snapshot key -> {timer, onDone, step, spent} */
 var restoreClaim = null;     /* claim row to re-focus after the drawer closes */
+var cardRepaint = new Map(); /* card node -> repaint it from a finished presentation */
 
 function stamp(value) {
   if (!value) return "";
@@ -546,11 +547,7 @@ function reviewCard(card, observer) {
   box.appendChild(line);
 
   /* 실제 viewport에 들어온 카드만 ensure한다. */
-  if (observer && ensurable(card.presentation)) {
-    box.setAttribute("data-key", card.snapshot_key);
-    box.setAttribute("data-recipe", card.presentation.recipe_hash || "");
-    observer.observe(box);
-  }
+  watchCard(observer, box, card, reviewCard);
   return box;
 }
 
@@ -588,12 +585,23 @@ function pinnedCard(card, observer) {
   grid.appendChild(left);
   grid.appendChild(right);
   box.appendChild(grid);
-  if (observer && ensurable(presentation)) {
-    box.setAttribute("data-key", card.snapshot_key);
-    box.setAttribute("data-recipe", presentation.recipe_hash || "");
-    observer.observe(box);
-  }
+  watchCard(observer, box, card, pinnedCard);
   return box;
+}
+
+/* A finished summary repaints its own card. A full render() would re-read page
+ * one, throwing away the pages the reader asked for and every paused poll. */
+function watchCard(observer, box, card, build) {
+  if (!ensurable(card.presentation)) return;
+  box.setAttribute("data-key", card.snapshot_key);
+  box.setAttribute("data-recipe", card.presentation.recipe_hash || "");
+  cardRepaint.set(box, function (presentation) {
+    cardRepaint.delete(box);
+    if (!box.parentNode) return;                /* the screen moved on */
+    box.parentNode.replaceChild(
+      build(Object.assign({}, card, { presentation: presentation }), observer), box);
+  });
+  if (observer) observer.observe(box);
 }
 
 function viewportObserver() {
@@ -603,8 +611,9 @@ function viewportObserver() {
       if (!entry.isIntersecting) return;
       var node = entry.target;
       self.unobserve(node);
+      var repaint = cardRepaint.get(node);
       ensure(node.getAttribute("data-key"), "list_visible", node.getAttribute("data-recipe"),
-        function () { render(); });
+        function (presentation) { if (repaint) repaint(presentation); });
     });
   }, { rootMargin: "0px" });
 }
@@ -742,12 +751,9 @@ async function listScreen(query) {
     restSection.appendChild(moreRow);
   }
   paint(page);
-  if (!observer) {
-    cards.forEach(function (card) {
-      if (ensurable(card.presentation)) {
-        ensure(card.snapshot_key, "list_visible", card.presentation.recipe_hash,
-          function () { render(); });
-      }
+  if (!observer) {                              /* no IntersectionObserver: ensure them all */
+    cardRepaint.forEach(function (repaint, node) {
+      ensure(node.getAttribute("data-key"), "list_visible", node.getAttribute("data-recipe"), repaint);
     });
   }
 }
@@ -815,6 +821,14 @@ function verificationSummary(detail) {
   return box;
 }
 
+/* SDD: a Problem's `required` is bool|null. null means the record ties it to no
+ * criterion, which is not the same as the criterion being optional. */
+function requirementLabel(required) {
+  if (required === true) return "필수";
+  if (required === false) return "선택";
+  return "조건 미지정";
+}
+
 function attentionCard(detail) {
   var problems = detail.problems || [];
   if (!problems.length) return null;
@@ -830,7 +844,7 @@ function attentionCard(detail) {
         problem.kind === "failure" ? "var(--danger-mark)" : "var(--warn-mark)"),
       h("span", { class: "grow t-14-strong",
         text: problem.description || problem.reason_code }),
-      h("span", { class: "badge", text: (problem.required ? "필수" : "선택") + " · " + problem.kind })));
+      h("span", { class: "badge", text: requirementLabel(problem.required) + " · " + problem.kind })));
     if (problem.claim_id) {
       item.appendChild(h("a", { class: "caption indent",
         href: "#/snapshots/" + encodeURIComponent(detail.snapshot_key)
@@ -1262,6 +1276,7 @@ function parseHash() {
 async function render() {
   routeToken += 1;
   stopPolls(false);
+  cardRepaint.clear();          /* the nodes these repaint are about to be replaced */
   document.getElementById("overlay").textContent = "";
   var route = parseHash();
   var segments = route.segments;

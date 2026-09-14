@@ -132,6 +132,15 @@ python -m devharness dashboard --data-root <fixture> --project-id <id> --port 87
 2. **`더 보기`가 사라져도 옆의 설명 문구가 남음** — 버튼만 지우고 있었다. 행 전체를 지운다.
 3. **머리말의 총 건수가 1장 기준으로 굳음** — 페이지를 이을 때 머리말과 부제를 함께 갱신한다.
 
+## 2차 외부 재검수 (2건)
+
+외부 재검수에서 Important 2건을 받았고 둘 다 타당해 수정했다. 각각 실패 fixture를 먼저 확인했다.
+
+| # | 발견 | 확인한 사실 | 처리 |
+|---|---|---|---|
+| 1 | 생성이 끝나면 목록 pagination이 날아감 | 목록 카드의 ensure 완료 callback이 `render()`였다. 브라우저에서 `더 보기`로 24건을 본 뒤 `render()`를 호출하니 **19건으로 되돌아갔다**. 지적되지 않은 부작용이 하나 더 있었다 — `render()`는 `stopPolls(false)`로 `suspended`까지 비우므로 다른 카드의 일시정지된 polling도 함께 버려진다. 한편 스크롤 초기화는 실제로 일어나지 않았다(`paint()`가 `scrollY`를 건드리지 않는다) | `watchCard()`가 카드마다 repaint 함수를 등록하고, 생성이 끝나면 그 노드만 `replaceChild`로 교체한다. IntersectionObserver가 없는 경로도 같은 함수를 쓴다. 관찰: 24건 유지, 새 요약 문장 표시, `다른 작업의 검토 24건` 그대로 |
+| 2 | Claim과 무관한 Problem을 `선택`으로 오표시 | SDD §Problem은 `required: bool\|null`이고, `read_model.py:461`의 `required.get(claim_id)`는 `criterion_id` 없는 finding/diagnostic에 `None`을 준다. 실제로 읽어 `finding \| required = null \| claim_id = null`을 확인했다. 저장소의 기존 fixture 두 곳이 이미 이런 finding을 만든다 | `requirementLabel()`이 세 값을 구분한다 — `true`→필수, `false`→선택, `null`→`조건 미지정`. 관찰: 같은 화면에 `필수 · failure`와 `조건 미지정 · finding`이 나란히 표시됨. 서버 계약도 API 테스트로 고정했다 |
+
 ## F01–F14 대응
 
 | ID | 이번 이슈에서 확보한 근거 | 상태 |
@@ -149,7 +158,7 @@ python -m devharness dashboard --data-root <fixture> --project-id <id> --port 87
 | F11 정적 제공 | 설치 후 시작, MIME/CSP, allowlist 밖 404, traversal 0, API 오류 HTML화 0 | 확보 |
 | F12 오류 상태 | 401/404/409/503 매핑 구현 + 자동 테스트 | 부분 — 409 실제 경쟁은 자동 테스트로만 |
 | F13 시각/접근성 | 375·1440 관찰, 900px 전환, keep-all, focus trap, 44px 조작 | 부분 — 768·200% zoom 미관찰 |
-| F14 읽기전용 회귀 | writer/evaluator spy 0, inventory 불변, 전체 575 + mutation 9/9 | 확보 |
+| F14 읽기전용 회귀 | writer/evaluator spy 0, inventory 불변, 전체 579 + mutation 9/9 | 확보 |
 
 ## 미실행 및 후속 범위
 
