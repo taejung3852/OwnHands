@@ -821,12 +821,12 @@ function verificationSummary(detail) {
   return box;
 }
 
-/* SDD: a Problem's `required` is bool|null. null means the record ties it to no
- * criterion, which is not the same as the criterion being optional. */
-function requirementLabel(required) {
-  if (required === true) return "필수";
-  if (required === false) return "선택";
-  return "조건 미지정";
+/* SDD: a Problem's `required` is bool|null. A null is not a missing value — it
+ * means the problem hangs off no criterion at all, so there is no 필수/선택 to
+ * state and the badge says only what kind of problem it is. */
+function problemBadge(problem) {
+  if (problem.required !== true && problem.required !== false) return problem.kind;
+  return (problem.required ? "필수" : "선택") + " · " + problem.kind;
 }
 
 function attentionCard(detail) {
@@ -844,7 +844,7 @@ function attentionCard(detail) {
         problem.kind === "failure" ? "var(--danger-mark)" : "var(--warn-mark)"),
       h("span", { class: "grow t-14-strong",
         text: problem.description || problem.reason_code }),
-      h("span", { class: "badge", text: requirementLabel(problem.required) + " · " + problem.kind })));
+      h("span", { class: "badge", text: problemBadge(problem) })));
     if (problem.claim_id) {
       item.appendChild(h("a", { class: "caption indent",
         href: "#/snapshots/" + encodeURIComponent(detail.snapshot_key)

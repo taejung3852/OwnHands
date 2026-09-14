@@ -139,7 +139,7 @@ python -m devharness dashboard --data-root <fixture> --project-id <id> --port 87
 | # | 발견 | 확인한 사실 | 처리 |
 |---|---|---|---|
 | 1 | 생성이 끝나면 목록 pagination이 날아감 | 목록 카드의 ensure 완료 callback이 `render()`였다. 브라우저에서 `더 보기`로 24건을 본 뒤 `render()`를 호출하니 **19건으로 되돌아갔다**. 지적되지 않은 부작용이 하나 더 있었다 — `render()`는 `stopPolls(false)`로 `suspended`까지 비우므로 다른 카드의 일시정지된 polling도 함께 버려진다. 한편 스크롤 초기화는 실제로 일어나지 않았다(`paint()`가 `scrollY`를 건드리지 않는다) | `watchCard()`가 카드마다 repaint 함수를 등록하고, 생성이 끝나면 그 노드만 `replaceChild`로 교체한다. IntersectionObserver가 없는 경로도 같은 함수를 쓴다. 관찰: 24건 유지, 새 요약 문장 표시, `다른 작업의 검토 24건` 그대로 |
-| 2 | Claim과 무관한 Problem을 `선택`으로 오표시 | SDD §Problem은 `required: bool\|null`이고, `read_model.py:461`의 `required.get(claim_id)`는 `criterion_id` 없는 finding/diagnostic에 `None`을 준다. 실제로 읽어 `finding \| required = null \| claim_id = null`을 확인했다. 저장소의 기존 fixture 두 곳이 이미 이런 finding을 만든다 | `requirementLabel()`이 세 값을 구분한다 — `true`→필수, `false`→선택, `null`→`조건 미지정`. 관찰: 같은 화면에 `필수 · failure`와 `조건 미지정 · finding`이 나란히 표시됨. 서버 계약도 API 테스트로 고정했다 |
+| 2 | Claim과 무관한 Problem을 `선택`으로 오표시 | SDD §Problem은 `required: bool\|null`이고, `read_model.py:461`의 `required.get(claim_id)`는 `criterion_id` 없는 finding/diagnostic에 `None`을 준다. 실제로 읽어 `finding \| required = null \| claim_id = null`을 확인했다. 저장소의 기존 fixture 두 곳이 이미 이런 finding을 만든다 | `problemBadge()`가 `true`→`필수 · kind`, `false`→`선택 · kind`, `null`→**kind만** 표시한다. `조건 미지정` 같은 라벨은 '값이 빠졌다'는 뉘앙스를 주는데, finding/diagnostic은 Claim에 속하지 않는 문제라 애초에 진술할 필수/선택이 없다. 확인 결과 `required=null`은 `claim_id=null`일 때만 나오며, 제외된 선택 조건은 `required=false`로 정상 해석된다. 관찰: 같은 화면에 `필수 · failure`와 `finding`이 나란히 표시됨. 서버 계약도 API 테스트로 고정했다 |
 
 ## F01–F14 대응
 

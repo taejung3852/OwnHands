@@ -317,11 +317,14 @@ class ShippedAssetTests(unittest.TestCase):
         self.assertNotIn("render(); });", screen,
                          "the no-observer fallback must repaint its cards too")
 
-    def test_a_problem_tied_to_no_criterion_is_not_called_optional(self):
-        """SDD: Problem.required is bool|null. null is not `선택`."""
+    def test_a_problem_tied_to_no_criterion_carries_no_requirement_label(self):
+        """SDD: Problem.required is bool|null. A null belongs to no criterion, so
+        there is no 필수/선택 to state — not `선택`, and not a missing-value label."""
         js = self.files["app.js"]
-        self.assertNotRegex(js, r'problem\.required \? "필수" : "선택"')
-        self.assertIn("조건 미지정", js)
+        badge = js.split("function problemBadge(")[1].split("\n}")[0]
+        self.assertIn("return problem.kind;", badge, "a null drops the label entirely")
+        self.assertIn("!== true", badge, "a null must be tested, not coerced")
+        self.assertNotIn("조건 미지정", js, "a null is not a missing value")
 
     def test_the_legacy_blurb_is_decided_before_it_is_printed(self):
         """`var` hoisting made this read undefined, so the blurb never rendered."""
