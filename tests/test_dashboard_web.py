@@ -268,7 +268,6 @@ class ShippedAssetTests(unittest.TestCase):
         self.assertIn("suspended.set", stop, "a paused poll must be remembered")
         resume = js.split("function resumePolls(")[1].split("\n}")[0]
         self.assertIn("refresh", resume, "resuming starts from a GET")
-        self.assertIn("function pollState(", js)
 
     def test_a_legacy_claim_shows_its_observations_and_evidence(self):
         """PR #98 review: checks=[] left the count at 0 and the drawer empty."""
@@ -281,6 +280,12 @@ class ShippedAssetTests(unittest.TestCase):
         self.assertIn("claimObservations(", counter)
         fallback = js.split("function claimObservations(")[1].split("\n}")[0]
         self.assertIn("claim.observations", fallback)
+
+    def test_the_legacy_blurb_is_decided_before_it_is_printed(self):
+        """`var` hoisting made this read undefined, so the blurb never rendered."""
+        body = self.files["app.js"].split("function evidenceList(")[1].split("\n}")[0]
+        self.assertLess(body.index("var legacy ="), body.index("text: legacy"),
+                        "legacy must be declared before the paragraph reads it")
 
     def test_the_remaining_problems_can_actually_be_opened(self):
         """PR #98 review: the remainder was a sentence, not an affordance."""

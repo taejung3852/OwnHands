@@ -399,8 +399,6 @@ async function ensure(key, intent, recipeHash, onDone) {
   /* 403/409/503 stop here: no replay, no timer. */
 }
 
-function pollState(key) { return polls.get(key) || suspended.get(key) || null; }
-
 /* `remember` is the hidden-tab case: the poll is paused, not abandoned, so the
  * key and its continuation are kept for resumePolls. Navigation forgets them. */
 function stopPolls(remember) {
@@ -489,13 +487,7 @@ function sessionNotice() {
 /* A v1 Review records no checks. Its Claim still carries its own Observations,
  * so read those instead of inventing a check that was never recorded. */
 function claimObservations(claim) {
-  var checks = claim.checks || [];
-  if (!checks.length) return claim.observations || [];
-  var out = [];
-  checks.forEach(function (check) {
-    (check.before || []).concat(check.after || []).forEach(function (one) { out.push(one); });
-  });
-  return out;
+  return claim.observations || [];
 }
 
 function evidenceKeysOf(claim) {
@@ -506,6 +498,15 @@ function evidenceKeysOf(claim) {
     });
   });
   return keys;
+}
+
+/* The newest stored Snapshot is not always the activated one. */
+function activeElsewhere(card) {
+  var active = card.context && card.context.active_snapshot_key;
+  if (!active || active === card.snapshot_key) return null;
+  return h("a", { class: "caption is-stale",
+    href: "#/snapshots/" + encodeURIComponent(active),
+    text: "현재 적용 중인 보고서는 따로 있습니다" });
 }
 
 function issueRef(card) {
@@ -538,12 +539,8 @@ function reviewCard(card, observer) {
   if (card.context && card.context.newer_snapshot_key) {
     meta.appendChild(h("span", { class: "caption is-stale", text: "더 최근 보고서 있음" }));
   }
-  var active = card.context && card.context.active_snapshot_key;
-  if (active && active !== card.snapshot_key) {
-    meta.appendChild(h("a", { class: "caption is-stale",
-      href: "#/snapshots/" + encodeURIComponent(active),
-      text: "현재 적용 중인 보고서는 따로 있습니다" }));
-  }
+  var active = activeElsewhere(card);
+  if (active) meta.appendChild(active);
   meta.appendChild(h("span", { class: "caption", text: "Snapshot " + stamp(card.snapshot_created_at) }));
   line.appendChild(meta);
   box.appendChild(line);
@@ -584,12 +581,8 @@ function pinnedCard(card, observer) {
   facts.appendChild(countsLine(card.counts));
   var fresh = freshnessTag(card.context);
   if (fresh) facts.appendChild(fresh);
-  var activeKey = card.context && card.context.active_snapshot_key;
-  if (activeKey && activeKey !== card.snapshot_key) {
-    facts.appendChild(h("a", { class: "caption is-stale",
-      href: "#/snapshots/" + encodeURIComponent(activeKey),
-      text: "현재 적용 중인 보고서는 따로 있습니다" }));
-  }
+  var activeCard = activeElsewhere(card);
+  if (activeCard) facts.appendChild(activeCard);
   facts.appendChild(h("span", { class: "caption", text: "Snapshot " + stamp(card.snapshot_created_at) }));
   right.appendChild(facts);
   grid.appendChild(left);
@@ -625,10 +618,7 @@ function listQuery(query, cursor) {
 }
 
 function goList(query) {
-  var parts = [];
-  if (query.filter && query.filter !== "all") parts.push("filter=" + encodeURIComponent(query.filter));
-  if (query.q) parts.push("q=" + encodeURIComponent(query.q));
-  location.hash = parts.length ? "#/?" + parts.join("&") : "#/";
+  location.hash = "#/" + listQuery(query, null);
 }
 
 function searchBox(query) {
@@ -640,7 +630,7 @@ function searchBox(query) {
       goList({ filter: query.filter, q: field.value.trim() });
     } });
   form.appendChild(h("label", { class: "caption", for: "q", text: "검색" }));
-  form.appendChild(h("div", { class: "row gap-8" }, icon("search", 15, "var(--ink-muted)"), field,
+  form.appendChild(h("div", { class: "row gap-8 wrap-row" }, icon("search", 15, "var(--ink-muted)"), field,
     h("button", { class: "chip", type: "submit", text: "검색" }),
     query.q ? h("button", { class: "chip", type: "button", text: "지우기",
       onclick: function () { goList({ filter: query.filter, q: "" }); } }) : null));
@@ -688,10 +678,6 @@ async function listScreen(query) {
   });
   page.appendChild(chips);
   if (!csrf && !searched) page.appendChild(sessionNotice());
-  if (searched) {
-    page.appendChild(notice("doc",
-      "검색 중에는 새 요약을 만들지 않습니다. 아직 요약이 없는 검토는 제목으로만 찾을 수 있습니다."));
-  }
 
   if (!cards.length) {
     page.appendChild(h("div", { class: "card pad-empty" },
@@ -891,11 +877,11 @@ function evidenceList(detail) {
   box.appendChild(h("div", { class: "row gap-8" },
     h("h2", { class: "card-title", text: "근거 탐색" }),
     h("span", { class: "badge", text: "조건 " + claims.length + "개 전부" })));
+  var legacy = detail.source_contract_version === 1;
   box.appendChild(h("p", { class: "body-sm", text: legacy
     ? "이 Review는 이전 형식이라 상세 검사 항목이 기록되지 않았습니다. 저장된 Observation과 근거는 그대로 볼 수 있습니다."
     : "조건을 열면 저장된 Before/After와 근거 목록을 볼 수 있습니다." }));
   var list = h("ul", { class: "stack gap-6" });
-  var legacy = detail.source_contract_version === 1;
   claims.forEach(function (claim) {
     var checks = claim.checks || [];
     var evidence = checks.length
@@ -1025,6 +1011,20 @@ function drawerKeys(event) {
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
 
+function evidenceLinks(detail, observations) {
+  var list = h("ul", { class: "stack gap-6" });
+  observations.forEach(function (observation) {
+    (observation.evidence_links || []).forEach(function (link) {
+      list.appendChild(h("li", {}, h("a", { class: "link-row",
+        href: "#/snapshots/" + encodeURIComponent(detail.snapshot_key)
+          + "/evidence/" + encodeURIComponent(link.evidence_key) },
+        h("span", { text: "상세 근거 열기" }),
+        h("span", { class: "badge", text: link.availability }), icon("chev", 14))));
+    });
+  });
+  return list;
+}
+
 function observationBlock(label, rows) {
   var box = h("div", { class: "card tinted card-sm stack gap-6" });
   box.appendChild(h("span", { class: "caption", text: label }));
@@ -1088,17 +1088,7 @@ async function openDrawer(detail, claimId) {
     legacyBox.appendChild(pairLegacy);
     var keys = evidenceKeysOf(claim);
     legacyBox.appendChild(h("span", { class: "caption", text: "근거 " + keys.length + "건" }));
-    var legacyLinks = h("ul", { class: "stack gap-6" });
-    observations.forEach(function (observation) {
-      (observation.evidence_links || []).forEach(function (link) {
-        legacyLinks.appendChild(h("li", {}, h("a", { class: "link-row",
-          href: "#/snapshots/" + encodeURIComponent(detail.snapshot_key)
-            + "/evidence/" + encodeURIComponent(link.evidence_key) },
-          h("span", { text: "상세 근거 열기" }),
-          h("span", { class: "badge", text: link.availability }), icon("chev", 14))));
-      });
-    });
-    legacyBox.appendChild(legacyLinks);
+    legacyBox.appendChild(evidenceLinks(detail, observations));
     body.appendChild(legacyBox);
   }
 
@@ -1128,17 +1118,7 @@ async function openDrawer(detail, claimId) {
     });
     section.appendChild(h("span", { class: "caption", text: "근거 " + (check.evidence_count || 0)
       + "건 (읽을 수 없음 " + (check.unavailable_evidence_count || 0) + ")" }));
-    var links = h("ul", { class: "stack gap-6" });
-    (check.after || []).concat(check.before || []).forEach(function (observation) {
-      (observation.evidence_links || []).forEach(function (link) {
-        links.appendChild(h("li", {}, h("a", { class: "link-row",
-          href: "#/snapshots/" + encodeURIComponent(detail.snapshot_key)
-            + "/evidence/" + encodeURIComponent(link.evidence_key) },
-          h("span", { text: "상세 근거 열기" }),
-          h("span", { class: "badge", text: link.availability }), icon("chev", 14))));
-      });
-    });
-    section.appendChild(links);
+    section.appendChild(evidenceLinks(detail, (check.after || []).concat(check.before || [])));
     body.appendChild(section);
   });
   body.appendChild(h("p", { class: "caption",
@@ -1275,11 +1255,7 @@ function parseHash() {
   var search = cut < 0 ? "" : raw.slice(cut + 1);
   var segments = path.split("/").filter(Boolean).map(unesc);
   var query = {};
-  search.split("&").filter(Boolean).forEach(function (pair) {
-    var eq = pair.indexOf("=");          /* a value may itself contain "=" */
-    if (eq < 0) query[unesc(pair)] = "";
-    else query[unesc(pair.slice(0, eq))] = unesc(pair.slice(eq + 1));
-  });
+  new URLSearchParams(search).forEach(function (value, name) { query[name] = value; });
   return { segments: segments, query: query };
 }
 
