@@ -113,12 +113,31 @@ python -m devharness dashboard --data-root <fixture> --project-id <id> --port 87
 
 재검수 후 Critical/Important 미해결 **0**.
 
+## PR #98 리뷰 반영 (4건)
+
+리뷰에서 받은 4건은 각각 실패 fixture를 먼저 넣어 RED를 확인한 뒤 고쳤다. 직전 클라이언트로
+되돌려 실행했을 때 새 fixture 5건이 모두 실패하는 것을 확인했다(`failures=4, errors=1`).
+
+| # | 요청 | 구현 | 브라우저 관찰 |
+|---|---|---|---|
+| 1 | `/reviews?q=&cursor=` 실제 연결 + `active_snapshot_key` 불일치 표시 | 검색 form이 `#/?q=`를 만들고 `listQuery()`가 `filter`/`q`/`cursor`를 그대로 전달한다. `next_cursor`가 있을 때만 `더 보기`가 붙고 다음 장을 **덧붙인다**. `list_token`이 1장과 다르면 이어 붙이지 않고 `LIST_CHANGED` 안내와 함께 처음부터 다시 읽는다. 검색은 `canEnsure()`의 `searching()` 분기로 생성을 막는다 | 24건 fixture에서 20건 + `더 보기` → 24건, 버튼·안내문 동시 제거, 머리말 수가 함께 갱신. `결제` 검색은 3건으로 좁혀지고 `presentation/ensure` 요청 0. 활성본이 다른 Snapshot에 `현재 적용 중인 보고서는 따로 있습니다` 링크 표시 |
+| 2 | hidden 전환 시 polling key/onDone 보존, 복귀는 GET부터 | `polls`가 `{timer, onDone, step, spent}`를 들고, `stopPolls(true)`가 `suspended`로 옮긴다. `resumePolls()`는 먼저 `refresh(key)`로 GET한 뒤 저장된 `step`/`spent`에서 사다리를 잇는다. 화면 이동(`render()`)은 `stopPolls(false)`로 폐기한다 | **미관찰** — 아래 참조 |
+| 3 | legacy `checks=[]` + `observations[]`의 Evidence 수·링크·Drawer 탐색 | `claimObservations()`가 `checks`가 비면 `claim.observations`를 쓰고, `evidenceKeysOf()`가 거기서 Evidence key를 중복 없이 센다. legacy Drawer는 `상세 검사 항목은 이전 형식에서 기록되지 않았습니다`를 밝히고 저장된 Before/After만 보여준다. 새 check는 만들지 않는다 | v1·`checks=0`·`observations=1` fixture에서 `필수 · 근거 1` 표시, Drawer에 안내문과 Before/After, `상세 근거 열기` → 근거 상세 화면까지 이동 |
+| 4 | `problems` 4번째 이후 확장 UI | 전부 렌더하고 3건 뒤는 `hidden`으로 두며, `aria-expanded`가 붙은 토글이 펼치고 접는다. 상태 변화는 live region이 읽는다 | 7건 fixture에서 3건 표시 + `추가 4건 보기` → 7건, `aria-expanded` false↔true, `주의 7건을 모두 표시했습니다.`/`주의 3건만 표시합니다.` 안내 |
+
+### 이번 라운드에 브라우저로 잡은 결함
+
+1. **`hidden`이 먹지 않아 4건이 그대로 보임** — 항목이 `display:flex`라 UA의 `[hidden]` 규칙을
+   덮어썼다. `[hidden] { display: none !important; }`를 시트에 넣고 재발 방지 검사를 추가했다.
+2. **`더 보기`가 사라져도 옆의 설명 문구가 남음** — 버튼만 지우고 있었다. 행 전체를 지운다.
+3. **머리말의 총 건수가 1장 기준으로 굳음** — 페이지를 이을 때 머리말과 부제를 함께 갱신한다.
+
 ## F01–F14 대응
 
 | ID | 이번 이슈에서 확보한 근거 | 상태 |
 |---|---|---|
 | F01 디자인 우선순위 | 정합화표 12건(`dashboard-design.md`), 실제 화면에서 요약·상태·이유가 먼저 보임 | 확보 |
-| F02 목록/탐색 | 서버 순서 그대로 렌더, 클라이언트 정렬 없음. 필터 chip. 검색 생성 0(검색은 cached-only) | 부분 — 다중 페이지 cursor 조작은 미관찰 |
+| F02 목록/탐색 | 서버 순서 그대로 렌더, 클라이언트 정렬 없음. 필터 chip + 검색 + `next_cursor` 이어 읽기. 검색 생성 0(cached-only) | 확보 — 24건 fixture로 2장 이어 읽기 관찰. `LIST_CHANGED` 재시작만 자동 테스트 |
 | F03 판정/분모 | 전체 7·필수 5·선택 2·제외 1 보존, 모든 Claim verified 아님 + problems 8건 동시 표시 | 확보 |
 | F04 최신성/읽기 | 네 축 분리 렌더. `ready+stale`만 판정에 `(이전 결과)` | 부분 — partial 원본은 자동 테스트로만 |
 | F05 최초 생성 | `IntersectionObserver` 기반 viewport ensure, in-flight 억제, cache ready면 POST 0 | 부분 — provider 미설정 fixture라 실제 생성 왕복은 미관찰 |
@@ -130,7 +149,7 @@ python -m devharness dashboard --data-root <fixture> --project-id <id> --port 87
 | F11 정적 제공 | 설치 후 시작, MIME/CSP, allowlist 밖 404, traversal 0, API 오류 HTML화 0 | 확보 |
 | F12 오류 상태 | 401/404/409/503 매핑 구현 + 자동 테스트 | 부분 — 409 실제 경쟁은 자동 테스트로만 |
 | F13 시각/접근성 | 375·1440 관찰, 900px 전환, keep-all, focus trap, 44px 조작 | 부분 — 768·200% zoom 미관찰 |
-| F14 읽기전용 회귀 | writer/evaluator spy 0, inventory 불변, 전체 566 + mutation 9/9 | 확보 |
+| F14 읽기전용 회귀 | writer/evaluator spy 0, inventory 불변, 전체 575 + mutation 9/9 | 확보 |
 
 ## 미실행 및 후속 범위
 
@@ -138,8 +157,12 @@ python -m devharness dashboard --data-root <fixture> --project-id <id> --port 87
   결정적 fallback 기준이며, 18출력 의미 검사와 사용자 60초 이해도 pilot은 이슈 6 범위다.
 - 768×1024와 200% zoom은 실제 브라우저로 관찰하지 않았다. CSS 규칙은 있으나 미확인이다.
 - Safari 등 Chromium 외 브라우저는 실행하지 않았다. 지원 검증 완료라고 하지 않는다.
-- 실제 생성 왕복(202 pending → polling → ready), 서버 재시작 후 재접속, 새 탭, 다중 페이지
-  cursor는 자동 테스트 또는 코드 경로로만 확인했고 브라우저 관찰은 없다.
+- 실제 생성 왕복(202 pending → polling → ready), 서버 재시작 후 재접속, 새 탭은 자동 테스트
+  또는 코드 경로로만 확인했고 브라우저 관찰은 없다. 다중 페이지 cursor는 이번에 관찰했다.
+- **hidden 탭 polling 보존·재개는 브라우저로 관찰하지 못했다.** 두 가지가 겹친다. (1) 이 환경의
+  미리보기 탭은 `document.visibilityState`가 계속 `hidden`이라 실제 전환을 만들 수 없다.
+  (2) 느린 stub provider를 붙여도 서버가 lease를 기다렸다가 종결 상태로 답하므로 클라이언트가
+  `pending`에 머무르지 않는다. 구현과 fixture로만 확인했다.
 - CSRF 재발급 endpoint는 API에 없다. 현재는 토큰 재입력이 유일한 복구 경로이며, 최소 계약
   변경 제안은 별도로 남긴다.
 - 팔레트 채도 조정은 사용자 선택 대기 중이라 원문 값을 유지했다.

@@ -16,7 +16,7 @@ var inflight = new Set();     /* snapshot keys with an ensure in progress */
 var asked = new Set();        /* snapshot keys already ensured this view */
 var suspended = new Map();    /* polls paused while the tab was hidden */
 var cooldown = new Map();     /* snapshot key -> epoch ms before a retry is allowed */
-var polls = new Map();       /* snapshot key -> timer id */
+var polls = new Map();       /* snapshot key -> {timer, onDone, step, spent} */
 var restoreClaim = null;     /* claim row to re-focus after the drawer closes */
 
 function stamp(value) {
@@ -352,8 +352,16 @@ function presentationNote(presentation) {
 
 /* ---------- generation contract ---------- */
 
+/* A search is browsing, not a first real view: it must never be the reason a
+ * summary is generated. The server's own search is cached-only for the same
+ * reason (`summary_search: cached_only`). */
+function searching() {
+  return !!(parseHash().query.q || "").trim();
+}
+
 function canEnsure(key) {
   if (!csrf) return false;                       /* refreshed: CSRF is gone */
+  if (searching()) return false;
   if (inflight.has(key) || asked.has(key)) return false;
   var until = cooldown.get(key);
   return !(until && Date.now() < until);
@@ -391,48 +399,81 @@ async function ensure(key, intent, recipeHash, onDone) {
   /* 403/409/503 stop here: no replay, no timer. */
 }
 
-function stopPolls() {
-  polls.forEach(function (timer) { window.clearTimeout(timer); });
+function pollState(key) { return polls.get(key) || suspended.get(key) || null; }
+
+/* `remember` is the hidden-tab case: the poll is paused, not abandoned, so the
+ * key and its continuation are kept for resumePolls. Navigation forgets them. */
+function stopPolls(remember) {
+  polls.forEach(function (state, key) {
+    window.clearTimeout(state.timer);
+    if (remember) suspended.set(key, { onDone: state.onDone, step: state.step, spent: state.spent });
+  });
   polls.clear();
+  if (!remember) suspended.clear();
+}
+
+async function refresh(key) {
+  var token = routeToken;
+  var result = await call("/snapshots/" + encodeURIComponent(key) + "/presentation");
+  if (token !== routeToken) return null;
+  return result.status === 200 ? result.data : null;
 }
 
 /* SDD §7.2.6 — 1s, 2s, then 5s, giving up at 60s, paused while the tab is hidden. */
-function poll(key, onDone) {
-  var waits = [1000, 2000, 5000];
-  var spent = 0;
-  var step = 0;
+var WAITS = [1000, 2000, 5000];
+
+function poll(key, onDone, step, spent) {
+  var at = step || 0;
+  var used = spent || 0;
   function tick() {
-    polls.delete(key);
-    if (document.hidden) { suspended.set(key, onDone); return; }
-    var wait = waits[Math.min(step, waits.length - 1)];
-    step += 1;
-    spent += wait;
-    if (spent > 60000) { announce("설명 생성이 오래 걸립니다. 화면을 다시 열면 이어서 확인합니다."); return; }
-    polls.set(key, window.setTimeout(async function () {
-      var token = routeToken;
-      var result = await call("/snapshots/" + encodeURIComponent(key) + "/presentation");
-      if (token !== routeToken) return;           /* navigated away: drop it */
-      if (result.status !== 200 || !result.data) return;
-      if (result.data.status === "pending") { tick(); return; }
-      if (result.data.status === "failed" && result.data.retry_after) {
-        cooldown.set(key, Date.parse(result.data.retry_after));
+    if (document.hidden) {
+      suspended.set(key, { onDone: onDone, step: at, spent: used });
+      polls.delete(key);
+      return;
+    }
+    var wait = WAITS[Math.min(at, WAITS.length - 1)];
+    at += 1;
+    used += wait;
+    if (used > 60000) {
+      polls.delete(key);
+      announce("설명 생성이 오래 걸립니다. 화면을 다시 열면 이어서 확인합니다.");
+      return;
+    }
+    var timer = window.setTimeout(async function () {
+      polls.delete(key);
+      var data = await refresh(key);
+      if (data === null) return;                  /* navigated away: drop it */
+      if (data.status === "pending") { tick(); return; }
+      if (data.status === "failed" && data.retry_after) {
+        cooldown.set(key, Date.parse(data.retry_after));
       }
-      onDone(result.data);
-    }, wait));
+      onDone(data);
+    }, wait);
+    polls.set(key, { timer: timer, onDone: onDone, step: at, spent: used });
   }
   tick();
 }
 
-/* A hidden tab stops polling; coming back resumes those polls from a GET and
- * leaves the rendered page (and its scroll position) alone. */
-function resumePolls() {
+/* Coming back resumes each paused poll from a GET and leaves the rendered page
+ * (and its scroll position) alone. */
+async function resumePolls() {
   var pending = Array.from(suspended.entries());
   suspended.clear();
-  pending.forEach(function (entry) { poll(entry[0], entry[1]); });
+  for (var i = 0; i < pending.length; i += 1) {
+    var key = pending[i][0];
+    var state = pending[i][1];
+    var data = await refresh(key);
+    if (data === null) continue;
+    if (data.status === "pending") { poll(key, state.onDone, state.step, state.spent); continue; }
+    if (data.status === "failed" && data.retry_after) {
+      cooldown.set(key, Date.parse(data.retry_after));
+    }
+    state.onDone(data);
+  }
 }
 
 document.addEventListener("visibilitychange", function () {
-  if (document.hidden) { stopPolls(); return; }
+  if (document.hidden) { stopPolls(true); return; }
   resumePolls();
 });
 
@@ -444,6 +485,28 @@ function sessionNotice() {
 }
 
 /* ---------- Review List ---------- */
+
+/* A v1 Review records no checks. Its Claim still carries its own Observations,
+ * so read those instead of inventing a check that was never recorded. */
+function claimObservations(claim) {
+  var checks = claim.checks || [];
+  if (!checks.length) return claim.observations || [];
+  var out = [];
+  checks.forEach(function (check) {
+    (check.before || []).concat(check.after || []).forEach(function (one) { out.push(one); });
+  });
+  return out;
+}
+
+function evidenceKeysOf(claim) {
+  var keys = [];
+  claimObservations(claim).forEach(function (observation) {
+    (observation.evidence_links || []).forEach(function (link) {
+      if (keys.indexOf(link.evidence_key) === -1) keys.push(link.evidence_key);
+    });
+  });
+  return keys;
+}
 
 function issueRef(card) {
   var ref = card.issue && card.issue.ref;
@@ -474,6 +537,12 @@ function reviewCard(card, observer) {
   if (fresh) meta.appendChild(fresh);
   if (card.context && card.context.newer_snapshot_key) {
     meta.appendChild(h("span", { class: "caption is-stale", text: "더 최근 보고서 있음" }));
+  }
+  var active = card.context && card.context.active_snapshot_key;
+  if (active && active !== card.snapshot_key) {
+    meta.appendChild(h("a", { class: "caption is-stale",
+      href: "#/snapshots/" + encodeURIComponent(active),
+      text: "현재 적용 중인 보고서는 따로 있습니다" }));
   }
   meta.appendChild(h("span", { class: "caption", text: "Snapshot " + stamp(card.snapshot_created_at) }));
   line.appendChild(meta);
@@ -515,6 +584,12 @@ function pinnedCard(card, observer) {
   facts.appendChild(countsLine(card.counts));
   var fresh = freshnessTag(card.context);
   if (fresh) facts.appendChild(fresh);
+  var activeKey = card.context && card.context.active_snapshot_key;
+  if (activeKey && activeKey !== card.snapshot_key) {
+    facts.appendChild(h("a", { class: "caption is-stale",
+      href: "#/snapshots/" + encodeURIComponent(activeKey),
+      text: "현재 적용 중인 보고서는 따로 있습니다" }));
+  }
   facts.appendChild(h("span", { class: "caption", text: "Snapshot " + stamp(card.snapshot_created_at) }));
   right.appendChild(facts);
   grid.appendChild(left);
@@ -541,10 +616,42 @@ function viewportObserver() {
   }, { rootMargin: "0px" });
 }
 
-async function listScreen(filter) {
+function listQuery(query, cursor) {
+  var parts = [];
+  if (query.filter && query.filter !== "all") parts.push("filter=" + encodeURIComponent(query.filter));
+  if (query.q) parts.push("q=" + encodeURIComponent(query.q));
+  if (cursor) parts.push("cursor=" + encodeURIComponent(cursor));
+  return parts.length ? "?" + parts.join("&") : "";
+}
+
+function goList(query) {
+  var parts = [];
+  if (query.filter && query.filter !== "all") parts.push("filter=" + encodeURIComponent(query.filter));
+  if (query.q) parts.push("q=" + encodeURIComponent(query.q));
+  location.hash = parts.length ? "#/?" + parts.join("&") : "#/";
+}
+
+function searchBox(query) {
+  var field = h("input", { class: "input", type: "search", id: "q", name: "q",
+    value: query.q || "", placeholder: "제목 또는 저장된 요약 검색", maxlength: "200" });
+  var form = h("form", { class: "stack gap-6 search", role: "search",
+    onsubmit: function (event) {
+      event.preventDefault();
+      goList({ filter: query.filter, q: field.value.trim() });
+    } });
+  form.appendChild(h("label", { class: "caption", for: "q", text: "검색" }));
+  form.appendChild(h("div", { class: "row gap-8" }, icon("search", 15, "var(--ink-muted)"), field,
+    h("button", { class: "chip", type: "submit", text: "검색" }),
+    query.q ? h("button", { class: "chip", type: "button", text: "지우기",
+      onclick: function () { goList({ filter: query.filter, q: "" }); } }) : null));
+  form.appendChild(h("span", { class: "caption",
+    text: "검색 범위는 작업 제목과 이미 생성된 요약입니다. 검색이 새 요약을 만들지 않습니다." }));
+  return form;
+}
+
+async function listScreen(query) {
   var token = routeToken;
-  var query = filter && filter !== "all" ? "?filter=" + encodeURIComponent(filter) : "";
-  var result = await call("/reviews" + query);
+  var result = await call("/reviews" + listQuery(query, null));
   if (token !== routeToken) return;
   if (result.status === 401) { loginScreen(null); return; }
   crumbs([{ label: "검토 결과" }]);
@@ -557,49 +664,96 @@ async function listScreen(filter) {
     return;
   }
   var cards = result.data.items || [];
+  var searched = !!(query.q || "").trim();
+
+  var subtitle = h("span", { class: "body-sm" });
+  var countLine = function (total) {
+    subtitle.textContent = !total ? ""
+      : (searched ? "검색 결과 " + total + "건"
+         : "서로 다른 작업 " + total + "건 · 작업마다 검토 하나");
+  };
+  countLine(cards.length);
   page.appendChild(h("div", { class: "stack gap-6" },
-    h("h1", { class: "page-title", text: "검토 결과" }),
-    h("span", { class: "body-sm", text: cards.length
-      ? "서로 다른 작업 " + cards.length + "건 · 작업마다 검토 하나"
-      : "" })));
+    h("h1", { class: "page-title", text: "검토 결과" }), subtitle));
+  page.appendChild(searchBox(query));
 
   var chips = h("div", { class: "row gap-8 wrap-row" });
   [["all", "전체"], ["needs-review", "확인 필요"], ["blocked", "차단"],
    ["stale", "이전 결과"], ["ready", "판단 가능"]].forEach(function (pair) {
     chips.appendChild(h("button", {
-      class: "chip", "aria-pressed": (filter || "all") === pair[0] ? "true" : "false",
+      class: "chip", "aria-pressed": (query.filter || "all") === pair[0] ? "true" : "false",
       text: pair[1],
-      onclick: function () { location.hash = pair[0] === "all" ? "#/" : "#/?filter=" + pair[0]; }
+      onclick: function () { goList({ filter: pair[0], q: query.q }); }
     }));
   });
   page.appendChild(chips);
-  if (!csrf) page.appendChild(sessionNotice());
+  if (!csrf && !searched) page.appendChild(sessionNotice());
+  if (searched) {
+    page.appendChild(notice("doc",
+      "검색 중에는 새 요약을 만들지 않습니다. 아직 요약이 없는 검토는 제목으로만 찾을 수 있습니다."));
+  }
 
   if (!cards.length) {
     page.appendChild(h("div", { class: "card pad-empty" },
-      h("p", { text: filter && filter !== "all"
-        ? "이 조건에 해당하는 검토가 없습니다." : "저장된 검토 결과가 없습니다." }),
-      h("p", { class: "body-sm", text: filter && filter !== "all"
-        ? "다른 조건에서 확인해 보세요." : "검토가 저장되면 여기에 나타납니다." })));
+      h("p", { text: searched ? "‘" + query.q + "’와 일치하는 결과가 없습니다."
+        : (query.filter && query.filter !== "all" ? "이 조건에 해당하는 검토가 없습니다."
+           : "저장된 검토 결과가 없습니다.") }),
+      h("p", { class: "body-sm", text: searched
+        ? "검색은 제목과 이미 생성된 요약만 대상으로 합니다."
+        : "검토가 저장되면 여기에 나타납니다." })));
     paint(page);
     return;
   }
 
   var observer = viewportObserver();
   page.appendChild(h("section", { class: "stack gap-8" },
-    h("h2", { class: "card-title", text: "먼저 볼 것" }),
-    h("p", { class: "body-sm", text: "서로 다른 작업 " + cards.length
-      + "건 가운데 가장 확인이 필요한 작업 1건입니다. 순서는 서버가 정합니다 — "
-      + "확인 필요 → 검증 차단 → 이전 결과 → 판단 가능. 최근 순이 아닙니다." }),
+    h("h2", { class: "card-title", text: searched ? "가장 먼저 볼 결과" : "먼저 볼 것" }),
+    h("p", { class: "body-sm", text: "서로 다른 작업 가운데 가장 확인이 필요한 작업 1건입니다. "
+      + "순서는 서버가 정합니다 — 확인 필요 → 검증 차단 → 이전 결과 → 판단 가능. 최근 순이 아닙니다." }),
     pinnedCard(cards[0], observer)));
-  if (cards.length > 1) {
-    var rest = h("ul", { class: "stack gap-10" });
-    cards.slice(1).forEach(function (card) {
-      rest.appendChild(h("li", {}, reviewCard(card, observer)));
+
+  var rest = h("ul", { class: "stack gap-10" });
+  cards.slice(1).forEach(function (card) { rest.appendChild(h("li", {}, reviewCard(card, observer))); });
+  var restLabel = h("h2", { class: "card-title t-15 is-unknown",
+    text: "다른 작업의 검토 " + Math.max(0, cards.length - 1) + "건" });
+  var restSection = h("section", { class: "stack gap-8" }, restLabel, rest);
+  page.appendChild(restSection);
+
+  /* next_cursor paging: a page is appended, never spliced into a different list. */
+  var cursor = result.data.next_cursor;
+  var listToken = result.data.list_token;
+  var shown = cards.length;
+  if (cursor) {
+    var more = h("button", { class: "chip", text: "더 보기" });
+    var moreRow = h("div", { class: "row gap-8 wrap-row" }, more,
+      h("span", { class: "caption", text: "서버가 준 cursor로만 이어 읽습니다." }));
+    more.addEventListener("click", async function () {
+      more.disabled = true;
+      var next = await call("/reviews" + listQuery(query, cursor));
+      more.disabled = false;
+      var changed = next.status === 200 && next.data && next.data.list_token !== listToken;
+      if (next.status !== 200 || !next.data || changed) {
+        var code = changed ? "LIST_CHANGED"
+          : (next.data && next.data.error && next.data.error.code);
+        moreRow.remove();
+        restSection.appendChild(notice(code === "LIST_CHANGED" ? "stale" : "blocked",
+          code === "LIST_CHANGED"
+            ? "목록이 그사이 바뀌었습니다. 서로 다른 목록의 페이지를 이어 붙이지 않고 처음부터 다시 읽습니다."
+            : errorText(next),
+          h("button", { class: "chip", text: "처음부터 다시 불러오기",
+            onclick: function () { render(); } })));
+        return;
+      }
+      (next.data.items || []).forEach(function (card) {
+        rest.appendChild(h("li", {}, reviewCard(card, observer)));
+        shown += 1;
+      });
+      restLabel.textContent = "다른 작업의 검토 " + Math.max(0, shown - 1) + "건";
+      countLine(shown);
+      cursor = next.data.next_cursor;
+      if (!cursor) moreRow.remove();
     });
-    page.appendChild(h("section", { class: "stack gap-8" },
-      h("h2", { class: "card-title t-15 is-unknown",
-        text: "다른 작업의 검토 " + (cards.length - 1) + "건" }), rest));
+    restSection.appendChild(moreRow);
   }
   paint(page);
   if (!observer) {
@@ -678,13 +832,12 @@ function verificationSummary(detail) {
 function attentionCard(detail) {
   var problems = detail.problems || [];
   if (!problems.length) return null;
-  var shown = problems.slice(0, 3);
   var box = h("section", { class: "stack gap-10" });
   box.appendChild(h("div", { class: "row gap-8 wrap-row" },
     h("h2", { class: "card-title", text: "주의 필요" }),
     h("span", { class: "badge", text: problems.length + "건" })));
   var list = h("ul", { class: "stack gap-8" });
-  shown.forEach(function (problem) {
+  problems.forEach(function (problem, index) {
     var item = h("li", { class: "card tinted-strong card-sm stack gap-6" });
     item.appendChild(h("div", { class: "row gap-8 top" },
       icon(CLAIM_MARK[problem.kind === "failure" ? "failed" : "inconclusive"][0], 15,
@@ -698,11 +851,23 @@ function attentionCard(detail) {
           + "/claims/" + encodeURIComponent(problem.claim_id),
         text: "이 조건 열기" }));
     }
+    if (index >= 3) item.hidden = true;
     list.appendChild(item);
   });
   box.appendChild(list);
-  if (detail.remaining_problem_count) {
-    box.appendChild(h("span", { class: "caption", text: "추가 " + detail.remaining_problem_count + "건이 더 있습니다." }));
+  var rest = problems.length - 3;
+  if (rest > 0) {
+    var open = false;
+    var toggle = h("button", { class: "chip", "aria-expanded": "false",
+      text: "추가 " + rest + "건 보기" });
+    toggle.addEventListener("click", function () {
+      open = !open;
+      Array.prototype.slice.call(list.children, 3).forEach(function (node) { node.hidden = !open; });
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.textContent = open ? "추가 " + rest + "건 접기" : "추가 " + rest + "건 보기";
+      announce(open ? "주의 " + problems.length + "건을 모두 표시했습니다." : "주의 3건만 표시합니다.");
+    });
+    box.appendChild(toggle);
   }
   return box;
 }
@@ -726,19 +891,23 @@ function evidenceList(detail) {
   box.appendChild(h("div", { class: "row gap-8" },
     h("h2", { class: "card-title", text: "근거 탐색" }),
     h("span", { class: "badge", text: "조건 " + claims.length + "개 전부" })));
-  box.appendChild(h("p", { class: "body-sm",
-    text: "조건을 열면 저장된 Before/After와 근거 목록을 볼 수 있습니다." }));
+  box.appendChild(h("p", { class: "body-sm", text: legacy
+    ? "이 Review는 이전 형식이라 상세 검사 항목이 기록되지 않았습니다. 저장된 Observation과 근거는 그대로 볼 수 있습니다."
+    : "조건을 열면 저장된 Before/After와 근거 목록을 볼 수 있습니다." }));
   var list = h("ul", { class: "stack gap-6" });
+  var legacy = detail.source_contract_version === 1;
   claims.forEach(function (claim) {
     var checks = claim.checks || [];
-    var evidence = checks.reduce(function (sum, check) { return sum + (check.evidence_count || 0); }, 0);
+    var evidence = checks.length
+      ? checks.reduce(function (sum, check) { return sum + (check.evidence_count || 0); }, 0)
+      : evidenceKeysOf(claim).length;
     var row = h("a", { class: "list-row inherit",
       href: "#/snapshots/" + encodeURIComponent(detail.snapshot_key)
         + "/claims/" + encodeURIComponent(claim.id) });
     row.appendChild(icon(CLAIM_MARK[claim.status][0], 15, CLAIM_MARK[claim.status][1]));
     row.appendChild(h("span", { class: "grow t-14", text: claim.text }));
     row.appendChild(h("span", { class: "caption", text: (claim.required ? "필수" : "선택")
-      + " · 검사 " + checks.length + " · 근거 " + evidence }));
+      + (legacy ? "" : " · 검사 " + checks.length) + " · 근거 " + evidence }));
     row.appendChild(claimTag(claim.status));
     row.appendChild(icon("chev", 14, "var(--ink-muted)"));
     list.appendChild(h("li", {}, row));
@@ -905,6 +1074,34 @@ async function openDrawer(detail, claimId) {
     h("div", { class: "row gap-8" }, claimTag(claim.status, 14),
       h("span", { class: "badge", text: "비교 기준 " + claim.comparison }))));
 
+  if (!(claim.checks || []).length) {
+    var legacyBox = h("div", { class: "stack gap-10" });
+    legacyBox.appendChild(h("hr", { class: "sep" }));
+    legacyBox.appendChild(h("p", { class: "caption",
+      text: "상세 검사 항목은 이전 형식에서 기록되지 않았습니다. 아래는 저장된 Observation입니다." }));
+    var observations = claimObservations(claim);
+    var pairLegacy = h("div", { class: "ba" });
+    pairLegacy.appendChild(observationBlock("변경 전",
+      observations.filter(function (one) { return one.phase === "before"; })));
+    pairLegacy.appendChild(observationBlock("변경 후",
+      observations.filter(function (one) { return one.phase !== "before"; })));
+    legacyBox.appendChild(pairLegacy);
+    var keys = evidenceKeysOf(claim);
+    legacyBox.appendChild(h("span", { class: "caption", text: "근거 " + keys.length + "건" }));
+    var legacyLinks = h("ul", { class: "stack gap-6" });
+    observations.forEach(function (observation) {
+      (observation.evidence_links || []).forEach(function (link) {
+        legacyLinks.appendChild(h("li", {}, h("a", { class: "link-row",
+          href: "#/snapshots/" + encodeURIComponent(detail.snapshot_key)
+            + "/evidence/" + encodeURIComponent(link.evidence_key) },
+          h("span", { text: "상세 근거 열기" }),
+          h("span", { class: "badge", text: link.availability }), icon("chev", 14))));
+      });
+    });
+    legacyBox.appendChild(legacyLinks);
+    body.appendChild(legacyBox);
+  }
+
   (claim.checks || []).forEach(function (check) {
     var section = h("div", { class: "stack gap-10" });
     section.appendChild(h("hr", { class: "sep" }));
@@ -1067,21 +1264,28 @@ async function evidenceScreen(key, evidenceKey) {
 
 /* ---------- router ---------- */
 
+function unesc(value) {
+  try { return decodeURIComponent(value); } catch (error) { return value; }
+}
+
 function parseHash() {
   var raw = location.hash.replace(/^#/, "");
-  var parts = raw.split("?");
-  var segments = parts[0].split("/").filter(Boolean).map(decodeURIComponent);
+  var cut = raw.indexOf("?");
+  var path = cut < 0 ? raw : raw.slice(0, cut);
+  var search = cut < 0 ? "" : raw.slice(cut + 1);
+  var segments = path.split("/").filter(Boolean).map(unesc);
   var query = {};
-  (parts[1] || "").split("&").filter(Boolean).forEach(function (pair) {
-    var kv = pair.split("=");
-    query[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || "");
+  search.split("&").filter(Boolean).forEach(function (pair) {
+    var eq = pair.indexOf("=");          /* a value may itself contain "=" */
+    if (eq < 0) query[unesc(pair)] = "";
+    else query[unesc(pair.slice(0, eq))] = unesc(pair.slice(eq + 1));
   });
   return { segments: segments, query: query };
 }
 
 async function render() {
   routeToken += 1;
-  stopPolls();
+  stopPolls(false);
   document.getElementById("overlay").textContent = "";
   var route = parseHash();
   var segments = route.segments;
@@ -1094,7 +1298,7 @@ async function render() {
     await detailScreen(segments[1], segments[2] === "claims" ? segments[3] : null);
     return;
   }
-  await listScreen(route.query.filter || "all");
+  await listScreen({ filter: route.query.filter || "all", q: route.query.q || "" });
 }
 
 window.addEventListener("hashchange", function () {

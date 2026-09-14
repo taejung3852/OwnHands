@@ -131,6 +131,27 @@ class StaticServingTests(api.DashboardHarness):
         self.assertEqual(before, self.builder.inventory())
 
 
+class LegacyClaimApiTests(api.DashboardHarness):
+    """The data a legacy v1 Review gives the UI, so the client can stop inventing checks."""
+
+    def test_f03_a_legacy_claim_carries_observations_with_evidence_links(self):
+        item = self.builder.simple_snapshot("legacy-evidence", title="legacy 근거",
+                                            status="verified", activate_inputs=True)
+        server = self.serve()
+        client = self.client(server)
+        key = self.key_of(item)
+        detail = client.get("/snapshots/" + key).json
+        self.assertEqual(detail["source_contract_version"], 1)
+        claim = detail["claims"][0]
+        self.assertEqual(claim["checks"], [], "a v1 Review has no recorded checks")
+        self.assertTrue(claim["observations"], "but it does carry its own observations")
+        links = [link for observation in claim["observations"]
+                 for link in observation["evidence_links"]]
+        self.assertTrue(links, "and those observations reach real evidence")
+        evidence = client.get("/snapshots/" + key + "/evidence/" + links[0]["evidence_key"])
+        self.assertEqual(evidence.status, 200)
+
+
 class ShippedAssetTests(unittest.TestCase):
     """The assets themselves must satisfy the contracts the server advertises."""
 
@@ -218,6 +239,58 @@ class ShippedAssetTests(unittest.TestCase):
         assigned = set(re.findall(r"^\s{0,4}([A-Za-z_$][\w$]*)\s*=[^=]", js, re.M))
         self.assertEqual(assigned - declared, set(),
                          "these are assigned without a declaration")
+
+    def test_the_list_uses_the_search_and_cursor_contract(self):
+        """PR #98 review: q and next_cursor were never wired to the list."""
+        js = self.files["app.js"]
+        query = js.split("function listQuery(")[1].split("\n}")[0]
+        for param in ('"filter="', '"q="', '"cursor="'):
+            self.assertIn(param, query, "the list request must carry " + param)
+        self.assertIn("encodeURIComponent", query)
+        screen = js.split("async function listScreen(")[1].split("\nfunction ")[0]
+        self.assertIn("result.data.next_cursor", screen, "paging follows next_cursor")
+        self.assertIn("list_token", screen, "pages of different lists are never spliced")
+        self.assertIn("LIST_CHANGED", screen, "a changed list restarts from page one")
+        # a search must never be the reason a summary gets generated
+        self.assertIn("function searching(", js)
+        predicate = js.split("function canEnsure(")[1].split("\n}")[0]
+        self.assertIn("searching(", predicate)
+
+    def test_a_card_whose_active_snapshot_differs_says_so(self):
+        js = self.files["app.js"]
+        self.assertIn("active_snapshot_key", js)
+        self.assertIn("현재 적용 중인 보고서", js)
+
+    def test_a_hidden_tab_keeps_its_polls_and_resumes_from_a_get(self):
+        """PR #98 review: stopPolls cleared timers without remembering the poll."""
+        js = self.files["app.js"]
+        stop = js.split("function stopPolls(")[1].split("\n}")[0]
+        self.assertIn("suspended.set", stop, "a paused poll must be remembered")
+        resume = js.split("function resumePolls(")[1].split("\n}")[0]
+        self.assertIn("refresh", resume, "resuming starts from a GET")
+        self.assertIn("function pollState(", js)
+
+    def test_a_legacy_claim_shows_its_observations_and_evidence(self):
+        """PR #98 review: checks=[] left the count at 0 and the drawer empty."""
+        js = self.files["app.js"]
+        self.assertIn("function claimObservations(", js)
+        self.assertIn("source_contract_version", js)
+        self.assertIn("상세 검사 항목", js)
+        # the count must fall back to the claim's own observations
+        counter = js.split("function evidenceKeysOf(")[1].split("\n}")[0]
+        self.assertIn("claimObservations(", counter)
+        fallback = js.split("function claimObservations(")[1].split("\n}")[0]
+        self.assertIn("claim.observations", fallback)
+
+    def test_the_remaining_problems_can_actually_be_opened(self):
+        """PR #98 review: the remainder was a sentence, not an affordance."""
+        js = self.files["app.js"]
+        block = js.split("function attentionCard(")[1].split("\nfunction ")[0]
+        self.assertIn("aria-expanded", block)
+        # a flex row ignores the UA [hidden] rule, so the sheet has to force it
+        self.assertRegex(self.files["styles.css"], r"\[hidden\]\s*\{[^}]*display:\s*none\s*!important")
+        self.assertIn("추가", block)
+        self.assertNotRegex(block, r'text: "추가 " \+ [^;]*건이 더 있습니다')
 
     def test_a_settled_failure_is_retried_when_the_cooldown_has_passed(self):
         """Review finding: only `absent` triggered ensure, so the server's second
