@@ -25,10 +25,10 @@ PYTHONPATH=src uv run --python 3.12 python tests/run_claim_mutations.py
 PYTHONPATH=src uv run --python 3.12 python -m unittest tests.test_dashboard_web \
   tests.test_dashboard_api tests.test_dashboard_presentation tests.test_dashboard_read_model \
   tests.test_dashboard_readonly tests.test_skills tests.test_skill_routing_fixtures
-Ran 174 tests — OK
+Ran 177 tests — OK
 
 PYTHONPATH=src uv run --python 3.12 python -m unittest discover -s tests
-Ran 566 tests — OK   (baseline 550 → 신규 16)
+Ran 569 tests — OK   (baseline 550 → 신규 19)
 
 PYTHONPATH=src uv run --python 3.12 python tests/run_claim_mutations.py
 9/9 mutations killed, errors 0
@@ -95,6 +95,23 @@ python -m devharness dashboard --data-root <fixture> --project-id <id> --port 87
 5. **fallback 문장에 생성문 라벨이 붙음** — 서버의 결정적 문장에 `근거 있는 것`이 붙어 오해를 준다.
    `presentation.fallback`이면 라벨 없이 문장만 보인다.
 6. **시작 실패가 traceback** — 포트 충돌 시 argparse 오류로 바꿨다.
+
+## 독립 재검수
+
+구현 후 독립 재검수에서 7건을 보고받았고 전부 수정했다. 동작을 바꾸는 3건은 실패 fixture를
+먼저 확인(RED)한 뒤 고쳤다.
+
+| # | 발견 | 처리 |
+|---|---|---|
+| 1 | `failed`로 정착한 설명이 다시 시도되지 않음 — 모든 ensure 트리거가 `status === "absent"`만 봤다 | `ensurable()` 술어를 도입해 `absent` 또는 cooldown이 지난 `failed`를 재시도 대상으로 삼는다. 서버가 허용한 2회차가 실제로 도달 가능해졌다 |
+| 2 | 탭 복귀 때마다 화면 전체를 다시 그려 스크롤이 초기화됨 | 복귀는 중단된 polling만 재개한다. 실측으로 같은 DOM 노드 유지·scrollY 900 보존 확인 |
+| 3 | polling timer가 전역 하나라 동시 polling을 취소할 수 없었다 | key별 Map으로 추적하고 `stopPolls()`로 모두 해제. F07의 "누적 timer 없음"을 실제로 만족 |
+| 4 | 근거 상세가 5개 field를 순차로 기다린 뒤에야 화면을 그림 | 머리말·metadata를 먼저 칠하고 각 패널을 도착하는 대로 채운다 |
+| 5 | 거부된 ensure가 "이미 요청함"으로 기억됨 | 200/202가 아니면 `asked`에서 제거해 세션을 고친 뒤 다시 시도할 수 있게 했다 |
+| 6 | 시작 시 목록을 두 번 읽음 | probe를 없애고 `listScreen`의 401 분기가 토큰 화면을 담당한다 |
+| 7 | 자산을 요청마다 디스크에서 다시 읽음 | 프로세스 수명 동안 1회만 읽어 캐시한다 |
+
+재검수 후 Critical/Important 미해결 **0**.
 
 ## F01–F14 대응
 

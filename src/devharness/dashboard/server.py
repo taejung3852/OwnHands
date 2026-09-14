@@ -78,10 +78,19 @@ DOCUMENT_CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; "
                 "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 
 
+_ASSETS: dict[str, bytes] = {}
+
+
 def asset(name: str) -> bytes:
-    """Read a shipped asset through the package so an installed wheel works too."""
-    from importlib import resources
-    return (resources.files(__package__) / "web" / name).read_bytes()
+    """Read a shipped asset through the package so an installed wheel works too.
+
+    The files ship inside the package and never change while the process runs,
+    so one read each is enough.
+    """
+    if name not in _ASSETS:
+        from importlib import resources
+        _ASSETS[name] = (resources.files(__package__) / "web" / name).read_bytes()
+    return _ASSETS[name]
 
 
 def _same(offered: object, expected: str) -> bool:

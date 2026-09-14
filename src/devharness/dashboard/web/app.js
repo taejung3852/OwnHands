@@ -13,9 +13,10 @@ var CHUNK_LABEL = 64;
 var csrf = null;              /* memory only: never a cookie, never storage */
 var routeToken = 0;           /* bumped per navigation, to drop late answers */
 var inflight = new Set();     /* snapshot keys with an ensure in progress */
-var asked = new Set();        /* snapshot keys already ensured this session */
+var asked = new Set();        /* snapshot keys already ensured this view */
+var suspended = new Map();    /* polls paused while the tab was hidden */
 var cooldown = new Map();     /* snapshot key -> epoch ms before a retry is allowed */
-var pollTimer = null;
+var polls = new Map();       /* snapshot key -> timer id */
 var restoreClaim = null;     /* claim row to re-focus after the drawer closes */
 
 function stamp(value) {
@@ -358,6 +359,15 @@ function canEnsure(key) {
   return !(until && Date.now() < until);
 }
 
+/* The server allows two attempts; the second is spent at the next real view once
+ * the cooldown has passed. So `failed` is ensurable again, `ready` never is. */
+function ensurable(presentation) {
+  if (!presentation) return false;
+  if (presentation.status === "absent") return true;
+  return presentation.status === "failed"
+    && (!presentation.retry_after || Date.parse(presentation.retry_after) <= Date.now());
+}
+
 async function ensure(key, intent, recipeHash, onDone) {
   if (!canEnsure(key)) return;
   inflight.add(key);
@@ -368,7 +378,11 @@ async function ensure(key, intent, recipeHash, onDone) {
                           { method: "POST", body: body });
   inflight.delete(key);
   if (result.status === 202) { poll(key, onDone); return; }
-  if (result.status === 200 && result.data) {
+  if (result.status !== 200) {
+    asked.delete(key);          /* the server settled nothing: a later view may ask again */
+    return;
+  }
+  if (result.data) {
     if (result.data.status === "failed" && result.data.retry_after) {
       cooldown.set(key, Date.parse(result.data.retry_after));
     }
@@ -377,19 +391,24 @@ async function ensure(key, intent, recipeHash, onDone) {
   /* 403/409/503 stop here: no replay, no timer. */
 }
 
+function stopPolls() {
+  polls.forEach(function (timer) { window.clearTimeout(timer); });
+  polls.clear();
+}
+
 /* SDD §7.2.6 — 1s, 2s, then 5s, giving up at 60s, paused while the tab is hidden. */
 function poll(key, onDone) {
   var waits = [1000, 2000, 5000];
   var spent = 0;
   var step = 0;
   function tick() {
-    pollTimer = null;
-    if (document.hidden) return;
+    polls.delete(key);
+    if (document.hidden) { suspended.set(key, onDone); return; }
     var wait = waits[Math.min(step, waits.length - 1)];
     step += 1;
     spent += wait;
     if (spent > 60000) { announce("설명 생성이 오래 걸립니다. 화면을 다시 열면 이어서 확인합니다."); return; }
-    pollTimer = window.setTimeout(async function () {
+    polls.set(key, window.setTimeout(async function () {
       var token = routeToken;
       var result = await call("/snapshots/" + encodeURIComponent(key) + "/presentation");
       if (token !== routeToken) return;           /* navigated away: drop it */
@@ -399,14 +418,22 @@ function poll(key, onDone) {
         cooldown.set(key, Date.parse(result.data.retry_after));
       }
       onDone(result.data);
-    }, wait);
+    }, wait));
   }
   tick();
 }
 
+/* A hidden tab stops polling; coming back resumes those polls from a GET and
+ * leaves the rendered page (and its scroll position) alone. */
+function resumePolls() {
+  var pending = Array.from(suspended.entries());
+  suspended.clear();
+  pending.forEach(function (entry) { poll(entry[0], entry[1]); });
+}
+
 document.addEventListener("visibilitychange", function () {
-  if (document.hidden && pollTimer) { window.clearTimeout(pollTimer); pollTimer = null; }
-  else if (!document.hidden) render();            /* resume from a GET, never a POST */
+  if (document.hidden) { stopPolls(); return; }
+  resumePolls();
 });
 
 function sessionNotice() {
@@ -453,7 +480,7 @@ function reviewCard(card, observer) {
   box.appendChild(line);
 
   /* 실제 viewport에 들어온 카드만 ensure한다. */
-  if (observer && card.presentation && card.presentation.status === "absent") {
+  if (observer && ensurable(card.presentation)) {
     box.setAttribute("data-key", card.snapshot_key);
     box.setAttribute("data-recipe", card.presentation.recipe_hash || "");
     observer.observe(box);
@@ -493,7 +520,7 @@ function pinnedCard(card, observer) {
   grid.appendChild(left);
   grid.appendChild(right);
   box.appendChild(grid);
-  if (observer && presentation.status === "absent") {
+  if (observer && ensurable(presentation)) {
     box.setAttribute("data-key", card.snapshot_key);
     box.setAttribute("data-recipe", presentation.recipe_hash || "");
     observer.observe(box);
@@ -577,7 +604,7 @@ async function listScreen(filter) {
   paint(page);
   if (!observer) {
     cards.forEach(function (card) {
-      if (card.presentation && card.presentation.status === "absent") {
+      if (ensurable(card.presentation)) {
         ensure(card.snapshot_key, "list_visible", card.presentation.recipe_hash,
           function () { render(); });
       }
@@ -747,7 +774,7 @@ async function detailScreen(key, claimId) {
     h("span", { class: "caption", text: "Snapshot " + stamp(detail.snapshot_created_at)
       + " · 이 화면의 모든 값은 이 Snapshot 하나에서 나옵니다" })));
   banners(detail).forEach(function (box) { page.appendChild(box); });
-  if (!csrf && presentation.status === "absent") page.appendChild(sessionNotice());
+  if (!csrf && ensurable(presentation)) page.appendChild(sessionNotice());
 
   var summary = h("section", { class: "card card-lg stack gap-16" });
   var headline = presentation.headline && presentation.headline.text;
@@ -793,7 +820,7 @@ async function detailScreen(key, claimId) {
     else view().focus();
     restoreClaim = null;
   }
-  if (presentation.status === "absent") {
+  if (ensurable(presentation)) {
     ensure(key, "detail", presentation.recipe_hash, function () { render(); });
   }
   if (claimId) openDrawer(detail, claimId);
@@ -1015,6 +1042,16 @@ async function evidenceScreen(key, evidenceKey) {
     h("h2", { class: "card-title t-15", text: "근거 metadata" }),
     h("div", { class: "card card-sm" }, meta)));
 
+  var slots = {};
+  FIELDS.forEach(function (pair) {
+    var slot = h("section", { class: "stack gap-8" },
+      h("div", { class: "row gap-8" }, h("h3", { class: "card-title t-15", text: pair[0] }),
+        h("span", { class: "badge", text: "불러오는 중" })));
+    slots[pair[0]] = slot;
+    page.appendChild(slot);
+  });
+  paint(page);                       /* header and metadata are readable immediately */
+
   for (var i = 0; i < FIELDS.length; i += 1) {
     var name = FIELDS[i][0];
     var loaded = await call("/snapshots/" + encodeURIComponent(key) + "/evidence/"
@@ -1022,9 +1059,10 @@ async function evidenceScreen(key, evidenceKey) {
     if (token !== routeToken) return;
     var field = loaded.status === 200 && loaded.data
       ? loaded.data : { availability: "unsupported", text: null, reason_code: null, next_cursor: null };
-    page.appendChild(fieldPanel(key, evidenceKey, name, field));
+    var slot = slots[name];
+    slot.replaceWith(fieldPanel(key, evidenceKey, name, field));
+    slots[name] = null;
   }
-  paint(page);
 }
 
 /* ---------- router ---------- */
@@ -1043,7 +1081,7 @@ function parseHash() {
 
 async function render() {
   routeToken += 1;
-  if (pollTimer) { window.clearTimeout(pollTimer); pollTimer = null; }
+  stopPolls();
   document.getElementById("overlay").textContent = "";
   var route = parseHash();
   var segments = route.segments;
@@ -1064,8 +1102,4 @@ window.addEventListener("hashchange", function () {
   render();
 });
 
-(async function start() {
-  var probe = await call("/reviews?limit=1");
-  if (probe.status === 401) { loginScreen(null); return; }
-  render();
-}());
+render();          /* listScreen's own 401 branch shows the token screen */

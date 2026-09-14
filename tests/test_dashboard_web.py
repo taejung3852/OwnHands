@@ -219,6 +219,33 @@ class ShippedAssetTests(unittest.TestCase):
         self.assertEqual(assigned - declared, set(),
                          "these are assigned without a declaration")
 
+    def test_a_settled_failure_is_retried_when_the_cooldown_has_passed(self):
+        """Review finding: only `absent` triggered ensure, so the server's second
+        attempt was unreachable for the life of the session."""
+        js = self.files["app.js"]
+        self.assertIn("function ensurable(", js)
+        # the status literal survives only inside the predicate; every trigger calls it
+        self.assertEqual(js.count('status === "absent"'), 1)
+        self.assertEqual(js.count('ensurable('), 6)
+        predicate = js.split("function ensurable(")[1].split("\n}")[0]
+        self.assertIn('"failed"', predicate)
+        self.assertIn("retry_after", predicate)
+
+    def test_polls_are_tracked_per_key_so_all_of_them_can_be_cancelled(self):
+        """Review finding: a single timer handle left earlier polls uncancellable."""
+        js = self.files["app.js"]
+        self.assertNotIn("var pollTimer = null", js)
+        self.assertIn("polls", js)
+        self.assertIn("function stopPolls(", js)
+
+    def test_returning_to_the_tab_does_not_rebuild_the_screen(self):
+        """Review finding: an unconditional re-render on focus reset scroll."""
+        js = self.files["app.js"]
+        handler = js.split('addEventListener("visibilitychange"')[1].split("});")[0]
+        self.assertNotIn("render()", handler,
+                         "focus must resume a suspended poll, not repaint the page")
+        self.assertIn("resumePolls", handler)
+
     def test_the_client_sets_no_inline_style_the_policy_would_block(self):
         """style-src 'self' blocks style attributes too, so every rule lives in the sheet."""
         self.assertNotIn('style: "', self.files["app.js"])
