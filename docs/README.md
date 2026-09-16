@@ -9,7 +9,7 @@
 ### 처음 보는 경우
 
 1. [프로젝트 여정](story/project-journey.md) — 왜 시작했고 무엇을 배웠는가
-2. [왜 V2인가](story/why-v2.md) — 무엇을 바꾸고 왜 바꾸는가 *(편집 초안)*
+2. [왜 V2인가](story/why-v2.md) — 무엇을 바꾸고 왜 바꾸는가
 3. [V2 개요](v2/overview.md) — 무엇을 만들려는가
 4. [로드맵](v2/roadmap.md) — 어떤 순서로 가는가
 
@@ -46,7 +46,7 @@ docs/
 ├── README.md                  이 문서
 ├── story/
 │   ├── project-journey.md     시작 → V1 → 한계 발견 → Playbook → V2
-│   └── why-v2.md              전환 이유 (1인칭, 편집 초안)
+│   └── why-v2.md              전환 이유 (1인칭)
 ├── v2/
 │   ├── overview.md            큰 구조와 책임 관계
 │   ├── roadmap.md             실행 순서와 각 단계의 남겨둔 결정
