@@ -192,4 +192,4 @@ description: "Use when requested to prepare human-digestible presentation artifa
 
 OwnHands 라이프사이클은 자체적으로 완결된 얇은 하네스이며 외부 전문 스킬을 필수 의존성으로 요구하지 않는다. 다만 `work-map`, `verification-spec`, `dashboard` 등에서 선택적·보조적으로 활용할 수 있는 외부 전문 스킬들의 출처(provenance), 라이선스, 호출 기준 및 대체 경로(fallback)를 다음 문서에 명시한다:
 
-- [docs/m5-r/upstream-skill-policy.md](file:///Users/parktaejung/.codex/.chatgpt-projects/g-p-6a9efb89d3b48191b30ab3282c69cbda/work/ownhands-81/docs/m5-r/upstream-skill-policy.md) (wayfinder, grill-me, eli5, diagram-design)
+- [upstream-skill-policy.md](upstream-skill-policy.md) (wayfinder, grill-me, eli5, diagram-design)
