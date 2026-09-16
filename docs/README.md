@@ -119,9 +119,27 @@ docs/
 | **`docs/`** | 사용자 생각·프로젝트 여정·공식 근거·큰 설계·결정·로드맵의 **원문** |
 | **Milestone** | 여러 Issue/PR을 하나의 의미 있는 완료 목표로 묶는 실행 단위 |
 | **Issue** | 하나의 조사·결정·구현 질문과 그 결과 |
-| **Project** | 같은 Issue/PR의 현재 상태·마일스톤·결정 대기를 보여주는 운영 보기 |
+| **Project** | 같은 Issue/PR의 현재 상태·마일스톤·결정 대기를 보여주는 운영 보기 — [OwnHands V2](https://github.com/users/taejung3852/projects/2) |
 | **PR/Commit** | 실제 변경과 검증 근거 |
 | **Wiki** | 현재 핵심 원문 저장소로 사용하지 않는다. 원문은 `docs/`다. |
+
+---
+
+## 작업 관리 현황 (2026-09-16)
+
+| 항목 | 상태 |
+|---|---|
+| [#101 V2 전체 추적](https://github.com/taejung3852/OwnHands/issues/101) | 입구 · 진행 중 |
+| [#102](https://github.com/taejung3852/OwnHands/issues/102) 공식 자료 조사 | Research |
+| [#103](https://github.com/taejung3852/OwnHands/issues/103) Skill 구성·이름 | 💬 사용자와 결정 |
+| [#104](https://github.com/taejung3852/OwnHands/issues/104) Agent 역할·위임 | 💬 사용자와 결정 |
+| [#105](https://github.com/taejung3852/OwnHands/issues/105) 정책 연결 | 🤔 생각 단계 |
+| [#106](https://github.com/taejung3852/OwnHands/issues/106) 평가 설계 | ⏳ 후속 결정 |
+| [Project: OwnHands V2](https://github.com/users/taejung3852/projects/2) | 진행 상태 보기 |
+| V2 Milestone 등록 | ⏳ 사용자 확인 대기 |
+
+V2 작업은 `v2` 라벨로 구분한다. Type·Area·Priority는 기존 저장소 라벨(`type:*`·`area:*`·`priority:*`)을 쓰고
+Project에 중복 필드를 만들지 않았다.
 
 ---
 

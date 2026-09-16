@@ -142,6 +142,7 @@ V2-M7  Maintain & Closed Loop
 | **[#101 V2 전체 추적](https://github.com/taejung3852/OwnHands/issues/101)** | V2 작업의 입구 — 현재 상태와 하위 이슈 |
 | [Issues](https://github.com/taejung3852/OwnHands/issues?q=is%3Aissue+label%3Av2) | V2 조사·결정 질문과 결과 (`v2` 라벨) |
 | [Milestones](https://github.com/taejung3852/OwnHands/milestones) | 실행 단위 (V1 `M0`~`M8` 등록 / V2 후보 미등록) |
+| [Project: OwnHands V2](https://github.com/users/taejung3852/projects/2) | 이슈 진행 상태 보기 |
 
 현재 열린 V2 결정 이슈:
 
