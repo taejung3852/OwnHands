@@ -173,7 +173,7 @@ pre-v2-2026-09-16
 
 - **V1은 실패해서 제거한 것이 아니다.** 실제 구현을 통해 V2의 방향을 얻은 단계다.
 - V1의 구현·검증 결과는 **V2의 완료 근거로 자동 승계되지 않는다.**
-- 무엇을 만들었고 태그의 어디에 있는지는 [V1 기록](docs/history/v1.md), 아카이브 안내는 [docs/legacy/README.md](docs/legacy/README.md).
+- V1에서 무엇을 만들었고 원본을 태그의 어디에서 확인할 수 있는지는 [V1 기록](docs/history/v1.md)에서 안내한다.
 
 V1 추적 이슈 [#7](https://github.com/taejung3852/OwnHands/issues/7) · [#89](https://github.com/taejung3852/OwnHands/issues/89) · [#99](https://github.com/taejung3852/OwnHands/issues/99)는 2026-09-16에 **`not planned`로 종료**했다. 구현이 잘못돼서가 아니라 제품 방향이 바뀌었기 때문이며, **`완료`로 닫지 않았다.**
 
