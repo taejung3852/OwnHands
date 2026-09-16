@@ -139,8 +139,19 @@ V2-M7  Maintain & Closed Loop
 
 | 위치 | 용도 |
 |---|---|
-| [Issues](https://github.com/taejung3852/OwnHands/issues) | 조사·결정 질문과 결과 |
-| [Milestones](https://github.com/taejung3852/OwnHands/milestones) | 실행 단위 (V1 M0~M8 / V2 후보 미등록) |
+| **[#101 V2 전체 추적](https://github.com/taejung3852/OwnHands/issues/101)** | V2 작업의 입구 — 현재 상태와 하위 이슈 |
+| [Issues](https://github.com/taejung3852/OwnHands/issues?q=is%3Aissue+label%3Av2) | V2 조사·결정 질문과 결과 (`v2` 라벨) |
+| [Milestones](https://github.com/taejung3852/OwnHands/milestones) | 실행 단위 (V1 `M0`~`M8` 등록 / V2 후보 미등록) |
+
+현재 열린 V2 결정 이슈:
+
+| 이슈 | 질문 | 상태 |
+|---|---|---|
+| [#102](https://github.com/taejung3852/OwnHands/issues/102) | Codex가 이미 제공하는 것은 무엇이고 무엇을 안 만들어도 되는가? | 🔍 조사 |
+| [#103](https://github.com/taejung3852/OwnHands/issues/103) | Skill의 이름과 개수는 무엇인가? | 💬 함께 결정 |
+| [#104](https://github.com/taejung3852/OwnHands/issues/104) | 초기 Agent 역할과 위임 조건은? | 💬 함께 결정 |
+| [#105](https://github.com/taejung3852/OwnHands/issues/105) | 기본·조직 정책을 어떻게 연결하는가? | 🤔 생각 단계 |
+| [#106](https://github.com/taejung3852/OwnHands/issues/106) | 초기 Eval을 어떻게 시작하고 M5에서 무엇을 확장하는가? | ⏳ 후속 결정 |
 
 ---
 

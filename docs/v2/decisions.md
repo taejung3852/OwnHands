@@ -62,7 +62,7 @@
 
 > "이거 지금 내가 말한걸 확정안으로 하는게 아니야. 그냥 현재 내 생각을 말한거야."
 
-정책 합성·예외·충돌(선택·대체·추가·우선순위·예외 승인 방식)은 **후속 설계**다. → ISSUE_POLICY
+정책 합성·예외·충돌(선택·대체·추가·우선순위·예외 승인 방식)은 **후속 설계**다. → [#105](https://github.com/taejung3852/OwnHands/issues/105)
 
 ---
 
@@ -72,8 +72,8 @@
 
 | 주제 | 결정할 내용 | 연결 |
 |---|---|---|
-| **Skill 이름·수** | 무엇이 Skill이고 무엇이 Reference·공통 지침·Script인가. 이름과 개수는 무엇인가. | ISSUE_SKILLS |
-| **초기 Agent/Subagent 구성** | 초기 역할, 역할 수, 도구 권한, 위임 조건. | ISSUE_AGENTS |
+| **Skill 이름·수** | 무엇이 Skill이고 무엇이 Reference·공통 지침·Script인가. 이름과 개수는 무엇인가. | [#103](https://github.com/taejung3852/OwnHands/issues/103) |
+| **초기 Agent/Subagent 구성** | 초기 역할, 역할 수, 도구 권한, 위임 조건. | [#104](https://github.com/taejung3852/OwnHands/issues/104) |
 
 > ⚠️ 문서 곳곳에 보이는 `intent`, `design`, `test`, `explain` 같은 표현은
 > **역할 설명 또는 후보이지 확정된 Skill 이름이 아니다.**
@@ -87,9 +87,9 @@
 | **다른 Vendor 지원** | adapter로 할지, 같은 저장소로 할지, 별도 저장소로 할지 **미정**. | ⏳ |
 | **공통 추상화** | 두 번째 플랫폼의 **실제 필요를 확인하기 전에** 범용 adapter나 공통 실행 엔진을 확정하지 않는다. | ⏳ |
 | **Artifact 형식** | `intent.md`·`spec.md`·`plan.md`의 역할은 논의했으나 정확한 저장 경로·메타데이터·자동화 규칙은 미정. | ⏳ |
-| **Eval 상세** | 과제 수, 반복 수, 평가 지표, 비용 상한, 자동 실행 주기, merge 차단 여부 미정. | ISSUE_EVAL |
-| **Hooks 상세** | 적용 역할은 논의했으나 구체 이벤트·규칙·권한·구현은 후속 설계. | ISSUE_RESEARCH |
-| **마일스톤 전체 경계** | M0~M7은 **실행 로드맵 후보**다. 최종 이름·수·경계를 모두 승인받은 것으로 취급하지 않는다. | ISSUE_TRACK |
+| **Eval 상세** | 과제 수, 반복 수, 평가 지표, 비용 상한, 자동 실행 주기, merge 차단 여부 미정. | [#106](https://github.com/taejung3852/OwnHands/issues/106) |
+| **Hooks 상세** | 적용 역할은 논의했으나 구체 이벤트·규칙·권한·구현은 후속 설계. | [#102](https://github.com/taejung3852/OwnHands/issues/102) |
+| **마일스톤 전체 경계** | M0~M7은 **실행 로드맵 후보**다. 최종 이름·수·경계를 모두 승인받은 것으로 취급하지 않는다. | [#101](https://github.com/taejung3852/OwnHands/issues/101) |
 | **개발 속도** | 공식 기능을 활용하면 더 빨라질 것으로 **기대**한다. 이미 시간을 절감했다고 쓰지 않는다. | — |
 
 ---
