@@ -33,9 +33,8 @@
 
 ### V1 기록
 
-1. [V1 기록](history/v1.md) — 구현 범위·마일스톤·보존 기준 커밋
+1. [V1 기록](history/v1.md) — 구현 범위·마일스톤·V1 snapshot과 원본 위치
 2. [핵심 발언 기록](history/conversation-notes.md) — 원문과 맥락
-3. [아카이브 안내](legacy/README.md) — V1 원본은 [`pre-v2-2026-09-16`](https://github.com/taejung3852/OwnHands/tree/pre-v2-2026-09-16) 태그에 있다
 
 ---
 
@@ -55,11 +54,10 @@ docs/
 ├── references/
 │   ├── anthropic-playbook.md  SDLC 큰 틀, 가져온 것과 안 가져온 것
 │   └── codex-official.md      실제 형식·기능·권한·제약, 확인일 기록
-├── history/
-│   ├── v1.md                  구현 범위, 마일스톤, 보존 기준
-│   └── conversation-notes.md  사용자 발언 원문
-└── legacy/
-    └── README.md              V1 원본이 있는 태그로 가는 안내 (원본은 여기 없다)
+└── history/
+    ├── v1.md                  구현 범위, 마일스톤, V1 snapshot과 원본 위치
+    └── conversation-notes.md  사용자 발언 원문
+ 
 ```
 
 ---
