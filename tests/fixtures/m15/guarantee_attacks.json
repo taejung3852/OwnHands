@@ -1,8 +1,0 @@
-[
-  {"name": "loaded presented as improvement", "attack": "replace CGM-005 not_evaluated with supported using only context_loading Evidence", "expected": "rejected"},
-  {"name": "absence presented as success", "attack": "claim no conflicts when no context_lint Evidence exists", "expected": "not_evaluated"},
-  {"name": "context summary contains control", "attack": "place sandbox source_ref in active_context", "expected": "rejected"},
-  {"name": "control summary contains context", "attack": "place agents source_ref in active_controls", "expected": "rejected"},
-  {"name": "unresolved drilldown", "attack": "remove an active source Evidence record", "expected": "rejected"},
-  {"name": "unobserved path presented as absent", "attack": "claim unobserved source did not load", "expected": "rejected by forbidden wording and authoritative evaluation"}
-]

@@ -4,7 +4,10 @@ __pycache__/
 *.py[cod]
 .dev-harness/
 .codex-log/
+# 기존 worktree에 남아 있을 수 있는 V1 probe 출력이 실수로 커밋되지 않게 한다.
+# 두 디렉터리를 운영한다는 뜻이 아니다. 현재 V2 tree에는 둘 다 없다.
 docs/spikes/raw/
+docs/legacy/spikes/raw/
 
 # packaging artifacts
 build/

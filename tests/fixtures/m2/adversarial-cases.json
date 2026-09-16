@@ -1,6 +1,0 @@
-{
-  "foreign_identity": {"project_id": "project-foreign"},
-  "expired_approval": "2026-09-04T00:00:00+00:00",
-  "html_injection": "<script>alert('m2')</script>",
-  "unsupported_codex_version": "9.9.9"
-}
