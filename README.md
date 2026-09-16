@@ -96,8 +96,8 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 
 | 마일스톤 | 내용 | 상태 |
 |---|---|---|
-| [V2-M0](https://github.com/taejung3852/OwnHands/milestone/13) | Foundation & Source of Truth | 🔵 진행 중 |
-| [V2-M1](https://github.com/taejung3852/OwnHands/milestone/14) | Codex-Native Foundation · **작은 Eval 시작** | 🚧 결정 이슈 열림 |
+| [V2-M0](https://github.com/taejung3852/OwnHands/milestone/13) | Foundation & Source of Truth | ✅ 완료 |
+| [V2-M1](https://github.com/taejung3852/OwnHands/milestone/14) | Codex-Native Foundation · **작은 Eval 시작** | 🔵 진행 중 — 조사 완료, 결정 이슈 열림 |
 | [V2-M2](https://github.com/taejung3852/OwnHands/milestone/15) | Plan & Design | 🚧 |
 | [V2-M3](https://github.com/taejung3852/OwnHands/milestone/16) | Build & Feedback Loop | 🚧 |
 | [V2-M4](https://github.com/taejung3852/OwnHands/milestone/17) | Test & Assurance | 🚧 |
@@ -151,7 +151,7 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 
 | 이슈 | 질문 | 상태 |
 |---|---|---|
-| [#102](https://github.com/taejung3852/OwnHands/issues/102) | Codex가 이미 제공하는 것은 무엇이고 무엇을 안 만들어도 되는가? | 🔍 조사 |
+| [#102](https://github.com/taejung3852/OwnHands/issues/102) | Codex가 이미 제공하는 것은 무엇이고 무엇을 안 만들어도 되는가? | ✅ 조사 완료 |
 | [#103](https://github.com/taejung3852/OwnHands/issues/103) | Skill의 이름과 개수는 무엇인가? | 💬 함께 결정 |
 | [#104](https://github.com/taejung3852/OwnHands/issues/104) | 초기 Agent 역할과 위임 조건은? | 💬 함께 결정 |
 | [#105](https://github.com/taejung3852/OwnHands/issues/105) | 기본·조직 정책을 어떻게 연결하는가? | 🤔 생각 단계 |

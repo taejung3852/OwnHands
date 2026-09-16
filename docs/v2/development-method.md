@@ -42,6 +42,14 @@ Research → Native 기능 대응 → 수단 선택 → 만들지 않을 것 결
 문서가 이동·개편됐다면 공식 연결을 확인한다.
 > 실제 사례: `developers.openai.com/codex/*`는 2026-09-16 확인 시점에 `learn.chatgpt.com/docs/*`로 308 이동해 있었다.
 
+**원문은 Markdown twin으로 받는다.** Codex 문서는 페이지 URL에 `.md`를 붙이면 원문을 그대로 준다. 전체 인덱스는 `learn.chatgpt.com/llms.txt`, 전량 단일 파일은 `learn.chatgpt.com/docs/llms-full.txt`다.
+
+**근거를 찾지 못했을 때의 기록 방식.** 관련 페이지를 확인하고 공식 corpus 전량을 검색한 뒤에도 근거를 찾지 못하면, **"현재 공식 문서에서 확인하지 못함"으로 기록한다.** 페이지 하나를 읽고 없다고 단정하지 않는다.
+
+> ⚠️ **검색 실패를 기능 부재의 증명으로 취급하지 않는다.** "전량 검색했는데 없다"는 `미확인`의 근거이지 `지원하지 않음`의 근거가 아니다.
+
+→ 적용 예: [Codex 공식 문서 확인 §0.2](../references/codex-official.md)
+
 ### 2. Native 기능 대응 — 플랫폼이 이미 하는 것을 찾는다
 
 > 이 마일스톤에서 Codex가 이미 제공하는 것은 무엇인가?
