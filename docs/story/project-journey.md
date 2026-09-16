@@ -51,6 +51,8 @@ Freshness:  current / stale / unknown
 
 V1에서 실제로 구현하고 병합한 범위는 [V1 기록](../history/v1.md)에 정리한다.
 
+> ⚠️ **V1은 완료 상태에서 끝나지 않았다.** 주요 흐름은 구현·병합했지만 통합 수용 검증([#99](https://github.com/taejung3852/OwnHands/issues/99))은 **실행하지 않은 채** V2로 전환했다. 실행하지 않은 계획을 결과로 기록하지 않는다.
+
 ---
 
 ## 3. 실제 구현하며 한계를 발견했다
