@@ -603,9 +603,11 @@ config reference가 이 키를 완전히 정의한다(§2.5의 표와 동일). �
 ### OwnHands에 주는 의미
 
 - ✅ **역할·모델·권한·도구를 에이전트별로 나누는 구조가 이미 있다.** V2가 "독립된 역할·맥락·도구를 받아 작업 수행"이라고 적은 Agent 책임과 맞물린다.
-- ✅ **내장 에이전트 3종이 이미 있어서 [#104](https://github.com/taejung3852/OwnHands/issues/104)의 출발점은 0이 아니다.** "탐색용 읽기 전용 에이전트"를 새로 정의할 이유가 없다 — `explorer`가 그것이다. **질문이 "역할을 몇 개 만들까"가 아니라 "내장 3종으로 부족한가"로 바뀐다.**
+- ✅ **내장 에이전트 3종이 이미 있어서 [#104](https://github.com/taejung3852/OwnHands/issues/104)의 출발점은 0이 아니다.** 탐색 중심 역할은 내장 `explorer`가 이미 제공한다. **질문이 "역할을 몇 개 만들까"가 아니라 "내장 3종으로 부족한가"로 바뀐다.**
+  ⚠️ 단, 문서의 표현은 `read-heavy`이지 **`read-only`가 아니다.** 엄격한 읽기 전용 경계나 추가 지침이 필요한지는 [#104](https://github.com/taejung3852/OwnHands/issues/104)에서 판단한다.
 - ✅ **권한이 자식으로 새지 않는다.** 부모 턴이 read-only면 자식도 read-only다. 자체 권한 전파 층을 만들지 않는다.
-- ⚠️ **역할별 지식 범위를 좁히는 수단은 Skill 단위 on/off가 전부다.** 더 세밀하게 하려면 Skill을 쪼개야 하는데, 쪼개면 §2.5의 10,000 토큰 예산과 §5.1의 description 모순 문제를 동시에 산다. **이 트레이드오프가 [#103](https://github.com/taejung3852/OwnHands/issues/103)과 [#104](https://github.com/taejung3852/OwnHands/issues/104)를 묶는 지점이다.**
+- ⚠️ **`skills.config`에서 확인된 제어 단위는 Skill 활성/비활성이다.** `references/` 파일 단위의 enable/disable 설정은 **확인되지 않았다**(§4.8). 설정으로 더 세밀하게 나누려면 Skill을 쪼개야 하는데, 쪼개면 §2.5의 10,000 토큰 예산과 §5.1의 description 모순 문제를 동시에 산다. **이 트레이드오프가 [#103](https://github.com/taejung3852/OwnHands/issues/103)과 [#104](https://github.com/taejung3852/OwnHands/issues/104)를 묶는 지점이다.**
+  ⚠️ 이것은 **설정 층의 이야기다.** 역할이 무엇을 읽을지는 `developer_instructions`·위임 프롬프트·`SubagentStart`의 `additionalContext`로도 좁혀진다(§3·§4.6). "설정으로 못 나눈다"를 "나눌 방법이 없다"로 읽지 않는다.
 - ⚠️ **#104에서 "역할별로 무엇을 아는가"를 설계 전제로 삼을 수 없다.** 컨텍스트 전달 범위가 문서화돼 있지 않으므로, 자식에게 필요한 정보는 **위임 프롬프트에 명시적으로 넣는 것**이 확인된 유일한 방법이다.
 - ⚠️ **중첩 위임을 전제한 역할 구조를 설계하지 않는다.** §4.7의 (가)(나)는 "아마 될 것"이라는 인상을 주지만 **인상은 근거가 아니다.**
 - 필수가 3개뿐이고 나머지는 `config.toml` 키를 얹는 구조이므로 **최소 custom agent는 TOML 5줄이다.** 추상화를 만들 여지 자체가 없다.
@@ -904,7 +906,7 @@ Codex는 **Skills · Hooks · Subagents · MCP · 샌드박스 · 지침 계층*
 | 발견 | 걸리는 결정 |
 |---|---|
 | Skill 목록 예산의 실제 천장은 **10,000 토큰**이고, 초과 시 Skill이 **목록에서 누락된다** | [#103](https://github.com/taejung3852/OwnHands/issues/103) — "몇 개까지 둘 수 있나"가 이름보다 먼저다 |
-| 역할별 지식 범위를 좁히는 수단은 **Skill 단위 on/off가 전부다** | [#103](https://github.com/taejung3852/OwnHands/issues/103) + [#104](https://github.com/taejung3852/OwnHands/issues/104) — 따로 결정할 수 없다 |
+| `skills.config`의 확인된 제어 단위는 **Skill 활성/비활성**이다 (파일 단위는 미확인) | [#103](https://github.com/taejung3852/OwnHands/issues/103) + [#104](https://github.com/taejung3852/OwnHands/issues/104) — 따로 결정할 수 없다 |
 | **내장 에이전트 3종**(`default`/`worker`/`explorer`)이 이미 있다 | [#104](https://github.com/taejung3852/OwnHands/issues/104) — "만들까"가 아니라 "내장으로 부족한가" |
 | 같은 이름 Skill의 scope 우선순위가 **문서에 없다** | [#103](https://github.com/taejung3852/OwnHands/issues/103) — 이름을 고유하게 지어 회피한다 |
 | 272K 초과 시 요청 전체 **2x/1.5x 과금** | [#106](https://github.com/taejung3852/OwnHands/issues/106) — Eval 비용 상한 |
