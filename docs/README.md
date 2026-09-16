@@ -135,8 +135,9 @@ docs/
 | [#104](https://github.com/taejung3852/OwnHands/issues/104) Agent 역할·위임 | 💬 사용자와 결정 |
 | [#105](https://github.com/taejung3852/OwnHands/issues/105) 정책 연결 | 🤔 생각 단계 |
 | [#106](https://github.com/taejung3852/OwnHands/issues/106) 평가 설계 | ⏳ 후속 결정 |
-| [Project: OwnHands V2](https://github.com/users/taejung3852/projects/2) | 진행 상태 보기 |
-| V2 Milestone 등록 | ⏳ 사용자 확인 대기 |
+| [Project: OwnHands V2](https://github.com/users/taejung3852/projects/2) | 진행 상태 보기 (Current / By Milestone / Decisions & Research) |
+| V2 Milestone | ✅ [`V2-M0`~`V2-M7`](https://github.com/taejung3852/OwnHands/milestones) 등록 (2026-09-16) |
+| V1 추적 이슈 #7·#89·#99 | ✅ `not planned`로 종료 — 방향 변경에 의한 대체 |
 
 V2 작업은 `v2` 라벨로 구분한다. Type·Area·Priority는 기존 저장소 라벨(`type:*`·`area:*`·`priority:*`)을 쓰고
 Project에 중복 필드를 만들지 않았다.

@@ -91,20 +91,20 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 
 ## 로드맵 (후보)
 
-```text
-V2-M0  Foundation & Source of Truth     ← 🔵 진행 중
-V2-M1  Codex-Native Foundation             + 작은 Eval 시작
-V2-M2  Plan & Design
-V2-M3  Build & Feedback Loop
-V2-M4  Test & Assurance
-V2-M5  Continuous Evals                    ← Eval 체계로 확장
-V2-M6  Deploy & Governance
-V2-M7  Maintain & Closed Loop
-```
+| 마일스톤 | 내용 | 상태 |
+|---|---|---|
+| [V2-M0](https://github.com/taejung3852/OwnHands/milestone/13) | Foundation & Source of Truth | 🔵 진행 중 |
+| [V2-M1](https://github.com/taejung3852/OwnHands/milestone/14) | Codex-Native Foundation · **작은 Eval 시작** | 🚧 결정 이슈 열림 |
+| [V2-M2](https://github.com/taejung3852/OwnHands/milestone/15) | Plan & Design | 🚧 |
+| [V2-M3](https://github.com/taejung3852/OwnHands/milestone/16) | Build & Feedback Loop | 🚧 |
+| [V2-M4](https://github.com/taejung3852/OwnHands/milestone/17) | Test & Assurance | 🚧 |
+| [V2-M5](https://github.com/taejung3852/OwnHands/milestone/18) | Continuous Evals — **Eval 체계로 확장** | 🚧 |
+| [V2-M6](https://github.com/taejung3852/OwnHands/milestone/19) | Deploy & Governance | 🚧 |
+| [V2-M7](https://github.com/taejung3852/OwnHands/milestone/20) | Maintain & Closed Loop | 🚧 |
 
 **평가는 M5에서 시작하지 않는다.** V2-M1부터 작게 돌리고, M5에서 체계로 확장한다.
 
-⏳ 위 이름·수·경계는 **후보**다. GitHub Milestone 등록 전에 확인한다.
+⚠️ 마일스톤이 등록됐다는 것과 그 안의 설계가 확정됐다는 것은 다르다. 각 단계의 남겨둔 결정은 열려 있다.
 
 → 자세히: [로드맵](docs/v2/roadmap.md)
 
@@ -141,7 +141,7 @@ V2-M7  Maintain & Closed Loop
 |---|---|
 | **[#101 V2 전체 추적](https://github.com/taejung3852/OwnHands/issues/101)** | V2 작업의 입구 — 현재 상태와 하위 이슈 |
 | [Issues](https://github.com/taejung3852/OwnHands/issues?q=is%3Aissue+label%3Av2) | V2 조사·결정 질문과 결과 (`v2` 라벨) |
-| [Milestones](https://github.com/taejung3852/OwnHands/milestones) | 실행 단위 (V1 `M0`~`M8` 등록 / V2 후보 미등록) |
+| [Milestones](https://github.com/taejung3852/OwnHands/milestones) | 실행 단위 — V2는 [`V2-M0`~`V2-M7`](https://github.com/taejung3852/OwnHands/milestones) 등록 (V1 `M0`~`M8`은 별개) |
 | [Project: OwnHands V2](https://github.com/users/taejung3852/projects/2) | 이슈 진행 상태 보기 |
 
 현재 열린 V2 결정 이슈:
@@ -159,6 +159,8 @@ V2-M7  Maintain & Closed Loop
 ## V1 코드에 대하여
 
 이 저장소에는 V1 구현이 그대로 있다(`src/` · `skills/` · `tests/`, 기준 커밋 [`6d052ac`](https://github.com/taejung3852/OwnHands/commit/6d052acfeba2e0a971bfe11463a5c9b938abf65d)).
+
+V1 추적 이슈 [#7](https://github.com/taejung3852/OwnHands/issues/7) · [#89](https://github.com/taejung3852/OwnHands/issues/89) · [#99](https://github.com/taejung3852/OwnHands/issues/99)는 2026-09-16에 **`not planned`로 종료**했다. 구현이 잘못돼서가 아니라 제품 방향이 바뀌었기 때문이며, **`완료`로 닫지 않았다.**
 
 - **삭제하거나 이동하지 않는다.** 개발 역사와 당시 검증 근거로 보존한다.
 - V2는 clean-slate 설계이며 V1 구조의 재사용·호환성을 전제하지 않는다.
