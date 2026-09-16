@@ -9,7 +9,7 @@
 
 ---
 
-## Roadmap은 세 밀도로 표현한다
+## 로드맵은 세 밀도로 나뉜다
 
 ```text
 README: 어디로 가는지 짧게
@@ -23,21 +23,48 @@ GitHub Project: 실제 Issue의 진행 상태를 시각적으로
 
 ---
 
-## ⚠️ 이름 주의 — V1 마일스톤과 다르다
+## V1 마일스톤과 이름이 겹친다
 
-이 저장소에는 **이미 V1의 M0~M8 마일스톤이 존재한다**(대부분 closed).
-V2 후보는 혼동을 막기 위해 **`V2-M` 접두사**를 쓴다.
+이 저장소에는 **이미 V1의 M0~M8 마일스톤이 존재한다**(모두 closed).
+V2는 혼동을 막기 위해 **`V2-M` 접두사**를 쓴다.
 
 | | V1 (기존) | V2 |
 |---|---|---|
 | 예 | `M5 — Issue-based Review & Human Dashboard` ([#12](https://github.com/taejung3852/OwnHands/milestone/12)) | `V2-M5 — Continuous Evals` ([#18](https://github.com/taejung3852/OwnHands/milestone/18)) |
-| 상태 | 등록됨 (대부분 closed) | 등록됨 (2026-09-16) |
+| 상태 | 등록됨, 모두 closed | 등록됨 (2026-09-16) |
 
 **같은 번호라도 다른 것이다.** V1 기록은 [V1 기록](../history/v1.md).
 
 ---
 
-## 실행 순서 후보
+## 실행 순서
+
+```mermaid
+flowchart LR
+    M0["V2-M0<br/>Foundation<br/>Source of Truth"]
+    M1["V2-M1<br/>Codex-Native<br/>Foundation"]
+    M2["V2-M2<br/>Plan<br/>Design"]
+    M3["V2-M3<br/>Build<br/>Feedback Loop"]
+    M4["V2-M4<br/>Test<br/>Assurance"]
+    M5["V2-M5<br/>Continuous<br/>Evals"]
+    M6["V2-M6<br/>Deploy<br/>Governance"]
+    M7["V2-M7<br/>Maintain<br/>Closed Loop"]
+
+    M0 --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7
+
+    subgraph SMALL ["작은 Eval 실행 · 사례 축적"]
+        M1
+        M2
+        M3
+        M4
+    end
+    subgraph SCALE ["Eval 체계로 확장"]
+        M5
+    end
+```
+
+평가는 `V2-M5`에서 시작하지 않는다. `V2-M1`부터 작게 돌리고 `V2-M5`에서 체계로 확장한다.
+
 
 ### [V2-M0 — Foundation & Source of Truth](https://github.com/taejung3852/OwnHands/milestone/13)
 
@@ -99,7 +126,7 @@ V2 후보는 혼동을 막기 위해 **`V2-M` 접두사**를 쓴다.
 
 ## 왜 이 순서인가
 
-**제품의 Stage 순서와 구현 순서는 같을 필요가 없다.** 그런데 이 후보는 대체로 Stage 순서를 따른다. 이유가 있다.
+**제품의 Stage 순서와 구현 순서는 같을 필요가 없다.** 그런데 이 순서는 대체로 Stage 순서를 따른다. 이유가 있다.
 
 | 이유 | 설명 |
 |---|---|
@@ -113,15 +140,7 @@ V2 후보는 혼동을 막기 위해 **`V2-M` 접두사**를 쓴다.
 
 ---
 
-## Eval은 로드맵 전체를 관통한다
-
-```text
-V2-M1 ──── V2-M2 ──── V2-M3 ──── V2-M4 ──── V2-M5 ──── V2-M6 ──── V2-M7
-  │          │          │          │           │
-  └──────────┴──────────┴──────────┘           │
-         작은 Eval을 실제로 돌린다              체계로 확장
-         사례·결과 축적                         (task set·지표·회귀)
-```
+## Eval 도입 범위
 
 ⏳ 초기 Eval의 **과제 수·스크립트 구조는 지금 정하지 않는다.**
 ✅ **M5까지 평가를 미루지 않는다는 결정만 분명하다.**

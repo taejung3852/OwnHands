@@ -22,10 +22,12 @@ V1은 앞의 질문만 다뤘다. **뒤의 질문을 다루지 않으면, 도구
 
 ## 2. 제품의 논리적 SDLC
 
-```text
-Plan → Design → Build ↔ Test → Deploy → Maintain
-  ↑                                         │
-  └────── 운영 결과·피드백·새로운 문제 ──────┘
+```mermaid
+flowchart LR
+    Plan --> Design --> Build
+    Build <--> Test
+    Test --> Deploy --> Maintain
+    Maintain -. "운영 결과와 피드백" .-> Plan
 ```
 
 | Stage | 책임과 주요 산출물 |
@@ -201,7 +203,7 @@ Markdown 또는 HTML
 
 **평가 대상**에는 모델, 프로젝트 지침, Skills/References, Agent/Subagent 정의, 정책, 도구 설정, 나중에 연결될 Hooks 등이 포함될 수 있다.
 
-### ✅ 도입 시점은 확정됐다
+### 도입 시점은 확정됐다
 
 | 시기 | 역할 |
 |---|---|

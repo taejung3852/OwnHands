@@ -59,10 +59,12 @@ AI 에이전트에 작업을 위임하면 결과는 빠르게 나온다. 문제�
 | 개발 중인 **제품** | 요구대로 구현됐는가? 기존 동작을 해치지 않았는가? | 검증 패턴 · 근거 · PR 리뷰 |
 | 제품을 만드는 **Agent System** | 지침·Skill·Agent·정책·모델을 바꾼 뒤 일을 더 잘하게 됐는가? | Continuous Evals |
 
-```text
-Plan → Design → Build ↔ Test → Deploy → Maintain
-  ↑                                         │
-  └────── 운영 결과·피드백·새로운 문제 ──────┘
+```mermaid
+flowchart LR
+    Plan --> Design --> Build
+    Build <--> Test
+    Test --> Deploy --> Maintain
+    Maintain -. "운영 결과와 피드백" .-> Plan
 ```
 
 Explain은 특정 단계의 기능이 아니라 **모든 단계에서 쓰는 공통 기능**이다.
@@ -89,7 +91,7 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 
 ---
 
-## 로드맵 (후보)
+## 로드맵
 
 | 마일스톤 | 내용 | 상태 |
 |---|---|---|
@@ -131,7 +133,7 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 | **[📖 문서 인덱스](docs/README.md)** | 독자별 읽기 순서 |
 | [결정 상태표](docs/v2/decisions.md) | ⭐ 확정 / 생각 / 미정 |
 | [V2 개요](docs/v2/overview.md) | 큰 구조와 책임 |
-| [로드맵](docs/v2/roadmap.md) | 실행 순서 후보 |
+| [로드맵](docs/v2/roadmap.md) | 실행 순서와 각 단계의 남겨둔 결정 |
 | [개발 방법](docs/v2/development-method.md) | 각 단계 진행 방식 |
 | [V1 기록](docs/history/v1.md) | 구현 범위·마일스톤·보존 기준 |
 

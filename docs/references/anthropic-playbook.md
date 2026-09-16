@@ -133,7 +133,7 @@ V1에서 커진 부담의 상당 부분이 **수단을 구분하지 않은 데�
 
 ---
 
-## 8. 조직·역할 — **채택하지 않는다**
+## 8. 조직·역할 (채택하지 않음)
 
 **공식 내용**: product owner, engineers, tech lead, security lead, platform/infrastructure team, service owner, on-call engineer의 역할 분담.
 
