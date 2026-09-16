@@ -14,7 +14,7 @@ from .guarantees import GuaranteeEvaluator
 from .identity import IdentityRegistry
 from .run_records import AppServerRun
 
-_MATRIX_PATH = Path(__file__).resolve().parents[2] / "docs/product/guarantee-matrix.v1.json"
+_MATRIX_PATH = Path(__file__).resolve().parents[2] / "docs/legacy/product/guarantee-matrix.v1.json"
 
 
 class ManagedTaskError(ValueError):

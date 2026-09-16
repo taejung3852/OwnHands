@@ -10,7 +10,7 @@ from devharness.review import run_m1_demo
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = Path(__file__).parent / "fixtures/hwpx_package_inspection.json"
-MATRIX_PATH = REPOSITORY_ROOT / "docs/product/guarantee-matrix.v1.json"
+MATRIX_PATH = REPOSITORY_ROOT / "docs/legacy/product/guarantee-matrix.v1.json"
 
 
 class M1VerticalPocTests(unittest.TestCase):

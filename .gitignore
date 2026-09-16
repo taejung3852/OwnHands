@@ -4,7 +4,7 @@ __pycache__/
 *.py[cod]
 .dev-harness/
 .codex-log/
-docs/spikes/raw/
+docs/legacy/spikes/raw/
 
 # packaging artifacts
 build/

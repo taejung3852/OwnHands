@@ -22,7 +22,7 @@ from devharness.projections import PROJECTION_VERSION, ProjectionEngine
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-MATRIX_PATH = REPOSITORY_ROOT / "docs/product/guarantee-matrix.v1.json"
+MATRIX_PATH = REPOSITORY_ROOT / "docs/legacy/product/guarantee-matrix.v1.json"
 ATTACKS_PATH = Path(__file__).parent / "fixtures/guarantee_attacks.json"
 
 
@@ -711,7 +711,7 @@ class GuaranteeEvaluatorTests(unittest.TestCase):
 
     def test_runtime_and_matrix_schema_evidence_type_registries_match(self) -> None:
         schema = json.loads(
-            (REPOSITORY_ROOT / "docs/product/guarantee-matrix.schema.json").read_text(
+            (REPOSITORY_ROOT / "docs/legacy/product/guarantee-matrix.schema.json").read_text(
                 encoding="utf-8"
             )
         )

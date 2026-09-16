@@ -12,7 +12,7 @@ from .guarantees import GuaranteeEvaluator
 from .identity import IdentityRegistry
 
 
-_MATRIX_PATH = Path(__file__).resolve().parents[2] / "docs/product/guarantee-matrix.v1.json"
+_MATRIX_PATH = Path(__file__).resolve().parents[2] / "docs/legacy/product/guarantee-matrix.v1.json"
 _TOP_LEVEL_FIELDS = {
     "schema_version",
     "snapshot",

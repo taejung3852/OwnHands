@@ -175,7 +175,7 @@ class M3ReviewTests(unittest.TestCase):
                 validate_live_preflight(repo, data_root, root / "packet.json", "/usr/bin/true", "gpt-5.6-luna", 30, live=True)
 
             spec = importlib.util.spec_from_file_location(
-                "m3_live_cli", Path(__file__).resolve().parents[1] / "docs/reviews/m3/run_live_probe.py"
+                "m3_live_cli", Path(__file__).resolve().parents[1] / "docs/legacy/reviews/m3/run_live_probe.py"
             )
             cli = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(cli)

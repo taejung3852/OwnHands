@@ -35,7 +35,7 @@
 
 1. [V1 기록](history/v1.md) — 구현 범위·마일스톤·보존 기준 커밋
 2. [핵심 발언 기록](history/conversation-notes.md) — 원문과 맥락
-3. V1 원본 문서: `adr/` · `product/` · `m5-r/` · `reviews/` · `spikes/` · `superpowers/` · `design/` · `diagrams/` · `research/` · `dogfooding/`
+3. [V1 원본 문서](legacy/) — `legacy/` 아래에 그대로 있다
 
 ---
 
@@ -58,8 +58,15 @@ docs/
 ├── history/
 │   ├── v1.md                  구현 범위, 마일스톤, 보존 기준
 │   └── conversation-notes.md  사용자 발언 원문
-└── (V1 원본)                   adr/ product/ m5-r/ reviews/ spikes/
-                               superpowers/ design/ diagrams/ research/ dogfooding/
+└── legacy/                    V1 원본 그대로 (142 files)
+    ├── adr/                   아키텍처 결정 기록
+    ├── product/               제품 계약·스키마·용어집
+    ├── m5-r/                  Lifecycle·Claim·Dashboard 설계와 검증
+    ├── reviews/               마일스톤별 검토 기록
+    ├── spikes/                시간 제한 기술 조사
+    ├── superpowers/           당시 plan·spec
+    ├── design/                디자인 탐색과 스크린샷
+    └── diagrams/ research/ dogfooding/
 ```
 
 ---

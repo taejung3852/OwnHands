@@ -486,7 +486,7 @@ def handle_guarantee_evaluate(arguments: dict[str, Any], data_paths: DataPaths |
         matrix_path = Path(matrix_path_str)
     else:
         # Default to canonical guarantee matrix
-        matrix_path = Path(__file__).resolve().parents[4] / "docs" / "product" / "guarantee-matrix.v1.json"
+        matrix_path = Path(__file__).resolve().parents[4] / "docs" / "legacy" / "product" / "guarantee-matrix.v1.json"
 
     claim_ids = arguments.get("claim_ids")
     try:

@@ -24,7 +24,7 @@ def main() -> int:
     demo.add_argument(
         "--matrix",
         type=Path,
-        default=Path("docs/product/guarantee-matrix.v1.json"),
+        default=Path("docs/legacy/product/guarantee-matrix.v1.json"),
     )
     comparison = subparsers.add_parser(
         "m15-comparison-plan", help="historical M1.5 nine-run plan"

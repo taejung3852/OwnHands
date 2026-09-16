@@ -26,7 +26,7 @@ from devharness.projections import ProjectionEngine
 
 
 NOW = "2026-09-05T12:00:00+00:00"
-MATRIX = Path(__file__).resolve().parents[1] / "docs/product/guarantee-matrix.v1.json"
+MATRIX = Path(__file__).resolve().parents[1] / "docs/legacy/product/guarantee-matrix.v1.json"
 HASH = "1" * 64
 
 

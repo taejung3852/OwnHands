@@ -22,8 +22,8 @@ from devharness.context_architecture import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MATRIX = ROOT / "docs/product/context-guarantee-matrix.proposed.json"
-PACKAGE = ROOT / "docs/reviews/m1.5/comparison-package.json"
+MATRIX = ROOT / "docs/legacy/product/context-guarantee-matrix.proposed.json"
+PACKAGE = ROOT / "docs/legacy/reviews/m1.5/comparison-package.json"
 
 
 def check(result: str, basis: str, evidence_refs: list[str]) -> dict:

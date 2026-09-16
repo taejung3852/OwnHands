@@ -81,7 +81,7 @@ If no approved specification exists, a formal Review **CANNOT** be created.
    - Invoke #82 Claim Evaluation to assess each criterion against Before/After observations.
    - Check regression impact on untouched modules.
 6. **Compile Review**:
-   - Use the v2 inputs in `../../docs/m5-r/claim-evaluation-contract.md`: call `LifecycleStore.evaluate_review(scope, inputs)`, then append the returned data unchanged. Store recomputes it and rejects stale or edited verdicts. Do not submit only selected passing observations.
+   - Use the v2 inputs in `../../docs/legacy/m5-r/claim-evaluation-contract.md`: call `LifecycleStore.evaluate_review(scope, inputs)`, then append the returned data unchanged. Store recomputes it and rejects stale or edited verdicts. Do not submit only selected passing observations.
    - Show every approved check, including missing results, with evidence, conflicts and blockers. Keep required completion separate from attention: `필수 검증 완료 · 사용자 확인 필요` when only optional execution is unavailable. `needs-review` means `확인해 볼 필요가 있음`, not rerun everything.
    - Use `review_status` to detect newly stored evidence and the existing `freshness` API for changed inputs. A user decision never overwrites the results.
 

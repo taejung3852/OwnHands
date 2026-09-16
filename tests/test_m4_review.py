@@ -16,8 +16,8 @@ from devharness.m4_review import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = ROOT / "docs/product/assurance-packet.schema.json"
-EXAMPLE = ROOT / "docs/product/assurance-packet.example.json"
+SCHEMA = ROOT / "docs/legacy/product/assurance-packet.schema.json"
+EXAMPLE = ROOT / "docs/legacy/product/assurance-packet.example.json"
 NOW = "2026-09-06T12:00:00+00:00"
 
 

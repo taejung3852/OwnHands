@@ -53,7 +53,7 @@ Identifier mapping:
 - tests.compare_runs -> `mcp__ownhands__tests_compare_runs`
 - assurance.gate_evaluate -> `mcp__ownhands__assurance_gate_evaluate`
 
-The default server exposes the 10 verification tools listed in [the Control boundary contract](../../../docs/m5-r/control-boundary.md). Historical M4.5 Control tools require the explicit `--legacy-tools` server argument. Keep the evidence data root outside every Git worktree; replace the absolute paths above for your installation.
+The default server exposes the 10 verification tools listed in [the Control boundary contract](../../../docs/legacy/m5-r/control-boundary.md). Historical M4.5 Control tools require the explicit `--legacy-tools` server argument. Keep the evidence data root outside every Git worktree; replace the absolute paths above for your installation.
 
 ---
 
