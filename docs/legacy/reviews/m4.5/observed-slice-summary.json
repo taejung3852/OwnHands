@@ -1,9 +1,0 @@
-{
-  "plugin_name": "ownhands",
-  "plugin_version": "0.1.0",
-  "tool_invoked": "context.lint",
-  "status": "ok",
-  "decision": "pass",
-  "evidence_id": "sha256:7031f42194e45afaafa46e811c33282a434cadce9af85141f32e857334e8f964",
-  "findings_count": 0
-}

@@ -1,7 +1,0 @@
-[project]
-name = "synthetic-hwpx-plugin"
-version = "0.0.1"
-
-[tool.ownhands.commands]
-test = "python -m unittest -v"
-lint = "python -m compileall -q src"

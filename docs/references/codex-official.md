@@ -88,14 +88,28 @@ Codex는 V2의 1차 실행 플랫폼이므로, **실제 형식·기능·권한·
 └── agents/openai.yaml  # UI 메타데이터·도구 의존성
 ```
 
-**탐색 우선순위**
+**탐색 위치와 범위**
 
-1. `$CWD/.agents/skills`
-2. `$CWD/../.agents/skills` (Git 저장소의 상위 디렉터리)
-3. `$REPO_ROOT/.agents/skills`
-4. `$HOME/.agents/skills`
-5. `/etc/codex/skills` (관리자·시스템 범위)
-6. 내장 시스템 skill
+문서는 이것을 우선순위가 아니라 **scope 표**로 제시한다. 도입 문장은 다음과 같다.
+
+> "Codex reads skills from repository, user, admin, and system locations."
+
+| Scope | 위치 |
+|---|---|
+| REPO | `$CWD/.agents/skills` |
+| REPO | `$CWD/../.agents/skills` (Git 저장소의 상위 폴더) |
+| REPO | `$REPO_ROOT/.agents/skills` |
+| USER | `$HOME/.agents/skills` |
+| ADMIN | `/etc/codex/skills` |
+| SYSTEM | Codex에 내장 (OpenAI 제공) |
+
+**같은 이름의 Skill을 자동으로 합치거나 덮어쓰지 않는다.**
+
+> "If two skills share the same `name`, Codex doesn't merge them; both can appear in skill selectors."
+
+⚠️ 여러 위치에서 Skill을 **발견한다는 사실**과, 같은 이름일 때 **자동 merge·override된다는 것**은 다른 문제다.
+문서는 ADMIN scope의 Skill이 USER나 REPO scope의 Skill을 자동으로 덮어쓴다고 **말하지 않는다.**
+확인되지 않은 우선순위를 가정하지 않는다.
 
 **호출**: 명시적으로는 ChatGPT에서 `@skill`, Codex/IDE에서 `$skill`. 암묵적으로는 사용자 프롬프트가 skill의 `description`과 맞을 때.
 
@@ -108,15 +122,16 @@ Codex는 V2의 1차 실행 플랫폼이므로, **실제 형식·기능·권한·
 - **`SKILL.md` + `references/` 구조가 네이티브로 지원된다.** V2가 구상한 "상황별 Reference를 필요할 때 읽는" 구조([개요 §5](../v2/overview.md))는 별도 로더를 만들 필요 없이 플랫폼 구조와 그대로 맞물린다.
 - `description` 기반 암묵 호출이 있으므로 **`description` 작성이 실제 라우팅 동작**이다.
 - 2% / 8,000자 상한은 **Skill 개수를 늘릴수록 각 description이 깎인다**는 뜻이다. → 💬 Skill 이름·수를 정할 때 실제 제약으로 다룬다.
-- ⚠️ **현재 저장소의 `skills/` 위치는 Codex 탐색 경로(`.agents/skills`)와 다르다.** V1은 다른 호스트를 전제로 만들어졌다. V2에서 어디에 둘지는 후속 결정이다.
+- ⚠️ **V1의 `skills/`는 Codex 탐색 경로(`.agents/skills`)가 아니었다.** 다른 호스트를 전제로 만들어졌기 때문이다. 현재 tree에는 Skill이 없고, V2에서 어디에 둘지는 [#103](https://github.com/taejung3852/OwnHands/issues/103)에서 결정한다.
 
 ### 직접 만들지 않아도 되는 것
-- Skill 탐색·등록·우선순위 처리
+- 여러 scope에서의 Skill 탐색·등록
 - Reference 파일을 담는 디렉터리 규약
 - 명시적 호출 문법
 
 ### 아직 확인하지 못한 것
 - `references/` 파일을 **어떤 조건에서 실제로 읽어 들이는지**(전량 선로딩인지 필요 시 읽기인지)
+- 같은 이름의 Skill이 여러 scope에 있을 때 **어느 것이 선택되는지**(문서는 "합치지 않는다"까지만 말한다)
 - frontmatter의 선택 필드 전체 목록
 - `agents/openai.yaml`의 스키마
 
@@ -140,11 +155,47 @@ Codex는 V2의 1차 실행 플랫폼이므로, **실제 형식·기능·권한·
 - `<repo>/.codex/config.toml`
 - 플러그인 번들: 플러그인 루트의 `hooks/hooks.json` 또는 매니페스트 지정 경로
 
-**할 수 있는 일**
+**차단 응답 형식은 이벤트마다 다르다**
+
+⚠️ 두 이벤트를 같은 형식으로 묶어 적지 않는다.
+
+`PreToolUse` — `hookSpecificOutput.permissionDecision`
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "Destructive command blocked by hook."
+  }
+}
+```
+
+문서는 이전 형식도 함께 설명한다("Codex also accepts this older block shape").
+
+```json
+{ "decision": "block", "reason": "Destructive command blocked by hook." }
+```
+
+종료 코드 `2`와 `stderr`로 차단 사유를 쓰는 방법도 있다.
+
+`PermissionRequest` — `hookSpecificOutput.decision.behavior`
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionRequest",
+    "decision": { "behavior": "deny", "message": "Blocked by repository policy." }
+  }
+}
+```
+
+> "If multiple matching hooks return decisions, any `deny` wins."
+
+**그 밖에 할 수 있는 일**
 
 | 유형 | 방법 |
 |---|---|
-| 차단 | `PreToolUse`·`PermissionRequest`에서 `"behavior": "deny"` 반환 |
 | 경고·정보 제공 | `systemMessage`, `additionalContext` |
 | 관찰 | `SessionEnd`·`PostToolUse`·`UserPromptSubmit` 등 |
 
@@ -163,7 +214,8 @@ Codex는 V2의 1차 실행 플랫폼이므로, **실제 형식·기능·권한·
 - 세션 생명주기 이벤트
 
 ### 아직 확인하지 못한 것
-- hook 입출력 JSON 스키마 전체
+- hook 입출력 JSON 스키마 **전체**(위 두 이벤트의 차단 형식만 확인했다)
+- 나머지 10개 이벤트의 응답 형식
 - 각 이벤트의 정확한 실행 순서·타임아웃
 - 실패 시 동작
 
@@ -188,20 +240,37 @@ Codex는 V2의 1차 실행 플랫폼이므로, **실제 형식·기능·권한·
 
 **호출**: 위임을 요청하는 프롬프트, `AGENTS.md`나 skill의 위임 지시, ultra 지능 수준의 선제적 위임.
 
-**권한**: "Subagents inherit your current sandbox policy" — 부모 턴의 권한 모드를 상속한다. 개별 파일에서 `sandbox_mode`를 덮어쓸 수 있고, `mcp_servers`·`skills.config`로 에이전트별 도구 구성이 가능하다.
+**권한**: "Subagents inherit your current sandbox policy" — 부모 턴의 권한 모드를 상속한다. 부모 턴의 런타임 override도 자식에 다시 적용된다. 개별 파일에서 `sandbox_mode`를 덮어쓸 수 있고, 읽기 전용으로 지정할 수도 있다.
+
+**`skills.config`에 대해 문서가 말하는 것**
+
+문서는 이 키를 지원 목록에 올려두고, 구체적인 예시는 **Skill 하나를 비활성화하는 것** 하나뿐이다.
+
+```toml
+[[skills.config]]
+path = "/Users/me/.agents/skills/docs-editor/SKILL.md"
+enabled = false
+```
+
+⚠️ 문서는 이 키의 일반적인 동작 범위를 설명하지 않는다.
+**`references/` 안의 특정 파일이 읽히는 범위를 제한한다는 내용은 문서에 없다.**
 
 ### OwnHands에 주는 의미
 
 - **역할·모델·권한·도구를 에이전트별로 나누는 구조가 이미 있다.** V2가 "독립된 역할·맥락·도구를 받아 작업 수행"이라고 적은 Agent 책임과 맞물린다.
-- `skills.config`로 에이전트별 skill 구성이 가능하다 → 역할별로 읽을 Reference를 좁히는 방법이 플랫폼에 있다.
+- `skills.config`로 **에이전트별 Skill 활성/비활성 설정이 가능하다는 것까지가 확인된 사실**이다.
+  ⚠️ 그것만으로 **역할별로 읽을 `references/*.md` 범위가 자동으로 좁혀진다고 단정하지 않는다.** 문서에 그런 내용이 없다.
+  필요한 Reference를 언제 읽을지는 **Skill의 실제 지침과 실행으로 후속 설계·검증한다.** 별도 Reference loader를 만들지 않는다.
 - 💬 **초기 역할과 수는 여전히 사용자와 결정할 사항이다.** 플랫폼이 지원한다는 사실이 역할 구성을 정해주지 않는다.
 
 ### 직접 만들지 않아도 되는 것
 - 위임 실행 메커니즘
-- 에이전트별 모델·샌드박스·MCP·skill 범위 지정
+- 에이전트별 모델·샌드박스·MCP 서버 지정
+- 에이전트별 Skill 활성/비활성 (`references/` 로딩 범위까지는 확인되지 않음)
 
 ### 아직 확인하지 못한 것
 - TOML 파일의 전체 키 목록
+- `skills.config`의 일반 동작 범위 (`enabled = false` 예시 외에는 설명이 없다)
 - 위임 시 부모/자식 간 컨텍스트 전달 범위
 - 중첩 위임 허용 여부
 

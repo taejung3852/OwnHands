@@ -158,14 +158,22 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 
 ---
 
-## V1 코드에 대하여
+## V1은 어디에 있는가
 
-이 저장소에는 V1 구현이 그대로 있다(`src/` · `skills/` · `tests/`, 기준 커밋 [`6d052ac`](https://github.com/taejung3852/OwnHands/commit/6d052acfeba2e0a971bfe11463a5c9b938abf65d)).
+V2는 clean-slate 설계다. V1 실행 자산(코드·Skills·테스트·패키지·MCP·플러그인 정의)과 원본 문서는 **현재 tree에서 제거했고, Git 태그에 보존했다.**
+
+```
+pre-v2-2026-09-16
+```
+
+기준 커밋 [`6d052ac`](https://github.com/taejung3852/OwnHands/commit/6d052acfeba2e0a971bfe11463a5c9b938abf65d) · [태그에서 보기](https://github.com/taejung3852/OwnHands/tree/pre-v2-2026-09-16)
+
+> ⚠️ **이 태그는 V1의 완성본이나 정식 릴리스가 아니다.** 전환 직전 상태의 snapshot이다.
+
+- **V1은 실패해서 제거한 것이 아니다.** 실제 구현을 통해 V2의 방향을 얻은 단계다.
+- V1의 구현·검증 결과는 **V2의 완료 근거로 자동 승계되지 않는다.**
+- 무엇을 만들었고 태그의 어디에 있는지는 [V1 기록](docs/history/v1.md), 아카이브 안내는 [docs/legacy/README.md](docs/legacy/README.md).
 
 V1 추적 이슈 [#7](https://github.com/taejung3852/OwnHands/issues/7) · [#89](https://github.com/taejung3852/OwnHands/issues/89) · [#99](https://github.com/taejung3852/OwnHands/issues/99)는 2026-09-16에 **`not planned`로 종료**했다. 구현이 잘못돼서가 아니라 제품 방향이 바뀌었기 때문이며, **`완료`로 닫지 않았다.**
-
-- **삭제하거나 이동하지 않는다.** 개발 역사와 당시 검증 근거로 보존한다.
-- V2는 clean-slate 설계이며 V1 구조의 재사용·호환성을 전제하지 않는다.
-- V1의 실행 방법과 과거 실행 근거는 [V1 기록](docs/history/v1.md)에 있다. **V2의 설치·실행 방법이 아니다.**
 
 > V2는 아직 실행 가능한 제품이 없다. 설치 방법을 안내하지 않는다.
