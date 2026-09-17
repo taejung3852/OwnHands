@@ -49,47 +49,41 @@
 1. **Codex에는 네이티브 `intent.md` / `spec.md` 파일 규격이 없다**:
    - OpenAI Codex는 `AGENTS.md`, `skills`, `agents/*.toml`의 명세만 제공할 뿐, `intent.md`나 `spec.md`라는 파일명을 강제하거나 자동으로 인식하는 네이티브 워크플로를 제공하지 않는다.
    - 이것은 Anthropic Playbook이 제시한 **패턴이자 아티팩트 규약**이지 특정 플랫폼의 내장 기능이 아니다.
-2. **Codex CLI Plan Mode의 실체**:
-   - Codex 로컬 CLI에는 Claude Code의 `Plan Mode`처럼 읽기 전용으로 설계를 강제하는 전용 플래그가 공식 문서상 확인되지 않는다 (`V2-M3` 조사 대상).
+2. **Codex CLI `/plan`의 실체와 성격**:
+   - OpenAI 공식 문서는 Codex CLI에서 `/plan`을 지원한다고 명시한다.
+   - 다만 공식 문서상 `/plan`은 불명확한 outcome을 인터뷰하여 goal + measurable success criteria로 다듬는 **목표 정제(Goal Refinement)** 기능이다.
+   - Anthropic Build 단계의 implementation Plan Mode 및 `plan.md` 생성/승인 흐름과 동일한지는 별도 조사 대상이다 (`V2-M3`에서 추가 확인).
 3. **조직 규칙 우선순위 알고리즘의 부재**:
    - Codex 공식 문서 어디에도 "Company 지침이 User 지침보다 우선한다"는 강제 우선순위 알고리즘은 없다. 순전히 Git 디렉터리 깊이 기반 합성이다.
 
 ---
 
-## 3. OwnHands의 채택 및 설계 결정 (Our Decisions for M2)
+## 3. 설계에 주는 시사점 및 후보 (Design Implications & Candidates)
 
-1. **Intent와 Spec의 생명주기 및 저장 위치**:
-   - `intent.md`와 `spec.md`는 세션 휘발성 대화가 아닌 **Git 저장소 내 영구 아티팩트**로 보존한다.
-   - 저장 위치 후보: `docs/v2/specs/<feature-name>/` 디렉터리.
+> ⚠️ **주의**: 본 Research Gate는 팩트와 시사점을 수집하는 단계이며, 최종 설계 결정은 후속 단계(Step ② 규격 결정, Step ③ #105 정책 연결)에서 수행한다.
 
-2. **문서별 디테일 수준 및 역할 분리 (중요)**:
-   - ⚠️ **Work Item(Issue/PR)과 Spec은 성격이 다르다**:
-     - Issue/PR의 Human Brief([ADR-0003](../adr/0003-work-item-human-brief.md))는 사람이 변경점과 결정 사항을 빠르게 파악하기 위한 **10초 스캔용 소통 규격**이다.
-     - 반면 `spec.md`는 코딩 에이전트와 엔지니어가 실제 구현을 수행하는 **엔지니어링 청사진(Technical Contract)**이므로, **최대한 구체적이고 디테일하게** 작성되어야 한다.
-   - **`intent.md` — 의도와 경계의 엄밀함 (What & Why)**:
-     - `## 문제 및 배경 (Why)`: 해결하려는 문제의 본질과 사용자 페르소나.
-     - `## 목표 결과 및 가치 (What)`: 이번 작업이 가져올 실질적 개선과 성공 기준.
-     - `## 비목표 및 제약 (Boundaries)`: **절대 하지 말아야 할 것(Non-goals)**과 핵심 제약.
-   - **`spec.md` — 기술 구현의 극대화된 디테일 (How & Architecture)**:
-     - 스펙이 두루뭉술하거나 짧으면 에이전트가 Build 단계에서 데이터 타입, 예외 처리, 인터페이스를 **자의적으로 추측(환각)**하여 구현하게 된다.
-     - 따라서 상단에 핵심 요약을 두되 본문에는 다음 디테일을 빈틈없이 채운다:
-       - `## 기술적 요구사항 (Requirements)`: 기능별 세부 사양 및 제약.
-       - `## 시스템 구조 및 인터페이스 (Architecture & Interfaces)`: 데이터 모델, 함수 시그니처, 상태 전이.
-       - `## 엣지 케이스 및 예외 처리 (Edge Cases)`: 에러 처리 및 경계 조건.
-       - `## 수용성 기준 (Acceptance Criteria)`: 구체적이고 검증 가능한 판정 테스트 케이스.
+1. **저장 위치 후보 (Step ②에서 결정)**:
+   - `intent.md`와 `spec.md`를 세션 휘발성 대화가 아닌 영구 Git 아티팩트로 보존하는 방향이 Playbook 모델과 부합한다.
+   - 저장 위치 후보: `docs/v2/specs/<feature-name>/` 등 기능별 디렉터리 구조 검토.
 
-3. **32 KiB 상한과의 관계 정정 및 #105 정책 연결**:
-   - 32 KiB 상한(`project_doc_max_bytes`)은 매 턴 주입되는 **`AGENTS.md`의 하드 리밋**이지, 독립 파일인 `intent.md` / `spec.md`의 크기 제한이 아니다.
-   - 따라서 `spec.md`는 기술적 완성도를 위해 필요한 만큼 충분히 상세하게 작성한다.
-   - `AGENTS.md`에는 spec 본문을 적지 않고, *"설계 시 `docs/v2/specs/` 규격을 따른다"*는 가벼운 지침만 두어 32 KiB 상한을 지킨다.
-   - 정책 합성 알고리즘을 별도로 만들지 않고 Codex의 네이티브 깊이 기반 override를 그대로 활용한다.
+2. **문서별 디테일 및 필드 구성 후보 (Step ②에서 결정)**:
+   - **`intent.md` (What & Why)**:
+     - "의도와 경계의 엄밀함" 중심 후보: 문제 정의, 목표 가치, 특히 **비목표(Non-goals, 안 할 것)**와 핵심 제약.
+   - **`spec.md` (How & Architecture)**:
+     - 에이전트의 자의적 추측(환각)을 막기 위한 "극대화된 디테일의 기술 청사진" 방향: 기술 요구사항, 시스템 구조/타입/인터페이스, 엣지 케이스, 구체적 수용성 기준.
+     - Work Item(Issue/PR의 10초 스캔용 3칸 Brief)과 Spec(엔지니어링 계약)의 성격 차이를 반영한 필드 구성 검토.
+
+3. **#105 정책 연결 시사점 (Step ③에서 결정)**:
+   - 32 KiB 상한(`project_doc_max_bytes`)은 매 턴 주입되는 `AGENTS.md`의 제약이므로, `AGENTS.md`에는 얇은 라우팅 규칙 1줄만 남기고 세부 spec은 독립 파일로 분리하는 방향이 유효함.
+   - 별도 정책 엔진을 구현하지 않고 Codex의 네이티브 디렉터리 깊이 override를 활용하는 연결 방식을 Step ③에서 정식 검토.
 
 ---
 
 ## 4. 결론 및 M2 다음 단계 (Actionable Next Steps)
 
-- **Research Gate 통과**: 1차 자료의 핵심 팩트와 제약이 확인되었으므로, 불필요한 정책 엔진 구현 없이 즉시 규격 제정으로 진입 가능.
+- **Research Gate 통과**: 1차 자료의 핵심 팩트(Playbook 모델, Codex /plan 성격, 32 KiB 제약, 플랫폼 공백)가 확인됨.
 - **후속 단계 파이프라인**:
-  - **Step ②**: `intent.md` & `spec.md` 템플릿/가이드 마크다운 확정 (`docs/v2/specs/README.md`)
-  - **Step ③**: [#105](https://github.com/taejung3852/OwnHands/issues/105) 정책 연결 정리
-  - **Step ④**: 실제 1건의 요구 과제로 `intent.md` ➔ `spec.md` 흐름 관통 실측
+  - **Step ②**: `intent.md` & `spec.md` 정식 최소 규격 및 템플릿 마크다운 확정 (저장 경로, 필수 필드, 상세도 결정)
+  - **Step ③**: [#105](https://github.com/taejung3852/OwnHands/issues/105) 정책 연결 방식 확정 (기본 규칙 ↔ 프로젝트 규칙 계층화)
+  - **Step ④**: 실제 1건의 요구 과제로 `intent.md` ➔ `spec.md` 전체 흐름 관통 실측
+

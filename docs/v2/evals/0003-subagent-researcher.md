@@ -44,7 +44,7 @@
   1. **1차 출처 URL 명시**: **PASS** (Playbook 공식 URL `claude.com/blog/...` 및 `learn.chatgpt.com` 인용 확인)
   2. **확정 사실과 갭의 분리**: **PASS**
      - 확정 사실: Intent/Spec의 정의, 분리 이유(인간 게이트키퍼 보호), AGENTS.md 깊이 기반 override 및 32 KiB 상한 명시.
-     - 갭 명시: Codex에 `intent.md` / `spec.md` 네이티브 규격 없음, 로컬 CLI Plan mode 미확인, Company 우선순위 알고리즘 공식 문서상 부재 명시.
+     - 갭/구분 명시: Codex에 `intent.md` / `spec.md` 네이티브 규격 없음, Codex CLI의 `/plan`은 목표 정제(Goal Refinement) 기능이며 Build 단계의 implementation plan과의 동일 여부는 추가 조사 대상임, Company 우선순위 알고리즘 공식 문서상 부재 명시.
   3. **코드 무단 수정 방지**: **PASS** (기존 소스코드 수정 0건, 조사 보고서 1건만 생성)
 - **판정 요약**: **3 / 3 All Passed**
 

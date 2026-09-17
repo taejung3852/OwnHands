@@ -356,52 +356,52 @@
         </div>
 
         <div class="boundary-card">
-          <span class="b-tag tag-soft">독립 아티팩트</span>
-          <div class="b-title">spec.md (무제한)</div>
+          <span class="b-tag tag-soft">플랫폼 공식 기능</span>
+          <div class="b-title">Codex CLI /plan</div>
           <div class="b-desc">
-            Git에 저장되는 독립 파일입니다. <strong>에이전트가 실수하지 않도록 필요한 만큼 충분히 길고 꼼꼼하게 작성</strong>해야 합니다.
+            /plan이 존재하지만 <strong>목표 정제(Goal Refinement)</strong> 기능입니다. Build 단계의 implementation plan과 동일한지는 M3에서 조사합니다.
           </div>
         </div>
       </div>
 
       <div style="font-size: 12px; color: #78716c; text-align: center; margin-top: 4px;">
-        🔗 <strong>둘의 연결</strong>: <code>AGENTS.md</code>에는 "설계 시 <code>docs/v2/specs/</code> 규격을 따르라"는 1줄 규칙만 남깁니다.
+        🔗 <strong>지침 연결</strong>: <code>AGENTS.md</code>에는 "설계 시 <code>docs/v2/specs/</code> 규격을 따르라"는 1줄 규칙만 두어 32 KiB를 지킵니다.
       </div>
     </div>
 
-    <!-- 카드 3: 우리가 채택한 spec.md의 정밀 설계 구조 -->
+    <!-- 카드 3: 후속 단계를 위한 설계 후보 (시사점) -->
     <div class="card">
       <div class="step-badge">3</div>
-      <div class="card-title">OwnHands가 채택할 spec.md 디테일 구조</div>
-      <div class="card-desc">상단에 큰 그림 요약을 두고, 본문은 엣지 케이스까지 꼼꼼하게 채웁니다.</div>
+      <div class="card-title">후속 단계(Step ②·③)를 위한 설계 후보와 시사점</div>
+      <div class="card-desc">조사된 팩트를 바탕으로 다음 이슈들에서 결정할 후보 방향입니다.</div>
 
       <div class="spec-detail-box">
         <div class="spec-detail-title">
-          <span>엔지니어링 청사진 필수 4대 구성</span>
-          <span style="font-size: 11px; color: #2563eb; font-weight: 700;">Shift-Left 검증</span>
+          <span>Step ②에서 확정할 spec.md 후보 구성</span>
+          <span style="font-size: 11px; color: #2563eb; font-weight: 700;">후속 결정 대상</span>
         </div>
         <div class="detail-list">
           <div class="d-item">
             <div class="d-name">1. 요구사항 (Requirements)</div>
-            <div class="d-sub">기능별 입력, 출력, 데이터 흐름 명세</div>
+            <div class="d-sub">기능별 입력, 출력, 데이터 흐름 명세 후보</div>
           </div>
           <div class="d-item">
             <div class="d-name">2. 구조 & 타입 (Architecture)</div>
-            <div class="d-sub">데이터 스키마, 함수 시그니처, 의존성</div>
+            <div class="d-sub">데이터 스키마, 함수 시그니처 후보</div>
           </div>
           <div class="d-item">
             <div class="d-name">3. 엣지 케이스 (Edge Cases)</div>
-            <div class="d-sub">실패 시나리오, 경계값, 예외 처리 규칙</div>
+            <div class="d-sub">실패 시나리오, 예외 처리 규칙 후보</div>
           </div>
           <div class="d-item">
             <div class="d-name">4. 수용성 기준 (Acceptance)</div>
-            <div class="d-sub">자동화 테스트로 검증할 구체적 기준</div>
+            <div class="d-sub">검증 자동화용 기준선 후보</div>
           </div>
         </div>
       </div>
 
       <div style="font-size: 12px; color: #78716c; text-align: center;">
-        📁 영구 보존 위치: <code>docs/v2/specs/&lt;feature-name&gt;/spec.md</code>
+        📌 <strong>다음 단계</strong>: Step ②에서 정식 규격·경로를 결정하고, Step ③에서 #105 정책 연결을 확정합니다.
       </div>
     </div>
 
