@@ -161,14 +161,18 @@
     .tag-reject { background: #fee2e2; color: #dc2626; }
     .tag-adopt { background: #dcfce7; color: #16a34a; }
 
-    /* 퀴즈 아코디언 */
-    .quiz-item {
+    /* 퀴즈 아코디언 (클릭 시 정답 토글) */
+    details.quiz-item {
       background: #fafaf9;
       border-radius: 14px;
       padding: 14px 18px;
       margin-bottom: 10px;
-      cursor: pointer;
     }
+    details.quiz-item summary {
+      cursor: pointer;
+      list-style: none;
+    }
+    details.quiz-item summary::-webkit-details-marker { display: none; }
     .quiz-q {
       font-size: 14px;
       font-weight: 700;
@@ -177,17 +181,34 @@
       align-items: center;
       justify-content: space-between;
     }
+    .quiz-btn {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0284c7;
+      background: #e0f2fe;
+      padding: 3px 10px;
+      border-radius: 99px;
+      transition: all 0.2s ease;
+    }
+    details.quiz-item[open] .quiz-btn {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+    details.quiz-item[open] .quiz-btn::after {
+      content: ' (닫기)';
+    }
     .quiz-a {
-      margin-top: 8px;
-      padding-top: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
       border-top: 1px dashed #e7e5e4;
       font-size: 13px;
       color: #059669;
       font-weight: 600;
+      line-height: 1.6;
     }
 
     /* 상세 전제 접기 */
-    details {
+    details.details-box {
       background: #ffffff;
       border-radius: 18px;
       padding: 18px 22px;
@@ -196,7 +217,7 @@
       font-size: 13px;
       color: #78716c;
     }
-    summary {
+    details.details-box summary {
       cursor: pointer;
       font-weight: 700;
       color: #44403c;
@@ -205,9 +226,9 @@
       align-items: center;
       justify-content: space-between;
     }
-    summary::-webkit-details-marker { display: none; }
-    summary::after { content: '▾'; font-size: 13px; }
-    details[open] summary::after { content: '▴'; }
+    details.details-box summary::-webkit-details-marker { display: none; }
+    details.details-box summary::after { content: '▾'; font-size: 13px; }
+    details.details-box[open] summary::after { content: '▴'; }
     .details-content {
       margin-top: 14px;
       padding-top: 12px;
@@ -293,30 +314,30 @@
       </div>
     </div>
 
-    <!-- 자가 점검 퀴즈 -->
+    <!-- 자가 점검 퀴즈 (기본 숨김, 클릭 시 정답 토글) -->
     <div class="card">
       <div class="card-title" style="margin-bottom: 6px;">스스로 확인하는 점검 퀴즈</div>
-      <div class="card-desc">핵심 위임 원칙을 3초 만에 떠올려보세요!</div>
+      <div class="card-desc">질문을 읽고 정답 확인 버튼을 눌러보세요!</div>
 
-      <div class="quiz-item">
-        <div class="quiz-q">
+      <details class="quiz-item">
+        <summary class="quiz-q">
           <span>Q1. Verifier에게 read-only 샌드박스를 부여한 핵심 목적은?</span>
-          <span style="font-size: 12px; color: #a8a29e;">정답 확인</span>
-        </div>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
         <div class="quiz-a">💡 구현자의 편향을 배제하고, 검증 과정 중 코드를 임의로 수정(mutation)하지 못하게 불변성을 강제하기 위함입니다.</div>
-      </div>
+      </details>
 
-      <div class="quiz-item">
-        <div class="quiz-q">
+      <details class="quiz-item">
+        <summary class="quiz-q">
           <span>Q2. explain·이슈 작성을 서브에이전트로 떼어내지 않은 이유는?</span>
-          <span style="font-size: 12px; color: #a8a29e;">정답 확인</span>
-        </div>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
         <div class="quiz-a">💡 세션 대화 맥락(이력)을 자식에게 프롬프트로 직렬화해 넘기는 핸드오프 비용이 모델 분리 이득보다 훨씬 크기 때문입니다.</div>
-      </div>
+      </details>
     </div>
 
     <!-- 엔지니어링 세부사항 (전문가용 접기) -->
-    <details>
+    <details class="details-box">
       <summary>엔지니어링 세부사항: 생략된 기술 전제와 미확인 Gap</summary>
       <div class="details-content">
         <ul>
