@@ -4,7 +4,8 @@
 
 > 🚧 **현재 상태: V2 전환 · 설계 단계**
 > V1은 주요 검증·Dashboard 흐름을 실제 구현하고 병합했지만 **최종 수용 검증까지 가기 전에** V2로 전환했다.
-> V2는 방향을 확정했고 **제품 기능은 아직 구현하지 않았다.**
+> V2는 방향을 확정했고, 첫 실행 자산으로 **Skill 2개**(`write-issue-pr`·`explain`)를 만들었다.
+> 그 외 제품 기능은 아직 구현하지 않았다.
 > 무엇이 확정이고 무엇이 아닌지는 [결정 상태표](docs/v2/decisions.md)를 본다.
 
 ---
@@ -177,4 +178,4 @@ pre-v2-2026-09-16
 
 V1 추적 이슈 [#7](https://github.com/taejung3852/OwnHands/issues/7) · [#89](https://github.com/taejung3852/OwnHands/issues/89) · [#99](https://github.com/taejung3852/OwnHands/issues/99)는 2026-09-16에 **`not planned`로 종료**했다. 구현이 잘못돼서가 아니라 제품 방향이 바뀌었기 때문이며, **`완료`로 닫지 않았다.**
 
-> V2는 아직 실행 가능한 제품이 없다. 설치 방법을 안내하지 않는다.
+> V2에는 아직 설치할 패키지가 없다. Skill 2개는 이 저장소의 `.agents/skills/`에서 Codex가 직접 읽는다.
