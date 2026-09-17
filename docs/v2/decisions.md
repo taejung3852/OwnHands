@@ -42,7 +42,7 @@
 | **검증 지식** | 상황별 Reference를 **필요할 때 읽는** 구조를 사용한다. | 🚧 |
 | **Agent/Subagent 구성** | 필요한 반복 커스텀 역할 **3개(`verifier`, `reviewer`, `researcher`)**를 정의한다. | ✅ `.codex/agents/` |
 | **Continuous Evals** | Agent System 자체가 더 나아졌는지 평가하는 **핵심 축**이다. | 🚧 |
-| **Eval 도입 시점** | **초기에 작은 Eval을 시작하고 M5에서 체계로 확장한다.** | 🚧 |
+| **Eval 도입 시점** | **초기에 작은 Eval을 시작하고 M5에서 체계로 확장한다.** | ✅ `docs/v2/evals/` |
 | **상세 결정 순서** | 로드맵·마일스톤 순서를 먼저 정리하고, 내부 상세는 해당 이슈에서 조사·결정한다. | — |
 
 ### 초기 Skill 구성 — 2026-09-17 확정 ([#103](https://github.com/taejung3852/OwnHands/issues/103))
@@ -117,7 +117,7 @@
 | **다른 Vendor 지원** | adapter로 할지, 같은 저장소로 할지, 별도 저장소로 할지 **미정**. | ⏳ |
 | **공통 추상화** | 두 번째 플랫폼의 **실제 필요를 확인하기 전에** 범용 adapter나 공통 실행 엔진을 확정하지 않는다. | ⏳ |
 | **Artifact 형식** | `intent.md`·`spec.md`·`plan.md`의 역할은 논의했으나 정확한 저장 경로·메타데이터·자동화 규칙은 미정. | ⏳ |
-| **Eval 상세** | 과제 수, 반복 수, 평가 지표, 비용 상한, 자동 실행 주기, merge 차단 여부 미정. | [#106](https://github.com/taejung3852/OwnHands/issues/106) |
+| **Eval 상세** | 초기 작은 Eval 2종(`0001`, `0002`) 및 가이드(`evals/README.md`) 수립 완료. 자동화 지표·러너 확장은 M5 연계. | [#106](https://github.com/taejung3852/OwnHands/issues/106) |
 | **Hooks 상세** | 적용 역할은 논의했으나 구체 이벤트·규칙·권한·구현은 후속 설계. | [#102](https://github.com/taejung3852/OwnHands/issues/102) |
 | **마일스톤 내부 설계** | 이름·수·순서는 승인·등록됐다. 각 단계의 **내부 설계와 경계 조정**은 해당 이슈에서 정한다. | [#101](https://github.com/taejung3852/OwnHands/issues/101) |
 | **개발 속도** | 공식 기능을 활용하면 더 빨라질 것으로 **기대**한다. 이미 시간을 절감했다고 쓰지 않는다. | — |
