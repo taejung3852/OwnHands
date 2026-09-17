@@ -60,20 +60,29 @@
 
 1. **Intent와 Spec의 생명주기 및 저장 위치**:
    - `intent.md`와 `spec.md`는 세션 휘발성 대화가 아닌 **Git 저장소 내 영구 아티팩트**로 보존한다.
-   - 저장 위치 후보: `docs/v2/specs/<feature-name>/` 또는 기능별 디렉터리.
-2. **양식 규격 (Human Brief와의 일관성)**:
-   - Playbook 원문의 거대한 템플릿을 그대로 복제하지 않고, OwnHands의 3칸 Human Brief 원칙([ADR-0003](../adr/0003-work-item-human-brief.md))을 계승하여 **10초 만에 스캔 가능한 핵심 요약 + 접힌 상세 맥락** 구조를 유지한다.
-   - **`intent.md` 최소 규격**:
-     - `## 문제 및 배경 (Why)`
-     - `## 목표 결과 및 가치 (What)`
-     - `## 비목표 및 제약 (Boundaries & Constraints)`
-   - **`spec.md` 최소 규격**:
-     - `## 기술적 요구사항 (Requirements)`
-     - `## 시스템 구조 및 컴포넌트 (Architecture)`
-     - `## 수용성 기준 및 검증 계획 (Acceptance Criteria)`
-3. **#105 정책 연결에 주는 가이드**:
-   - 정책 합성 알고리즘을 억지로 만들지 않고, Codex의 네이티브 깊이 기반 override(`~/.codex/` vs root `AGENTS.md` vs sub-dir `AGENTS.md`)를 그대로 활용한다.
-   - 32 KiB 상한을 준수하기 위해 기본 정책은 최소주의(Minimalist)를 유지한다.
+   - 저장 위치 후보: `docs/v2/specs/<feature-name>/` 디렉터리.
+
+2. **문서별 디테일 수준 및 역할 분리 (중요)**:
+   - ⚠️ **Work Item(Issue/PR)과 Spec은 성격이 다르다**:
+     - Issue/PR의 Human Brief([ADR-0003](../adr/0003-work-item-human-brief.md))는 사람이 변경점과 결정 사항을 빠르게 파악하기 위한 **10초 스캔용 소통 규격**이다.
+     - 반면 `spec.md`는 코딩 에이전트와 엔지니어가 실제 구현을 수행하는 **엔지니어링 청사진(Technical Contract)**이므로, **최대한 구체적이고 디테일하게** 작성되어야 한다.
+   - **`intent.md` — 의도와 경계의 엄밀함 (What & Why)**:
+     - `## 문제 및 배경 (Why)`: 해결하려는 문제의 본질과 사용자 페르소나.
+     - `## 목표 결과 및 가치 (What)`: 이번 작업이 가져올 실질적 개선과 성공 기준.
+     - `## 비목표 및 제약 (Boundaries)`: **절대 하지 말아야 할 것(Non-goals)**과 핵심 제약.
+   - **`spec.md` — 기술 구현의 극대화된 디테일 (How & Architecture)**:
+     - 스펙이 두루뭉술하거나 짧으면 에이전트가 Build 단계에서 데이터 타입, 예외 처리, 인터페이스를 **자의적으로 추측(환각)**하여 구현하게 된다.
+     - 따라서 상단에 핵심 요약을 두되 본문에는 다음 디테일을 빈틈없이 채운다:
+       - `## 기술적 요구사항 (Requirements)`: 기능별 세부 사양 및 제약.
+       - `## 시스템 구조 및 인터페이스 (Architecture & Interfaces)`: 데이터 모델, 함수 시그니처, 상태 전이.
+       - `## 엣지 케이스 및 예외 처리 (Edge Cases)`: 에러 처리 및 경계 조건.
+       - `## 수용성 기준 (Acceptance Criteria)`: 구체적이고 검증 가능한 판정 테스트 케이스.
+
+3. **32 KiB 상한과의 관계 정정 및 #105 정책 연결**:
+   - 32 KiB 상한(`project_doc_max_bytes`)은 매 턴 주입되는 **`AGENTS.md`의 하드 리밋**이지, 독립 파일인 `intent.md` / `spec.md`의 크기 제한이 아니다.
+   - 따라서 `spec.md`는 기술적 완성도를 위해 필요한 만큼 충분히 상세하게 작성한다.
+   - `AGENTS.md`에는 spec 본문을 적지 않고, *"설계 시 `docs/v2/specs/` 규격을 따른다"*는 가벼운 지침만 두어 32 KiB 상한을 지킨다.
+   - 정책 합성 알고리즘을 별도로 만들지 않고 Codex의 네이티브 깊이 기반 override를 그대로 활용한다.
 
 ---
 
