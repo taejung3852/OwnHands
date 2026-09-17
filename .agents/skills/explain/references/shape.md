@@ -48,9 +48,11 @@ What is chosen here is the form each part of the answer takes:
 | what changed | before and after, side by side |
 | a position in something larger | a map with the current point marked |
 
-Write the page to a file and hand it over as a `file://` link, or publish it
-where the surface renders it directly. A path the reader has to copy and hunt
-for costs them the time the page was meant to save.
+Write the page to a file and hand it over as a link the reader can click, or
+publish it where the surface renders it directly. Let the surface decide how a
+file is opened — Codex has its own `file_opener` setting, and a hosted surface
+may render the page inline. A path the reader has to copy and hunt for costs
+them the time the page was meant to save.
 
 A page beats a paragraph only when it is mostly figures. A page of prose is just
 a slower paragraph.
