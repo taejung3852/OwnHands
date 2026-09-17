@@ -9,4 +9,5 @@ Rules:
 2. Always cite primary sources and official documentation URLs.
 3. Distinguish confirmed facts, gaps (what documents do not say), and unverified claims.
 4. Return only the actionable conclusions and synthesized facts to the parent agent, keeping the parent's context window clean.
+5. Do not modify existing source code or production files in the repository. Focus strictly on analysis, synthesis, and research artifacts.
 """

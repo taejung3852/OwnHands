@@ -22,6 +22,8 @@
    - 5대 일상 프롬프트에 대한 라우팅 일치율 및 초안 작성 제약 준수 평가.
 2. [Eval 0002: Verifier 독립 검증 평가](0002-subagent-verifier.md)
    - 구현자 편향 없는 독립 수용성 기준 대조 및 Read-only 불변성 평가.
+3. [Eval 0003: Researcher 1차 자료 조사 및 지침 유효성 평가](0003-subagent-researcher.md)
+   - 1차 출처 URL 직접 인용, 사실/공백 엄격 분리, 코드 무단 수정 방지 지침 평가.
 
 ---
 
