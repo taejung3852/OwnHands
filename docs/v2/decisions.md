@@ -65,6 +65,16 @@
 
 > ⚠️ **개수 제한은 실제 수치다.** Skill 목록 예산의 천장은 **10,000 토큰**이고(`skills.max_context_tokens`의 명시값 상한), 초과하면 description이 깎이는 데 그치지 않고 **Skill이 목록에서 빠진다.** → [Codex 공식 문서 §2.5](../references/codex-official.md)
 
+### Work Item(Issue/PR) 표기 규격 — 2026-09-18 확정 ([#108](https://github.com/taejung3852/OwnHands/issues/108), [ADR-0003](adr/0003-work-item-human-brief.md))
+
+| 주제 | 결정 내용 | 구현 |
+|---|---|---|
+| **표기 구조** | **`Human Brief (3칸 고정)` + `<details>`(상세 맥락)** 구조를 사용한다. | ✅ `write-issue-pr` |
+| **3칸 고정 규칙** | PR은 `무엇이 바뀌었나`·`왜 이렇게 했나`·`리뷰할 것`, Issue는 `무엇이 필요한가`·`왜 지금인가`·`결정할 것`. 4번째 칸은 추가하지 않는다. | ✅ |
+| **분리 기준** | 독자(사람/기계)가 아닌 **깊이(Depth)**로 나눈다. `<details>`는 비공개가 아니라 심층 기록이다. | ✅ |
+| **단일 진실 원칙** | Human Brief는 상세 맥락의 축약 투영(Projection)이다. 상세가 뒷받침하지 않는 독립 사실을 만들지 않는다. | ✅ |
+| **Explain과의 경계** | GitHub 본문은 가벼운 마크다운으로 유지하고, 시각화·쉬운 이해는 요청형 `explain` 아티팩트로 분리한다. | ✅ |
+
 ### 초기 Agent/Subagent 구성 — 2026-09-18 확정 ([#104](https://github.com/taejung3852/OwnHands/issues/104), [ADR-0001](adr/0001-initial-subagent-roles.md))
 
 | 주제 | 결정 내용 | 구현 |
