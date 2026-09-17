@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M2 시작 전, 왜 Research Gate부터 통과했나?</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #fbf9f5;
+      color: #1c1917;
+      line-height: 1.5;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 640px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    h1 {
+      font-size: 30px;
+      font-weight: 800;
+      color: #1c1917;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    p.subtitle {
+      font-size: 16px;
+      color: #78716c;
+      font-weight: 500;
+    }
+
+    /* 카드 스타일 (shape.md 규격) */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 30px 26px;
+      margin-bottom: 22px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+    .step-badge {
+      width: 30px;
+      height: 30px;
+      background-color: #1c1917;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: #78716c;
+      margin-bottom: 22px;
+    }
+
+    /* 카드 1: 파이프라인 시각화 */
+    .pipeline-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 16px 0;
+    }
+    .pipe-node {
+      flex: 1;
+      padding: 14px 10px;
+      border-radius: 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .node-intent { background-color: #e0f2fe; border: 1px solid #bae6fd; }
+    .node-spec { background-color: #fef3c7; border: 1px solid #fde68a; }
+    .node-build { background-color: #f3f4f6; border: 1px solid #e5e7eb; color: #9ca3af; }
+    .pipe-title { font-size: 13px; font-weight: 800; color: #1c1917; }
+    .pipe-sub { font-size: 11px; color: #64748b; font-weight: 600; }
+    .pipe-arrow { font-size: 16px; color: #a8a29e; font-weight: 800; }
+
+    .gate-badge {
+      display: inline-block;
+      align-self: center;
+      background-color: #fee2e2;
+      color: #dc2626;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    /* 카드 2: 제약 및 팩트 */
+    .constraint-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .const-item {
+      padding: 14px;
+      border-radius: 16px;
+      background-color: #f9fafb;
+      border: 1px solid #f3f4f6;
+    }
+    .const-title { font-size: 13px; font-weight: 800; color: #1c1917; margin-bottom: 4px; }
+    .const-desc { font-size: 12px; color: #64748b; line-height: 1.4; }
+
+    /* 카드 3: 서브에이전트 검증 */
+    .eval-row {
+      display: flex;
+      gap: 8px;
+      margin: 16px 0;
+    }
+    .eval-pill {
+      flex: 1;
+      padding: 12px 8px;
+      border-radius: 14px;
+      background-color: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      text-align: center;
+    }
+    .eval-pill .check { font-size: 13px; font-weight: 800; color: #15803d; }
+    .eval-pill .name { font-size: 11px; color: #374151; margin-top: 2px; }
+
+    /* 3초 퀴즈 (기본 숨김) */
+    .quiz-card {
+      background: #f5f5f4;
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .quiz-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    details.quiz-item {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+    details.quiz-item summary {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1c1917;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    details.quiz-item summary::-webkit-details-marker { display: none; }
+    .btn-toggle {
+      font-size: 11px;
+      font-weight: 800;
+      color: #2563eb;
+      background: #eff6ff;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .quiz-ans {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #e7e5e4;
+      font-size: 13px;
+      color: #44403c;
+      line-height: 1.4;
+    }
+
+    /* 접힌 기술 세부 사항 */
+    details.tech-details {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 20px 24px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      color: #78716c;
+      font-size: 13px;
+    }
+    details.tech-details summary {
+      font-weight: 800;
+      color: #1c1917;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .tech-content {
+      margin-top: 14px;
+      line-height: 1.6;
+    }
+    .tech-content ul {
+      margin-left: 18px;
+      margin-bottom: 12px;
+    }
+    .tech-content a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+    .tech-content a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>M2 시작 전, 왜 Research Gate부터 통과했나?</h1>
+      <p class="subtitle">코드를 쓰기 전에 "의도(Intent)와 설계(Spec)"의 공식 팩트를 손에 쥔 1타 2피 작업</p>
+    </header>
+
+    <!-- 카드 1: Intent vs Spec 분리 이유 -->
+    <div class="card">
+      <div class="step-badge">1</div>
+      <div class="card-title">의도(Intent)와 설계(Spec)는 왜 분리할까?</div>
+      <div class="card-desc">사람이 목적에 동의하기 전에 에이전트가 기술 설계로 폭주하는 것을 막는 '인간 게이트'입니다.</div>
+
+      <div class="pipeline-row">
+        <div class="pipe-node node-intent">
+          <span class="pipe-title">intent.md</span>
+          <span class="pipe-sub">왜, 무엇을? (문제/가치)</span>
+        </div>
+        <span class="pipe-arrow">➔</span>
+        <div class="pipe-node node-spec">
+          <span class="pipe-title">spec.md</span>
+          <span class="pipe-sub">어떤 구조로? (기술 청사진)</span>
+        </div>
+        <span class="pipe-arrow">➔</span>
+        <div class="pipe-node node-build">
+          <span class="pipe-title">Build</span>
+          <span class="pipe-sub">코드 구현</span>
+        </div>
+      </div>
+
+      <div style="text-align: center;">
+        <span class="gate-badge">🛡️ Human Gate: 사람이 Intent 승인 전엔 Spec 작성 금지!</span>
+      </div>
+    </div>
+
+    <!-- 카드 2: Codex 플랫폼의 실제 팩트와 한계 -->
+    <div class="card">
+      <div class="step-badge">2</div>
+      <div class="card-title">플랫폼(Codex)의 실제 팩트와 한계는?</div>
+      <div class="card-desc">Codex에는 intent/spec 기능이 없으며, AGENTS.md는 32 KiB 상한선이 있습니다.</div>
+
+      <div class="constraint-grid">
+        <div class="const-item">
+          <div class="const-title">📏 32 KiB 지침 천장</div>
+          <div class="const-desc">AGENTS.md 합산 크기가 넘으면 뒤쪽이 잘립니다. 규칙은 반드시 가볍게 유지해야 합니다.</div>
+        </div>
+        <div class="const-item">
+          <div class="const-title">📂 디렉터리 깊이 우선</div>
+          <div class="const-desc">가까운 하위 디렉터리 파일이 상위를 덮어씁니다. 별도 우선순위 알고리즘은 없습니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 3: Researcher 서브에이전트 검증 (Eval 0003) -->
+    <div class="card">
+      <div class="step-badge">3</div>
+      <div class="card-title">Researcher 에이전트는 어떻게 실측했나?</div>
+      <div class="card-desc">코드 무단 수정을 차단(Rule 5)하고, 1차 공식 출처만을 인용하여 Eval 0003을 통과했습니다.</div>
+
+      <div class="eval-row">
+        <div class="eval-pill">
+          <div class="check">✅ PASS</div>
+          <div class="name">1차 공식 URL 인용</div>
+        </div>
+        <div class="eval-pill">
+          <div class="check">✅ PASS</div>
+          <div class="name">사실 vs 미확인 엄격 분리</div>
+        </div>
+        <div class="eval-pill">
+          <div class="check">✅ PASS</div>
+          <div class="name">코드 무단 수정 0건</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3초 퀴즈 -->
+    <div class="quiz-card">
+      <div class="quiz-title">💡 스스로 풀어보는 3초 퀴즈</div>
+
+      <details class="quiz-item">
+        <summary>
+          <span>Q1. intent.md와 spec.md를 굳이 나누는 가장 큰 이유는?</span>
+          <span class="btn-toggle">정답 확인</span>
+        </summary>
+        <div class="quiz-ans">
+          👉 <strong>인간 게이트키퍼(Human Gate) 보호</strong>: 사람이 문제 정의(Intent)에 합의하기 전에 에이전트가 기술 설계(Spec)로 직행하여 토큰과 시간을 낭비하는 것을 막기 위해서입니다.
+        </div>
+      </details>
+
+      <details class="quiz-item">
+        <summary>
+          <span>Q2. Codex에서 AGENTS.md 합산 크기가 32 KiB를 넘어가면?</span>
+          <span class="btn-toggle">정답 확인</span>
+        </summary>
+        <div class="quiz-ans">
+          👉 <strong>초과된 하위 지침이 프롬프트에서 잘립니다.</strong> 따라서 정책 문서는 거대하게 작성할 수 없으며 핵심만 담고 얇게 유지해야 합니다.
+        </div>
+      </details>
+    </div>
+
+    <!-- 접힌 기술 세부 사항 -->
+    <details class="tech-details">
+      <summary>⚙️ 엔지니어링 세부 사항 및 한계 (투명성)</summary>
+      <div class="tech-content">
+        <p><strong>1. 쉽게 그리느라 생략한 조건:</strong></p>
+        <ul>
+          <li>Codex의 32 KiB 한도는 <code>~/.codex/config.toml</code>의 <code>project_doc_max_bytes</code>로 늘릴 수 있으나 기본값을 기준 제약으로 삼았습니다.</li>
+          <li>Playbook은 대규모 조직의 7개 역할 분담을 예시로 들었으나, 1인 개발 맥락에 맞지 않아 제품 의무에서 제외했습니다.</li>
+        </ul>
+
+        <p><strong>2. 전문가가 짚었을 예외 및 미확인 사실 (Gaps):</strong></p>
+        <ul>
+          <li><strong>실행 성격 표기</strong>: 본 평가는 실제 OpenAI Codex 프로세스를 구동한 런타임 실측이 아니라, <code>researcher.toml</code>의 지침 유효성을 검증한 프롬프트 실측입니다 (토큰 리셋 대기 중).</li>
+          <li>Codex 로컬 CLI의 Plan mode 대응 기능은 공식 문서상 미확인으로 남아 있습니다 (V2-M3 과제).</li>
+        </ul>
+
+        <p><strong>3. 근거 산출물 링크:</strong></p>
+        <ul>
+          <li>조사 이슈: <a href="https://github.com/taejung3852/OwnHands/issues/114">#114 (V2-M2 Research Gate)</a></li>
+          <li>해결 PR: <a href="https://github.com/taejung3852/OwnHands/pull/115">#115 (Intent·Spec 1차 자료 조사 및 Researcher 평가)</a></li>
+          <li>조사 보고서: <a href="file:///Users/parktaejung/Desktop/workspace/OwnHands/docs/v2/research/0002-m2-intent-spec-gate.md">0002-m2-intent-spec-gate.md</a></li>
+          <li>평가 기록: <a href="file:///Users/parktaejung/Desktop/workspace/OwnHands/docs/v2/evals/0003-subagent-researcher.md">0003-subagent-researcher.md</a></li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</body>
+</html>
