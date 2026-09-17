@@ -82,8 +82,8 @@
 | **저장 위치** | `docs/v2/specs/<feature-name>/` 아래 영구 Git 아티팩트로 보존 (`intent.md`, `spec.md`). | ✅ `specs/README.md` |
 | **`intent.md`** | **"의도와 경계의 엄밀함"**. 문제(Why), 목표(What), **비목표(Non-goals)**, 제약(Constraints) 필수 정의. | ✅ |
 | **`spec.md`** | **"기술 구현의 극대화된 디테일"**. 에이전트 환각을 차단하기 위해 요구사항, 아키텍처/타입, 엣지케이스, 수용조건을 상세히 기술. | ✅ |
-| **Human Gate** | 사람이 `intent.md` 승인 전엔 Spec 작성 금지, 사람이 `spec.md` 승인 전엔 Build 금지. | ✅ |
-| **`AGENTS.md` 연결** | 32 KiB 상한 보호를 위해 본문 삽입을 금지하고, `docs/v2/specs/` 가이드 참조 1줄만 유지. | ✅ |
+| **기본 흐름 (Default Flow)** | 의도 검토(intent) ➔ 설계 검토(spec) ➔ 구현의 2단계를 기본 권장 흐름으로 둠. (모든 작업에 강제하지 않으며 세부 적용 기준은 후속 정리) | ✅ |
+| **`AGENTS.md` 연결** | 32 KiB 상한 보호를 위해 본문 삽입을 금지하고, `docs/v2/specs/` 가이드 참조 1줄만 선언. | ✅ `AGENTS.md` |
 
 ### 초기 Agent/Subagent 구성 — 2026-09-18 확정 ([#104](https://github.com/taejung3852/OwnHands/issues/104), [ADR-0001](adr/0001-initial-subagent-roles.md))
 
