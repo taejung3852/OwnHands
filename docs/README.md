@@ -82,7 +82,7 @@ docs/
 |---|---|
 | [#101](https://github.com/taejung3852/OwnHands/issues/101) V2 전체 추적 | 입구, 진행 중 |
 | [#102](https://github.com/taejung3852/OwnHands/issues/102) 공식 자료 조사 | ✅ 완료 — [결과](references/codex-official.md) |
-| [#103](https://github.com/taejung3852/OwnHands/issues/103) Skill 구성·이름 | 사용자와 결정 |
+| [#103](https://github.com/taejung3852/OwnHands/issues/103) Skill 구성·이름 | ✅ 완료 (2026-09-17) — [결정](v2/decisions.md) |
 | [#104](https://github.com/taejung3852/OwnHands/issues/104) Agent 역할·위임 | 사용자와 결정 |
 | [#105](https://github.com/taejung3852/OwnHands/issues/105) 정책 연결 | 사용자 생각 단계 |
 | [#106](https://github.com/taejung3852/OwnHands/issues/106) 평가 설계 | 후속 결정 |

@@ -13,3 +13,7 @@ docs/legacy/spikes/raw/
 build/
 dist/
 *.egg-info/
+
+# 임시 — Claude Code에서도 같은 Skill을 시험하려고 .agents/skills를 심볼릭 링크로 비춘 것이다.
+# 원본은 .agents/skills/ 하나뿐이다. 시험이 끝나면 지운다.
+.claude/skills/

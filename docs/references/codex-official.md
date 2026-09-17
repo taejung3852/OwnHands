@@ -224,7 +224,14 @@ Codex는 V2의 1차 실행 플랫폼이므로, **실제 형식·기능·권한·
 | `skills.config.<index>.path` | string (path) | "Path to a skill folder containing `SKILL.md`." |
 | `skills.config.<index>.enabled` | boolean | "Enable or disable the referenced skill." |
 
-인접 키 하나: `features.skill_mcp_dependency_install` (boolean) — "Allow prompting and installing missing MCP dependencies for skills (stable; on by default)."
+인접 키 둘:
+
+| 키 | 설명(원문) |
+|---|---|
+| `features.skill_mcp_dependency_install` | "Allow prompting and installing missing MCP dependencies for skills (stable; on by default)." |
+| `file_opener` | "URI scheme used to open citations from Codex output (default: `vscode`)." 허용값 `vscode`·`vscode-insiders`·`windsurf`·`cursor`·`none` |
+
+> ⚠️ **`file_opener`의 기본값이 `file://`가 아니다.** Skill이나 지침에서 `file://` 링크를 못 박으면 사용자 설정과 어긋난다. **파일을 어떻게 열지는 표면이 정한다.** (확인일 2026-09-17)
 
 **기존 기록 대비 정정 3건**
 

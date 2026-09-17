@@ -4,7 +4,8 @@
 
 > 🚧 **현재 상태: V2 전환 · 설계 단계**
 > V1은 주요 검증·Dashboard 흐름을 실제 구현하고 병합했지만 **최종 수용 검증까지 가기 전에** V2로 전환했다.
-> V2는 방향을 확정했고 **제품 기능은 아직 구현하지 않았다.**
+> V2는 방향을 확정했고, 첫 실행 자산으로 **Skill 2개**(`write-issue-pr`·`explain`)를 만들었다.
+> 그 외 제품 기능은 아직 구현하지 않았다.
 > 무엇이 확정이고 무엇이 아닌지는 [결정 상태표](docs/v2/decisions.md)를 본다.
 
 ---
@@ -118,7 +119,7 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 | ✅ 확정 | 🤔 / 💬 / ⏳ 미확정 |
 |---|---|
 | Codex-first, 공식 문서 중심 | Company 정책 우선순위 (사용자 생각) |
-| 요청형 Explain | Skill 이름·수 (함께 결정) |
+| 요청형 Explain | ~~Skill 이름·수~~ → ✅ 2026-09-17 확정 (2개) |
 | clean-slate 설계 | 초기 Agent 역할·수 (함께 결정) |
 | 초기 작은 Eval + M5 확장 | 다른 vendor 지원 방식 |
 | 개인 전용으로 제한하지 않음 | Eval 지표·비용·gate |
@@ -152,7 +153,7 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 | 이슈 | 질문 | 상태 |
 |---|---|---|
 | [#102](https://github.com/taejung3852/OwnHands/issues/102) | Codex가 이미 제공하는 것은 무엇이고 무엇을 안 만들어도 되는가? | ✅ 조사 완료 |
-| [#103](https://github.com/taejung3852/OwnHands/issues/103) | Skill의 이름과 개수는 무엇인가? | 💬 함께 결정 |
+| [#103](https://github.com/taejung3852/OwnHands/issues/103) | Skill의 이름과 개수는 무엇인가? | ✅ 확정 — `write-issue-pr`·`explain` 2개 |
 | [#104](https://github.com/taejung3852/OwnHands/issues/104) | 초기 Agent 역할과 위임 조건은? | 💬 함께 결정 |
 | [#105](https://github.com/taejung3852/OwnHands/issues/105) | 기본·조직 정책을 어떻게 연결하는가? | 🤔 생각 단계 |
 | [#106](https://github.com/taejung3852/OwnHands/issues/106) | 초기 Eval을 어떻게 시작하고 M5에서 무엇을 확장하는가? | ⏳ 후속 결정 |
@@ -177,4 +178,4 @@ pre-v2-2026-09-16
 
 V1 추적 이슈 [#7](https://github.com/taejung3852/OwnHands/issues/7) · [#89](https://github.com/taejung3852/OwnHands/issues/89) · [#99](https://github.com/taejung3852/OwnHands/issues/99)는 2026-09-16에 **`not planned`로 종료**했다. 구현이 잘못돼서가 아니라 제품 방향이 바뀌었기 때문이며, **`완료`로 닫지 않았다.**
 
-> V2는 아직 실행 가능한 제품이 없다. 설치 방법을 안내하지 않는다.
+> V2에는 아직 설치할 패키지가 없다. Skill 2개는 이 저장소의 `.agents/skills/`에서 Codex가 직접 읽는다.
