@@ -1,28 +1,15 @@
 ---
 name: explain
-description: Explains the state of a project or task from its artifacts — what changed, where the work stands, why a decision was made, what is still unverified — naming the sources it used. Use when the user asks what changed, how the work is going, why something was decided, or what is unconfirmed.
+description: Explains the state of a project, task, or architecture like ELI5 — big picture diagram, core analogy, and few words in a standalone HTML artifact. Use when the user asks what changed, how the work is going, why something was decided, or invokes /explain.
 ---
 
-Use this skill when the user asks about the state of the work, the reason behind
-a decision, or what is still unconfirmed.
+# explain
 
-1. Identify the question, and read only the artifacts that answer it — issues,
-   PRs, decision records, code, verification results.
-2. Read `references/shape.md`.
-3. Build an HTML page that answers the question in figures, with few words
-   around them. On the page, name what it was built from and when, and state
-   separately what you did not check and what the sources do not say.
-4. In the conversation, hand the page over as something the reader can click
-   open in their own setup, not a bare path they have to go find, and answer in
-   at most two short sentences. Those sentences are the page's answer in short
-   form, not a second version of it to keep in step.
+사용자가 작업 현황, 결정 이유, 시스템 구조를 물었을 때 호출한다. **ELI5 스타일(호기심 질문 + 단계별 시각 스토리 카드 + 극소수의 글자)**의 단일 HTML 페이지를 생성한다.
 
-Build the page every time. Deciding it is not needed is not one of the steps. A
-table in the conversation is not a substitute for it, a list is not, and one
-long sentence is not.
+## 작업 절차
+1. 질문에 답하는 아티팩트(이슈, PR, ADR, 코드 diff)만 읽는다.
+2. `references/shape.md`에 정의된 ELI5 구조로 단일 HTML 페이지를 작성한다.
+3. 대화창에는 페이지 링크와 함께 **가장 핵심적인 결론을 최대 두 문장**으로만 답한다.
 
-The page works when the reader can answer their own question from its first
-screen alone.
-
-An explanation is not a verification result, and it does not stay current after
-the work changes. Say so when it matters.
+Build the page every time. The page works when the reader understands the mechanism from the big picture alone in 10 seconds.

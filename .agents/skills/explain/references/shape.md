@@ -1,87 +1,40 @@
-# Shape of an explanation
+# Shape of an ELI5 Explanation
 
-## The test
+## The Test (10초 법칙)
+독자가 첫 화면을 열자마자 글을 읽지 않고도 **그림책처럼 직관적인 카드 2~3장을 훑어보는 것만으로 메커니즘을 즉시 이해**할 수 있어야 한다.
 
-The reader can answer their own question from the first screen, without opening
-anything. Everything below is in service of that.
+## 레이아웃 구조 (위에서 아래로)
 
-## Shorten by changing the form, not by deleting sentences
+### 1. 호기심 헤더 (Curiosity Header)
+- **질문**: 다루고자 하는 결정이나 구조의 핵심 질문 (예: "Subagent 3종은 왜, 어떻게 나뉘었나?").
+- **자막**: 시스템의 최상위 목적이나 핵심 메커니즘을 명확한 기술 언어로 요약한 한 줄.
 
-There are two ways to make an explanation shorter, and only one of them is
-faster to read.
+### 2. 단계별 스토리 카드 (Step Cards, 2~3장)
+하나의 완결된 메커니즘을 2~3단계의 호흡으로 나누어 전달한다.
 
-Deleting sentences from a paragraph leaves a paragraph. It is read at the same
-speed as before and now says less.
+- **용어 균형 (중요)**:  
+  독자는 시스템을 함께 만드는 엔지니어다. 유아용 언어("도우미 친구들", "3총사")로 과도하게 유치하게 바꾸지 않고, **정확한 엔지니어링 도메인 용어(`Subagent`, `read-only`, `구현자 편향`, `컨텍스트 오염`)를 그대로 사용**한다.  
+  *쉬운 설명이란 용어를 아동용으로 바꾸는 것이 아니라, 시각적 구조(카드, 흐름, 대비)를 통해 복잡한 시스템 흐름을 10초 만에 한눈에 파악하게 돕는 것이다.*
+- **텍스트 상한 (밀도 제한)**:  
+  카드 1장당 텍스트는 **굵은 제목 1줄 + 설명 1줄(최대 2줄)**로 제한한다. 긴 설명이나 글머리 기호 나열 대신 시각 컴포넌트를 배치한다.
+- **물리적 시각 메타포 컴포넌트**:  
+  개념의 핵심 동작을 글이 아니라 눈에 보이는 사물/시스템 컴포넌트로 중앙에 배치한다:
+  - 역할 칩(Role Chips)과 권한 뱃지 (`read-only`, `sandbox`)
+  - 파이프라인 흐름(Main ➔ Verifier ➔ Reviewer)
+  - 채택 vs 기각 대비 카드 (대안의 트레이드오프 시각화)
+- **시각적 쾌적성**:  
+  밝고 따뜻한 톤, 넉넉한 여백, 부드러운 모서리의 흰색 카드 컴포넌트를 사용한다.
+- **호흡 조절**:  
+  각 카드 상단에 원형 숫자 뱃지(`1`, `2`, `3`)를 두어 독자가 읽는 순서와 호흡을 자연스럽게 유도한다.
 
-Moving the same material into a table, a before/after pair, a diagram, or a
-worked example removes most of the words and is read faster. A figure that
-carries the mechanism replaces the paragraph that described it.
+### 3. 스스로 풀어보는 3초 퀴즈
+- 방금 눈으로 본 시각 메타포를 떠올려 직관적으로 3초 안에 맞출 수 있는 자가 점검 문항 1~2개.
+- **정답 기본 숨김 (Hidden by default)**:  
+  정답이 처음부터 노출되지 않도록 **반드시 `<details class="quiz-item">`과 `<summary>` 태그를 사용**한다.  
+  질문 우측에 `[정답 확인]` 버튼을 두고, 사용자가 직접 클릭했을 때만 정답이 아래로 펼쳐지도록 인터랙션을 강제한다.
 
-Use the fewest words the chosen form can carry. When a figure and a sentence say
-the same thing, delete the sentence.
-
-## Two layers
-
-Put the answer on top, unfolded, complete enough to stand alone. Put sources,
-dates, and what was not checked below it, or behind a fold where the surface
-actually folds. A GitHub issue or an HTML file folds `<details>`; a terminal
-prints its contents instead. When nothing folds, a rule and a short heading are
-the separation — do not reach for a fold that will not close.
-
-Both layers are required. The lower one must not be what the reader has to read
-in order to understand the upper one — if the answer only makes sense after the
-sources, the answer is not finished.
-
-## Choose the form inside the page
-
-Whether to build the page is not a decision this section makes, and not one the
-skill makes either. The page is always built; the reader asked for it by calling
-the skill. A short question makes a short page, not a paragraph instead of one.
-
-What is chosen here is the form each part of the answer takes:
-
-| For | Use |
-|---|---|
-| several things compared on the same axes | a table |
-| a sequence or a decision path | a numbered list or a diagram |
-| a mechanism the reader has not seen | a figure that carries it, few words around it |
-| what changed | before and after, side by side |
-| a position in something larger | a map with the current point marked |
-
-Write the page to a file and hand it over as a link the reader can click, or
-publish it where the surface renders it directly. Let the surface decide how a
-file is opened — Codex has its own `file_opener` setting, and a hosted surface
-may render the page inline. A path the reader has to copy and hunt for costs
-them the time the page was meant to save.
-
-A page beats a paragraph only when it is mostly figures. A page of prose is just
-a slower paragraph.
-
-## Rules
-
-1. Open with the answer. Context, method, and caveats come after it, never
-   before it.
-2. Number a list only when the order is real. Order that is not real reads as a
-   sequence the reader must follow.
-3. Keep a visible group to about five items. More than that, group them, and
-   lead with the group that answers the question.
-4. Give concrete quantities. "A lot of skills" and "some budget" do not land;
-   "nine skills" and "10,000 tokens" do.
-5. Cut the opening sentence that announces what you are about to explain, and
-   the closing sentence that recaps what you just explained. Both are read and
-   neither carries information.
-6. Name the gap as a gap. "Not checked" and "the documents do not say" are
-   different from each other, and both are different from "no".
-
-## Before sending
-
-Read only the first screen. Can you answer the question the reader asked? If
-not, the answer is in the wrong place — move it up rather than adding to it.
-
-## Credit
-
-Shaped after two skills this project's author found effective: `eli5` (few words,
-large figures, a page instead of a paragraph) and `i-have-adhd` (MIT — answer
-first, real quantities, no preamble or recap, small visible groups). The rules
-here were rewritten for explanation documents; neither skill's text was copied,
-and their conversation-level and session-level rules were deliberately left out.
+### 4. 접힌 기술 세부 사항 (`<details>`) — 엔지니어링 투명성
+복잡한 기술적 엄밀함이나 긴 배경 설명은 본문에서 완전히 분리하여 하단 접기 블록에 보관한다:
+1. **쉽게 그리느라 생략한 조건**: 단순화를 위해 뺀 기술적 전제들.
+2. **전문가가 짚었을 예외 및 미확인 사실 (Gaps)**: 시스템의 한계, 플랫폼 사양, 주의해야 할 예외.
+3. **근거 아티팩트 링크 및 생성 일시**: 원본 이슈, PR, ADR 문서 링크 및 생성 시점.
