@@ -12,7 +12,7 @@
 ## 1. 평가 대상 및 기준
 
 ### 대상 에이전트
-- `verifier` ([`.codex/agents/verifier.toml`](../../.codex/agents/verifier.toml))
+- `verifier` ([`.codex/agents/verifier.toml`](../../../.codex/agents/verifier.toml))
   - `sandbox_mode = "read-only"`
   - 역할: 독립 수용성 검증, 증거 기반 판정(Pass / Fail / Unobserved)
 
@@ -43,9 +43,9 @@
 ### 과제 1 결과: ADR-0001 수용성 기준 독립 검증
 - **실측 일시**: 2026-09-18 01:04
 - **검증 대상 파일**:
-  - [`.codex/agents/verifier.toml`](../../.codex/agents/verifier.toml)
-  - [`.codex/agents/reviewer.toml`](../../.codex/agents/reviewer.toml)
-  - [`.codex/agents/researcher.toml`](../../.codex/agents/researcher.toml)
+  - [`.codex/agents/verifier.toml`](../../../.codex/agents/verifier.toml)
+  - [`.codex/agents/reviewer.toml`](../../../.codex/agents/reviewer.toml)
+  - [`.codex/agents/researcher.toml`](../../../.codex/agents/researcher.toml)
   - [`docs/v2/adr/0001-initial-subagent-roles.md`](../adr/0001-initial-subagent-roles.md)
   - [`docs/v2/decisions.md`](../decisions.md)
 - **수용성 기준별 실측 결과**:
@@ -71,9 +71,9 @@
 
 ---
 
-## 5. V2-M5 확장을 위한 시사점
+## 5. V2-M5 확장을 위한 시사점 (확장 구현 후보 예시)
 
-1. **자동 검증기(Verifier Runner) 승격**:
-   - M5에서는 검증 프롬프트를 에이전트에 던진 뒤 반환된 JSON(`{ criteria_id: "C1", status: "PASS", evidence: "..." }`)을 자동 파싱하여 회귀 여부를 CI에서 판정.
-2. **Read-only 런타임 강제 격리**:
-   - Codex CLI 환경에서 subagent가 파일 쓰기 도구를 실제로 호출할 때 OS 수준(샌드박스)에서 EPERM을 내는지 런타임 레벨 검증 연계 필요.
+1. **자동 검증기 후보 (Verifier Runner)**:
+   - M5에서는 검증 프롬프트를 에이전트에 전달한 뒤 반환된 JSON 형식(예: `{ criteria_id: "C1", status: "PASS", evidence: "..." }`)을 자동 파싱하여 회귀 여부를 CI에서 판정하는 자동화 가능성 검토.
+2. **Read-only 런타임 강제 격리 검토**:
+   - Codex CLI 환경에서 subagent가 파일 쓰기 도구를 실제로 호출할 때 OS 수준(샌드박스)에서 EPERM을 내는지 런타임 레벨 검증 연계 검토.

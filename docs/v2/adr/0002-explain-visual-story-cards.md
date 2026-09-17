@@ -65,4 +65,4 @@
 - `<details>` 블록 덕분에 단순한 시각화와 엄밀한 엔지니어링 투명성이 양립함.
 
 ### 주의 및 제약
-- 카드 1장당 텍스트 2줄 상한을 어기면 다시 텍스트 덩어리로 퇴행하므로 [shape.md](../../.agents/skills/explain/references/shape.md)의 밀도 제약을 철저히 준수해야 함.
+- 카드 1장당 텍스트 2줄 상한을 어기면 다시 텍스트 덩어리로 퇴행하므로 [shape.md](../../../.agents/skills/explain/references/shape.md)의 밀도 제약을 철저히 준수해야 함.

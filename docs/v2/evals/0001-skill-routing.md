@@ -12,8 +12,8 @@
 ## 1. 평가 대상 및 기준
 
 ### 대상 스킬
-1. `write-issue-pr` ([`.agents/skills/write-issue-pr/SKILL.md`](../../.agents/skills/write-issue-pr/SKILL.md))
-2. `explain` ([`.agents/skills/explain/SKILL.md`](../../.agents/skills/explain/SKILL.md))
+1. `write-issue-pr` ([`.agents/skills/write-issue-pr/SKILL.md`](../../../.agents/skills/write-issue-pr/SKILL.md))
+2. `explain` ([`.agents/skills/explain/SKILL.md`](../../../.agents/skills/explain/SKILL.md))
 3. 일반 작업 (스킬 미발화 기준)
 
 ### 판정 기준
@@ -91,9 +91,9 @@
 
 ---
 
-## 5. V2-M5 확장을 위한 시사점
+## 5. V2-M5 확장을 위한 시사점 (확장 구현 후보 예시)
 
-1. **자동화 검증 단위 (Task Set)**:
-   - 본 실측 5대 프롬프트를 JSON 데이터셋(`evals/fixtures/routing-cases.json`)으로 고정하고, LLM Runner가 선택한 도구(Skill Load)를 정답 레이블과 일치 비교하는 회귀 테스트로 자동화.
-2. **Side-effect Sandbox Gate**:
-   - `write-issue-pr`과 같은 작성 도구 평가 시 CI 환경에서는 `--dry-run` 플래그를 강제하거나 목(mock) 환경을 주입하여 원격 저장소 오염을 원천 방지하는 구조 필요.
+1. **자동화 검증 단위 후보 (Task Set)**:
+   - 본 실측 5대 프롬프트를 향후 Task Set(`evals/fixtures/routing-cases.json` 등) 후보로 삼고, LLM Runner가 선택한 도구(Skill Load)를 정답 레이블과 일치 비교하는 회귀 테스트로의 자동화 가능성 검토.
+2. **Side-effect Sandbox Gate 후보**:
+   - `write-issue-pr`과 같은 작성 도구 평가 시 CI 환경에서는 `--dry-run` 플래그를 강제하거나 목(mock) 환경을 주입하여 원격 저장소 오염을 원천 방지하는 샌드박스 인프라 검토.
