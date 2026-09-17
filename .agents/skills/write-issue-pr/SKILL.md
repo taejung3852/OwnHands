@@ -12,9 +12,9 @@ Use this skill when the user asks to write or revise a GitHub issue or PR body.
 
    | | PR | Issue |
    |---|---|---|
-   | what | `### 무엇이 바뀌었나` | `### 무엇이 필요한가` |
-   | why | `### 왜 이렇게 했나` | `### 왜 지금인가` |
-   | theirs | `### 리뷰할 것` | `### 결정할 것` |
+   | what | `## 무엇이 바뀌었나` | `## 무엇이 필요한가` |
+   | why | `## 왜 이렇게 했나` | `## 왜 지금인가` |
+   | theirs | `## 리뷰할 것` | `## 결정할 것` |
 
    The third part is the reader's work, not yours — name what they have to
    decide, review or approve, numbered. The second part is one or two sentences

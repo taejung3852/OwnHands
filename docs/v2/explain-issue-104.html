@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Issue #104 현황 분석 — 초기 Agent/Subagent 역할과 위임</title>
+  <style>
+    :root {
+      --bg: #0f141c;
+      --card-bg: #182232;
+      --card-border: #26354a;
+      --text-main: #e6edf3;
+      --text-muted: #8b9bb4;
+      --accent-blue: #388bfd;
+      --accent-cyan: #39c5cf;
+      --accent-green: #3fb950;
+      --accent-yellow: #d29922;
+      --accent-purple: #bc8cff;
+      --accent-red: #f85149;
+      --tag-bg: rgba(56, 139, 253, 0.15);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 980px;
+      width: 100%;
+    }
+
+    /* Header */
+    header {
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+
+    .header-badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--tag-bg);
+      color: var(--accent-blue);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .meta-line {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* First Screen: 2-column or grid */
+    .screen-top {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Milestone Map */
+    .map-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .roadmap-track {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .roadmap-track {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .node {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .node.done {
+      border-color: rgba(63, 185, 80, 0.4);
+      background: rgba(63, 185, 80, 0.08);
+    }
+
+    .node.current {
+      border-color: var(--accent-yellow);
+      background: rgba(210, 153, 34, 0.15);
+      box-shadow: 0 0 0 1px var(--accent-yellow);
+    }
+
+    .node.pending {
+      opacity: 0.6;
+    }
+
+    .node-status {
+      font-weight: 700;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+
+    .node.done .node-status { color: var(--accent-green); }
+    .node.current .node-status { color: var(--accent-yellow); }
+    .node.pending .node-status { color: var(--text-muted); }
+
+    .node-name {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .node-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Grid for Main Comparison */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    .pill-green { background: rgba(63, 185, 80, 0.2); color: #7ee787; }
+    .pill-yellow { background: rgba(210, 153, 34, 0.2); color: #f2cc60; }
+    .pill-blue { background: rgba(56, 139, 253, 0.2); color: #79c0ff; }
+    .pill-red { background: rgba(248, 81, 73, 0.2); color: #ff7b72; }
+
+    /* Visual Matrix Box */
+    .matrix-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .matrix-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .matrix-role {
+      font-weight: 600;
+    }
+
+    .matrix-target {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* Decision Checklist */
+    .decision-box {
+      border: 1px solid var(--accent-yellow);
+      background: rgba(210, 153, 34, 0.05);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .decision-items {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 850px) {
+      .decision-items {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .d-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 12px;
+    }
+
+    .d-num {
+      font-size: 11px;
+      color: var(--accent-yellow);
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .d-title {
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .d-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Core Options Preview */
+    .options-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .option-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px dashed var(--card-border);
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    .option-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      margin-bottom: 4px;
+    }
+
+    /* Details Fold */
+    details {
+      margin-top: 24px;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      background: var(--card-bg);
+      overflow: hidden;
+    }
+
+    summary {
+      padding: 14px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.02);
+      user-select: none;
+    }
+
+    summary:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .details-content {
+      padding: 16px;
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .gap-block {
+      border-left: 3px solid var(--accent-red);
+      padding-left: 12px;
+      font-size: 13px;
+    }
+
+    .source-list {
+      font-size: 12px;
+      color: var(--text-muted);
+      list-style-position: inside;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-badge">Explain — Situation & Decision Map</div>
+      <h1>Issue #104: 초기 Agent/Subagent 역할과 위임</h1>
+      <div class="meta-line">
+        <span><strong>기준일:</strong> 2026-09-17</span>
+        <span><strong>마일스톤:</strong> V2-M1 (Codex-Native Foundation)</span>
+        <span><strong>상태:</strong> 💬 사용자와 함께 결정 (에이전트 단독 확정 불가)</span>
+      </div>
+    </header>
+
+    <!-- FIRST SCREEN: Answers the question directly with figures -->
+    <div class="screen-top">
+
+      <!-- 1. Position in V2-M1 Map -->
+      <div class="map-card">
+        <div class="section-title">1. V2-M1 로드맵 내 현주소</div>
+        <div class="roadmap-track">
+          <div class="node done">
+            <span class="node-status">✅ 완료 (PR #107)</span>
+            <div class="node-name">#102 공식 조사</div>
+            <div class="node-desc">Subagent·Hook 사양</div>
+          </div>
+          <div class="node done">
+            <span class="node-status">✅ 완료 (PR #109)</span>
+            <div class="node-name">#103 Skill 확정</div>
+            <div class="node-desc">write-issue-pr, explain</div>
+          </div>
+          <div class="node current">
+            <span class="node-status">💬 현재 작업 (열림)</span>
+            <div class="node-name">#104 Agent 역할</div>
+            <div class="node-desc">역할 수·도구·위임 조건</div>
+          </div>
+          <div class="node pending">
+            <span class="node-status">⏸ 대기</span>
+            <div class="node-name">#110 Skill 실측</div>
+            <div class="node-desc">Codex 런타임 검증</div>
+          </div>
+          <div class="node pending">
+            <span class="node-status">🤔 검토 중</span>
+            <div class="node-name">#105 정책 설계</div>
+            <div class="node-desc">Company / default</div>
+          </div>
+          <div class="node pending">
+            <span class="node-status">⏳ 후속</span>
+            <div class="node-name">#106 작은 Eval</div>
+            <div class="node-desc">성공률·위임 관측</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. The 4 Responsibilities vs Roles -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-title">2. V2가 구분한 4대 검증 책임 (합치지 않음)</div>
+          <div class="matrix-list">
+            <div class="matrix-item">
+              <div>
+                <div class="matrix-role">① 작업 중 Feedback loop</div>
+                <div class="matrix-target">구현하면서 스스로 실행·확인</div>
+              </div>
+              <span class="pill pill-blue">작업 주체 (Self)</span>
+            </div>
+            <div class="matrix-item">
+              <div>
+                <div class="matrix-role">② 별도 맥락의 최종 Verifier</div>
+                <div class="matrix-target">부모 맥락 편향 없는 독립 결과 검수</div>
+              </div>
+              <span class="pill pill-yellow">Subagent 후보</span>
+            </div>
+            <div class="matrix-item">
+              <div>
+                <div class="matrix-role">③ PR Review</div>
+                <div class="matrix-target">Git 변경 자체 및 프로젝트 규율 검토</div>
+              </div>
+              <span class="pill pill-yellow">Subagent 후보</span>
+            </div>
+            <div class="matrix-item">
+              <div>
+                <div class="matrix-role">④ Agent System Eval</div>
+                <div class="matrix-target">시스템 설정 변경 전후 개선 비교</div>
+              </div>
+              <span class="pill pill-green">#106 (별도 체계)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Codex Built-in vs Custom Need -->
+        <div class="card">
+          <div class="section-title">3. Codex 내장 3종 vs 출발점</div>
+          <table>
+            <thead>
+              <tr>
+                <th>내장 역할</th>
+                <th>공식 사양 (원문)</th>
+                <th>OwnHands V2 관계</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>default</code></td>
+                <td>General-purpose fallback</td>
+                <td>메인 작업 턴</td>
+              </tr>
+              <tr>
+                <td><code>worker</code></td>
+                <td>Execution-focused for implementation</td>
+                <td>구현/수정 위임 가능</td>
+              </tr>
+              <tr>
+                <td><code>explorer</code></td>
+                <td>Read-heavy codebase exploration</td>
+                <td>조회 위임 가능 (단, read-only 아님)</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top: 10px; font-size: 11px; color: var(--text-muted);">
+            💡 출발점은 0이 아님: <strong>"내장 3종으로 충분한가, 아니면 Verifier/Reviewer 커스텀 역할이 필요한가"</strong>가 핵심 질문.
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. The 5 Decisions Needed -->
+      <div class="decision-box">
+        <div class="section-title" style="color: var(--accent-yellow); margin-bottom: 4px;">
+          4. 사용자와 함께 결정할 5가지 핵심 항목 (#104 범위)
+        </div>
+        <div class="decision-items">
+          <div class="d-item">
+            <div class="d-num">결정 1</div>
+            <div class="d-title">역할과 수</div>
+            <div class="d-desc">내장 3종 유지 vs Verifier 1종 추가 vs 2종(Verifier+Reviewer) 추가</div>
+          </div>
+          <div class="d-item">
+            <div class="d-num">결정 2</div>
+            <div class="d-title">도구 & 샌드박스</div>
+            <div class="d-desc">검수/리뷰 역할의 <code>sandbox_mode = "read-only"</code> 부여 여부</div>
+          </div>
+          <div class="d-item">
+            <div class="d-num">결정 3</div>
+            <div class="d-title">위임 조건</div>
+            <div class="d-desc">무조건 호출 금지(✅). 변경 규모·불확실성 기준 언제 띄울 것인가?</div>
+          </div>
+          <div class="d-item">
+            <div class="d-num">결정 4</div>
+            <div class="d-title">전달 자료 범위</div>
+            <div class="d-desc">컨텍스트 상속 미보장이므로 위임 프롬프트에 무엇을 명시할 것인가?</div>
+          </div>
+          <div class="d-item">
+            <div class="d-num">결정 5</div>
+            <div class="d-title">skills.config</div>
+            <div class="d-desc">현재 스킬 2개(write-issue-pr, explain) 중 역할별 ON/OFF 지정 여부</div>
+          </div>
+        </div>
+
+        <div class="options-row">
+          <div class="option-card">
+            <div class="option-title">선택지 A: 최소 출발안 (내장 우선)</div>
+            <div style="font-size: 12px; color: var(--text-muted);">
+              커스텀 agent TOML 없이 내장 <code>default</code> + <code>explorer</code> + <code>worker</code>로 시작.
+              검증/리뷰는 프롬프트 지침으로 처리 후 Eval에서 실패 관측 시 커스텀 추가.
+            </div>
+          </div>
+          <div class="option-card">
+            <div class="option-title">선택지 B: 역할 1종 추가안 (Verifier 전용)</div>
+            <div style="font-size: 12px; color: var(--text-muted);">
+              부모 맥락 오염을 차단하기 위해 <code>.codex/agents/verifier.toml</code> 1개만 신설.
+              <code>sandbox_mode = "read-only"</code>로 독립 수용성 검수 전담.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- LOWER LAYER: Sources, Gaps, and What Was Not Checked -->
+    <details>
+      <summary>📌 근거 자료, 공식 사양 vs 미확인(Gap), 제외 범위 펼치기</summary>
+      <div class="details-content">
+        
+        <div>
+          <div class="section-title">공식 문서 사양 (확인된 사실)</div>
+          <ul class="source-list">
+            <li><strong>정의 위치:</strong> <code>~/.codex/agents/*.toml</code> (개인) 또는 <code>.codex/agents/*.toml</code> (프로젝트 REPO)</li>
+            <li><strong>필수 필드 (3개뿐):</strong> <code>name</code>, <code>description</code>, <code>developer_instructions</code></li>
+            <li><strong>상속 규칙:</strong> Subagent는 부모의 sandbox 정책 및 composer 권한을 상속받음. 부모 턴의 라이브 override(예: <code>--yolo</code>)가 파일 설정보다 우선 재적용됨.</li>
+            <li><strong>도구 제한 단위:</strong> <code>skills.config</code>는 <code>path</code>와 <code>enabled</code> 둘뿐. <code>references/</code> 파일 단위 제어 키는 존재하지 않음.</li>
+          </ul>
+        </div>
+
+        <div class="gap-block">
+          <div style="font-weight: 600; color: var(--accent-red); margin-bottom: 4px;">
+            ⚠️ 공식 문서가 말하지 않는 것 (Gaps & Unverified)
+          </div>
+          <ul class="source-list">
+            <li><strong>컨텍스트 전달 범위:</strong> 부모 대화 이력/트랜스크립트 중 무엇을 자식이 보는지 공식 문서에 서술 없음 (<code>llms-full.txt</code> 전량 확인). → <em>대책: 프롬프트로 명시적 전달 필요.</em></li>
+            <li><strong>중첩 위임(Nested Delegation):</strong> Subagent가 다시 Subagent를 띄울 수 있는지 Codex harness 기준 문서에 없음. → <em>대책: 중첩을 전제한 다단계 역할 체인을 설계하지 않음.</em></li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="section-title">이번 설명에서 확인하지 않은 것 (Not Checked) & 제외 범위</div>
+          <ul class="source-list">
+            <li>Codex 실제 런타임에서의 Subagent 스폰 실측 (현재 Codex 세션 미연동 상태로, #110 마일스톤 실측 이슈에서 검증 예정)</li>
+            <li>Agent 본문(<code>developer_instructions</code>)의 상세 프롬프트 작성 (이번 #104 이슈의 명시적 제외 범위)</li>
+            <li>Hook을 통한 권한 강제 로직 (별도 후속 설계)</li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="section-title">근거 아티팩트 및 출처</div>
+          <ul class="source-list">
+            <li>GitHub Issue <a href="https://github.com/taejung3852/OwnHands/issues/104" style="color: var(--accent-blue);">#104</a>, <a href="https://github.com/taejung3852/OwnHands/issues/101" style="color: var(--accent-blue);">#101</a>, <a href="https://github.com/taejung3852/OwnHands/issues/102" style="color: var(--accent-blue);">#102</a>, <a href="https://github.com/taejung3852/OwnHands/issues/103" style="color: var(--accent-blue);">#103</a></li>
+            <li><code>docs/v2/decisions.md</code> §1 (확정 방향), §3 (사용자와 함께 결정)</li>
+            <li><code>docs/v2/overview.md</code> §4 (수단 구분), §5 (4대 검증 책임)</li>
+            <li><code>docs/references/codex-official.md</code> §4 (Subagents), §3 (Hooks)</li>
+          </ul>
+        </div>
+
+      </div>
+    </details>
+  </div>
+</body>
+</html>

@@ -5,6 +5,10 @@ what the source says, and mark what we narrowed or widened as ours — presentin
 our rule as official is the same failure as presenting the unverified as
 verified.
 
+Follow Goal-Oriented Requirements Engineering (GORE): always anchor requirements,
+designs, and subagent roles in the top-level goal and user intent (Top-Down) before
+deciding implementation details.
+
 <!--
 Why this line exists: it was corrected three times in the 2026-09-17 session —
 `or` rewritten as `and` and labelled "공식 문장을 그대로", an invented

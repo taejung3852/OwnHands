@@ -21,7 +21,7 @@
 | 🚧 미구현 | V2에서 아직 만들지 않았다. |
 | 📦 V1 구현 기록 있음 | V1에 구현·검증 기록이 있으나 **V2로 자동 승계되지 않는다.** |
 
-> **2026-09-17 기준 V2에 존재하는 실행 자산은 Skill 2개뿐이다.**
+> **2026-09-18 기준 V2에 존재하는 실행 자산은 Skill 2개(`write-issue-pr`·`explain`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
 > 그 외 제품 기능은 🚧 미구현이다. 이 문서는 방향 문서이지 완료 보고가 아니다.
 
 ---
@@ -40,7 +40,7 @@
 | **작업 수단 구분** | Skill·Reference·Agent·Tool·Script·Hook의 책임을 먼저 구분한다. 기존 플랫폼 기능을 불필요하게 다시 만들지 않는다. | 🚧 |
 | **설명 기능** | 사용자가 **명시적으로 호출하는 Explain**을 사용한다. 상시 최신 화면 유지가 기본 책임이 아니다. | ✅ `explain` Skill (최소 구현) |
 | **검증 지식** | 상황별 Reference를 **필요할 때 읽는** 구조를 사용한다. | 🚧 |
-| **Agent/Subagent 존재** | 필요한 반복 역할을 정의한다. (단, 초기 역할과 수는 아래 💬) | 🚧 |
+| **Agent/Subagent 구성** | 필요한 반복 커스텀 역할 **3개(`verifier`, `reviewer`, `researcher`)**를 정의한다. | ✅ `.codex/agents/` |
 | **Continuous Evals** | Agent System 자체가 더 나아졌는지 평가하는 **핵심 축**이다. | 🚧 |
 | **Eval 도입 시점** | **초기에 작은 Eval을 시작하고 M5에서 체계로 확장한다.** | 🚧 |
 | **상세 결정 순서** | 로드맵·마일스톤 순서를 먼저 정리하고, 내부 상세는 해당 이슈에서 조사·결정한다. | — |
@@ -65,6 +65,17 @@
 
 > ⚠️ **개수 제한은 실제 수치다.** Skill 목록 예산의 천장은 **10,000 토큰**이고(`skills.max_context_tokens`의 명시값 상한), 초과하면 description이 깎이는 데 그치지 않고 **Skill이 목록에서 빠진다.** → [Codex 공식 문서 §2.5](../references/codex-official.md)
 
+### 초기 Agent/Subagent 구성 — 2026-09-18 확정 ([#104](https://github.com/taejung3852/OwnHands/issues/104), [ADR-0001](adr/0001-initial-subagent-roles.md))
+
+| 주제 | 결정 내용 | 구현 |
+|---|---|---|
+| **역할과 개수** | **3개** (`verifier`, `reviewer`, `researcher`). | ✅ `.codex/agents/*.toml` |
+| **`verifier`** | 독립 수용성 검증 및 테스트 판정 전담. 구현자(부모)의 편향·자기합리화 차단 목적. `sandbox_mode = "read-only"`. | ✅ |
+| **`reviewer`** | Git diff 및 프로젝트 규율(`AGENTS.md`) 검토 전담. `sandbox_mode = "read-only"`. | ✅ |
+| **`researcher`** | 대량의 웹/문서 자료 조사 및 요약 전담. 메인 컨텍스트 윈도우 오염 방지 목적. | ✅ |
+| **Build 전담** | 보류. 별도 커스텀 에이전트를 만들지 않고 필요시 Codex 내장 `worker`를 호출한다. | — |
+| **Writer 전담** | 기각. `explain`과 `write-issue-pr`은 세션 맥락 직렬화 오버헤드를 피하기 위해 기존 **Skill 체제를 유지**한다. | — |
+
 ### 확정 방향 중 특히 자주 오해되는 것
 
 > **Eval은 M5에서 시작하는 것이 아니다.**
@@ -87,14 +98,14 @@
 
 ## 3. 사용자와 함께 결정할 것
 
-에이전트가 대신 확정하지 않는다. 문서에 이름이 등장하더라도 **역할 설명 또는 후보**다.
+에이전트가 대신 확정하지 않는다. 현재 열려 있는 사용자 공동 결정 항목:
 
 | 주제 | 결정할 내용 | 연결 |
 |---|---|---|
-| **초기 Agent/Subagent 구성** | 초기 역할, 역할 수, 도구 권한, 위임 조건. | [#104](https://github.com/taejung3852/OwnHands/issues/104) |
+| *(현재 모두 1차 합의되어 열린 공동 결정 항목 없음)* | 후속 세부 위임 실측 및 규칙 튜닝은 #110·#106에서 진행 | — |
 
-> ⚠️ `write-issue-pr`과 `explain`은 **확정된 Skill 이름이다**(2026-09-17, §1).
-> 그 밖에 문서에 보이는 `intent`, `design`, `test` 같은 표현은
+> ⚠️ `write-issue-pr`과 `explain`은 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
+> 그 밖에 문서에 보이는 `intent`, `design` 같은 표현은
 > **역할 설명 또는 후보이지 확정된 이름이 아니다.**
 
 ---
