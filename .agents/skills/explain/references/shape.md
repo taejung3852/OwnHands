@@ -1,87 +1,30 @@
-# Shape of an explanation
+# Shape of an ELI5 Explanation
 
-## The test
+## The Test (10초 법칙)
+독자가 첫 화면을 열자마자 글을 읽지 않고도 **중앙의 거대한 그림(SVG/다이어그램) 하나로 전체 흐름과 메커니즘을 즉시 이해**할 수 있어야 한다.
 
-The reader can answer their own question from the first screen, without opening
-anything. Everything below is in service of that.
+## 4단계 레이아웃 (위에서 아래로)
 
-## Shorten by changing the form, not by deleting sentences
+### 1. 한 줄 연상 문구 (Core Analogy)
+- 복잡한 개념을 일상적이고 직관적인 비유 한 문장으로 정의한다.
+- 예: *"이 시스템은 편향된 판사를 막기 위해, 판결만 내리고 법전은 수정할 수 없는 독립 배심원(Verifier)을 세우는 것과 같습니다."*
 
-There are two ways to make an explanation shorter, and only one of them is
-faster to read.
+### 2. 거대한 비주얼 다이어그램 (Big Picture)
+- **화면의 70% 이상**을 차지하는 대형 SVG 또는 직관적인 비주얼 다이어그램 1개.
+- 복잡한 텍스트 표(Table)나 카드의 무분별한 나열을 금지한다.
+- 화살표, 상태 색상, 아이콘을 활용해 "A가 B로 가고, C가 여기서 차단/분기된다"는 작동 메커니즘을 시각화한다.
 
-Deleting sentences from a paragraph leaves a paragraph. It is read at the same
-speed as before and now says less.
+### 3. 핵심 요약 3줄 (Few Words)
+- 그림을 보조하는 3개 이하의 극도로 짧은 불릿 포인트. 긴 설명 문장이 아닌 요약구로 작성한다.
 
-Moving the same material into a table, a before/after pair, a diagram, or a
-worked example removes most of the words and is read faster. A figure that
-carries the mechanism replaces the paragraph that described it.
+### 4. 접힌 세부 사항 (`<details>`) — 파인만 검증과 투명성
+화면 하단 접기 블록에 보조 내용을 둔다:
+1. **스스로 확인하는 질문 (Quick Quiz)**: 독자가 핵심을 제대로 이해했는지 확인하는 1~2개의 자가 점검 질문.
+2. **쉽게 그리느라 생략한 조건**: 직관적 시각화를 위해 단순화하거나 생략한 엄밀한 기술적 전제들.
+3. **전문가가 짚었을 예외 및 미확인 사실 (Gaps)**: 시스템의 한계, 플랫폼의 미확인 사양, 주의해야 할 예외.
+4. **근거 아티팩트 및 생성 일시**: 원본 이슈, PR, 문서 링크 및 생성 시점.
 
-Use the fewest words the chosen form can carry. When a figure and a sentence say
-the same thing, delete the sentence.
+## 금지 사항
+- 빽빽한 텍스트 카드와 표를 화면 가득 나열하는 대시보드식 구성 금지.
+- 다이어그램 없이 텍스트 설명으로 채우는 것 금지.
 
-## Two layers
-
-Put the answer on top, unfolded, complete enough to stand alone. Put sources,
-dates, and what was not checked below it, or behind a fold where the surface
-actually folds. A GitHub issue or an HTML file folds `<details>`; a terminal
-prints its contents instead. When nothing folds, a rule and a short heading are
-the separation — do not reach for a fold that will not close.
-
-Both layers are required. The lower one must not be what the reader has to read
-in order to understand the upper one — if the answer only makes sense after the
-sources, the answer is not finished.
-
-## Choose the form inside the page
-
-Whether to build the page is not a decision this section makes, and not one the
-skill makes either. The page is always built; the reader asked for it by calling
-the skill. A short question makes a short page, not a paragraph instead of one.
-
-What is chosen here is the form each part of the answer takes:
-
-| For | Use |
-|---|---|
-| several things compared on the same axes | a table |
-| a sequence or a decision path | a numbered list or a diagram |
-| a mechanism the reader has not seen | a figure that carries it, few words around it |
-| what changed | before and after, side by side |
-| a position in something larger | a map with the current point marked |
-
-Write the page to a file and hand it over as a link the reader can click, or
-publish it where the surface renders it directly. Let the surface decide how a
-file is opened — Codex has its own `file_opener` setting, and a hosted surface
-may render the page inline. A path the reader has to copy and hunt for costs
-them the time the page was meant to save.
-
-A page beats a paragraph only when it is mostly figures. A page of prose is just
-a slower paragraph.
-
-## Rules
-
-1. Open with the answer. Context, method, and caveats come after it, never
-   before it.
-2. Number a list only when the order is real. Order that is not real reads as a
-   sequence the reader must follow.
-3. Keep a visible group to about five items. More than that, group them, and
-   lead with the group that answers the question.
-4. Give concrete quantities. "A lot of skills" and "some budget" do not land;
-   "nine skills" and "10,000 tokens" do.
-5. Cut the opening sentence that announces what you are about to explain, and
-   the closing sentence that recaps what you just explained. Both are read and
-   neither carries information.
-6. Name the gap as a gap. "Not checked" and "the documents do not say" are
-   different from each other, and both are different from "no".
-
-## Before sending
-
-Read only the first screen. Can you answer the question the reader asked? If
-not, the answer is in the wrong place — move it up rather than adding to it.
-
-## Credit
-
-Shaped after two skills this project's author found effective: `eli5` (few words,
-large figures, a page instead of a paragraph) and `i-have-adhd` (MIT — answer
-first, real quantities, no preamble or recap, small visible groups). The rules
-here were rewritten for explanation documents; neither skill's text was copied,
-and their conversation-level and session-level rules were deliberately left out.

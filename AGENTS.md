@@ -1,19 +1,12 @@
 # OwnHands
 
-Do not write our own decision as if the platform had made it. Keep a quote to
-what the source says, and mark what we narrowed or widened as ours — presenting
-our rule as official is the same failure as presenting the unverified as
-verified.
+우리의 결정을 플랫폼(공식)이 내린 결정인 것처럼 작성하지 않는다. 인용은 원문이 말한 내용에 한정하고, 우리가 좁히거나 넓힌 해석은 우리의 결정으로 명시한다. 검증되지 않은 것을 검증된 것처럼 제시하는 것은 우리 규칙을 공식 규칙으로 위장하는 것과 같은 실패다.
 
-Follow Goal-Oriented Requirements Engineering (GORE): always anchor requirements,
-designs, and subagent roles in the top-level goal and user intent (Top-Down) before
-deciding implementation details.
+목표 지향 요구공학(GORE: Goal-Oriented Requirements Engineering)을 따른다: 구현 세부사항을 결정하기 전에 항상 최상위 목표와 사용자의 의도(Top-Down)에 요구사항, 설계, 서브에이전트 역할을 닻 내린다(anchor).
 
 <!--
-Why this line exists: it was corrected three times in the 2026-09-17 session —
-`or` rewritten as `and` and labelled "공식 문장을 그대로", an invented
-"fix before splitting" official ordering, and "공식 지침도 같은 방향" for a
-policy the docs do not state. Do not delete this rule as unwarranted; the
-warrant is here. Add a line here only when something has been corrected more
-than once.
+이 규칙이 존재하는 이유: 2026-09-17 세션에서 세 번 반복해서 수정되었음 —
+`or`를 `and`로 바꾸고 "공식 문장을 그대로"라고 표기한 것, 공식에 없는 "수정 후 분할" 순서를 만든 것, 공식 문서가 말하지 않은 정책에 "공식 지침도 같은 방향"이라고 쓴 것.
+근거 없는 규칙으로 보고 삭제하지 말 것. 이 규칙은 실제로 두 번 이상 반복 발생하여 추가됨.
 -->
+
