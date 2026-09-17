@@ -75,6 +75,16 @@
 | **단일 진실 원칙** | Human Brief는 상세 맥락의 축약 투영(Projection)이다. 상세가 뒷받침하지 않는 독립 사실을 만들지 않는다. | ✅ |
 | **Explain과의 경계** | GitHub 본문은 가벼운 마크다운으로 유지하고, 시각화·쉬운 이해는 요청형 `explain` 아티팩트로 분리한다. | ✅ |
 
+### Intent & Spec 산출물 규격 — 2026-09-18 확정 ([#116](https://github.com/taejung3852/OwnHands/issues/116), [ADR-0004](adr/0004-intent-spec-specification.md))
+
+| 주제 | 결정 내용 | 구현 |
+|---|---|---|
+| **저장 위치** | `docs/v2/specs/<feature-name>/` 아래 영구 Git 아티팩트로 보존 (`intent.md`, `spec.md`). | ✅ `specs/README.md` |
+| **`intent.md`** | **"의도와 경계의 엄밀함"**. 문제(Why), 목표(What), **비목표(Non-goals)**, 제약(Constraints) 필수 정의. | ✅ |
+| **`spec.md`** | **"기술 구현의 극대화된 디테일"**. 에이전트 환각을 차단하기 위해 요구사항, 아키텍처/타입, 엣지케이스, 수용조건을 상세히 기술. | ✅ |
+| **기본 흐름 (Default Flow)** | 의도 검토(intent) ➔ 설계 검토(spec) ➔ 구현의 2단계를 기본 권장 흐름으로 둠. (모든 작업에 강제하지 않으며 세부 적용 기준은 후속 정리) | ✅ |
+| **`AGENTS.md` 연결** | 32 KiB 상한 보호를 위해 본문 삽입을 금지하고, `docs/v2/specs/` 가이드 참조 1줄만 선언. | ✅ `AGENTS.md` |
+
 ### 초기 Agent/Subagent 구성 — 2026-09-18 확정 ([#104](https://github.com/taejung3852/OwnHands/issues/104), [ADR-0001](adr/0001-initial-subagent-roles.md))
 
 | 주제 | 결정 내용 | 구현 |
