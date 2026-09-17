@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>서브에이전트 3총사가 뭐야?</title>
+  <title>Subagent 3종은 왜, 어떻게 나뉘었나?</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -25,64 +25,116 @@
       margin-bottom: 36px;
     }
     h1 {
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 800;
       color: #1c1917;
       letter-spacing: -0.5px;
       margin-bottom: 8px;
     }
     p.subtitle {
-      font-size: 17px;
+      font-size: 16px;
       color: #78716c;
       font-weight: 500;
     }
 
-    /* 스토리 카드 컴포넌트 */
+    /* 스토리 카드 */
     .card {
       background: #ffffff;
       border-radius: 24px;
-      padding: 32px 28px;
-      margin-bottom: 24px;
+      padding: 30px 26px;
+      margin-bottom: 22px;
       border: 1px solid rgba(0, 0, 0, 0.05);
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
     }
     .step-badge {
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       background-color: #1c1917;
       color: #ffffff;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 800;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     .card-title {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 800;
       color: #1c1917;
       margin-bottom: 6px;
       letter-spacing: -0.3px;
     }
     .card-desc {
-      font-size: 15px;
+      font-size: 14px;
       color: #78716c;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
 
-    /* 시각 컴포넌트 1: 선수와 심판 */
-    .referee-flow {
+    /* 시각 컴포넌트 1: Main vs Verifier 파이프라인 */
+    .flow-pipeline {
       display: flex;
       align-items: center;
       justify-content: space-between;
       background: #fafaf9;
-      border-radius: 20px;
-      padding: 20px;
+      border-radius: 18px;
+      padding: 18px;
       gap: 12px;
     }
-    .role-box {
+    .flow-box {
+      flex: 1;
+      padding: 14px;
+      border-radius: 14px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      background: #ffffff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    .flow-box-title { font-size: 14px; font-weight: 800; color: #1c1917; }
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 99px;
+    }
+    .badge-blue { background: #e0f2fe; color: #0284c7; }
+    .badge-green { background: #dcfce7; color: #16a34a; }
+
+    /* 시각 컴포넌트 2: 3대 역할 칩 */
+    .role-grid {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .role-card {
+      flex: 1;
+      min-width: 130px;
+      padding: 16px 12px;
+      border-radius: 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-pink { background: #fee2e2; }
+    .card-yellow { background: #fef3c7; }
+    .card-blue { background: #e0f2fe; }
+    .role-name { font-size: 15px; font-weight: 800; color: #1c1917; font-family: ui-monospace, monospace; }
+    .role-desc { font-size: 12px; color: #44403c; font-weight: 600; }
+    .role-mode { font-size: 11px; color: #78716c; }
+
+    /* 시각 컴포넌트 3: 트레이드오프 대비 */
+    .tradeoff-row {
+      display: flex;
+      gap: 12px;
+    }
+    .tradeoff-box {
       flex: 1;
       padding: 16px;
       border-radius: 16px;
@@ -91,79 +143,34 @@
       flex-direction: column;
       align-items: center;
       gap: 6px;
-      background: #ffffff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
-    .role-title { font-size: 15px; font-weight: 800; color: #1c1917; }
-    .role-tag {
-      font-size: 12px;
-      font-weight: 700;
-      padding: 3px 8px;
+    .box-reject {
+      background: #fef2f2;
+      border: 1px dashed #f87171;
+    }
+    .box-adopt {
+      background: #f0fdf4;
+      border: 1px solid #4ade80;
+    }
+    .status-tag {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
       border-radius: 99px;
     }
-    .tag-blue { background: #e0f2fe; color: #0284c7; }
-    .tag-green { background: #dcfce7; color: #16a34a; }
-
-    /* 시각 컴포넌트 2: 3총사 카드들 */
-    .triad-row {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-    .agent-pill {
-      flex: 1;
-      min-width: 120px;
-      padding: 18px 14px;
-      border-radius: 20px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      transition: transform 0.15s ease;
-    }
-    .agent-pill:hover { transform: translateY(-2px); }
-    .pill-pink { background: #fee2e2; }
-    .pill-yellow { background: #fef3c7; }
-    .pill-blue { background: #e0f2fe; }
-    .agent-name { font-size: 16px; font-weight: 800; color: #1c1917; }
-    .agent-role { font-size: 13px; color: #44403c; font-weight: 600; }
-
-    /* 시각 컴포넌트 3: 소통 비용 대비 */
-    .contrast-row {
-      display: flex;
-      gap: 16px;
-    }
-    .contrast-box {
-      flex: 1;
-      padding: 20px 16px;
-      border-radius: 20px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-    }
-    .box-bad {
-      background: #fef2f2;
-      border: 2px dashed #f87171;
-    }
-    .box-good {
-      background: #f0fdf4;
-      border: 2px solid #4ade80;
-    }
+    .tag-reject { background: #fee2e2; color: #dc2626; }
+    .tag-adopt { background: #dcfce7; color: #16a34a; }
 
     /* 퀴즈 아코디언 */
     .quiz-item {
       background: #fafaf9;
-      border-radius: 16px;
-      padding: 16px 20px;
-      margin-bottom: 12px;
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin-bottom: 10px;
       cursor: pointer;
     }
     .quiz-q {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       color: #1c1917;
       display: flex;
@@ -171,10 +178,10 @@
       justify-content: space-between;
     }
     .quiz-a {
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px dashed #e7e5e4;
-      font-size: 14px;
+      font-size: 13px;
       color: #059669;
       font-weight: 600;
     }
@@ -182,11 +189,11 @@
     /* 상세 전제 접기 */
     details {
       background: #ffffff;
-      border-radius: 20px;
-      padding: 20px 24px;
-      margin-top: 24px;
+      border-radius: 18px;
+      padding: 18px 22px;
+      margin-top: 20px;
       border: 1px solid rgba(0,0,0,0.05);
-      font-size: 14px;
+      font-size: 13px;
       color: #78716c;
     }
     summary {
@@ -199,41 +206,41 @@
       justify-content: space-between;
     }
     summary::-webkit-details-marker { display: none; }
-    summary::after { content: '▾'; font-size: 14px; }
+    summary::after { content: '▾'; font-size: 13px; }
     details[open] summary::after { content: '▴'; }
     .details-content {
-      margin-top: 16px;
-      padding-top: 14px;
+      margin-top: 14px;
+      padding-top: 12px;
       border-top: 1px solid #f5f5f4;
       line-height: 1.7;
     }
-    .details-content li { margin-left: 20px; margin-bottom: 6px; }
+    .details-content li { margin-left: 18px; margin-bottom: 4px; }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>서브에이전트 3총사가 뭐야?</h1>
-      <p class="subtitle">혼자 다 하다가 실수하지 않게, 전문 도우미 친구들을 부르는 방법이에요.</p>
+      <h1>Subagent 3종은 왜, 어떻게 나뉘었나?</h1>
+      <p class="subtitle">구현자 편향을 차단하고 컨텍스트 오염을 방지하기 위한 위임 경계입니다.</p>
     </header>
 
     <!-- STEP 1 -->
     <div class="card">
       <div class="step-badge">1</div>
-      <div class="card-title">선수와 심판을 분리해요</div>
-      <div class="card-desc">직접 달린 선수가 스스로 채점하면 반칙이나 실수를 봐주게 돼요.</div>
+      <div class="card-title">구현(Main)과 독립 검증(Verifier)의 분리</div>
+      <div class="card-desc">작성자가 자기 코드를 스스로 통과시키는 편향(Bias)을 막기 위해 read-only 경계를 둡니다.</div>
 
-      <div class="referee-flow">
-        <div class="role-box">
-          <span style="font-size: 24px;">🏃</span>
-          <div class="role-title">선수 (부모 에이전트)</div>
-          <span class="role-tag tag-blue">코드 만들기</span>
+      <div class="flow-pipeline">
+        <div class="flow-box">
+          <span style="font-size: 22px;">🛠️</span>
+          <div class="flow-box-title">Main Agent</div>
+          <span class="badge badge-blue">코드 구현 & 변경</span>
         </div>
-        <span style="font-size: 20px; color: #a8a29e; font-weight: bold;">➔</span>
-        <div class="role-box">
-          <span style="font-size: 24px;">⚖️</span>
-          <div class="role-title">심판 (Verifier)</div>
-          <span class="role-tag tag-green">🔒 손대지 않고 채점만</span>
+        <span style="font-size: 18px; color: #a8a29e; font-weight: bold;">➔</span>
+        <div class="flow-box">
+          <span style="font-size: 22px;">⚖️</span>
+          <div class="flow-box-title">verifier</div>
+          <span class="badge badge-green">read-only 독립 판정</span>
         </div>
       </div>
     </div>
@@ -241,24 +248,27 @@
     <!-- STEP 2 -->
     <div class="card">
       <div class="step-badge">2</div>
-      <div class="card-title">전문 분야가 딱 정해져 있어요</div>
-      <div class="card-desc">복잡한 일을 세 친구가 깔끔하게 나누어 맡아요.</div>
+      <div class="card-title">3대 핵심 역할과 권한 경계</div>
+      <div class="card-desc">검증·리뷰·조사의 책임을 나누어 불필요한 권한과 컨텍스트 윈도우 오염을 최소화합니다.</div>
 
-      <div class="triad-row">
-        <div class="agent-pill pill-pink">
-          <span style="font-size: 26px;">🎯</span>
-          <div class="agent-name">verifier</div>
-          <div class="agent-role">시험 채점 전담</div>
+      <div class="role-grid">
+        <div class="role-card card-pink">
+          <span style="font-size: 22px;">🎯</span>
+          <div class="role-name">verifier</div>
+          <div class="role-desc">독립 수용성 검증</div>
+          <div class="role-mode">sandbox: read-only</div>
         </div>
-        <div class="agent-pill pill-yellow">
-          <span style="font-size: 26px;">📐</span>
-          <div class="agent-name">reviewer</div>
-          <div class="agent-role">코드 규칙 검토</div>
+        <div class="role-card card-yellow">
+          <span style="font-size: 22px;">📐</span>
+          <div class="role-name">reviewer</div>
+          <div class="role-desc">Git diff & 지침 검토</div>
+          <div class="role-mode">sandbox: read-only</div>
         </div>
-        <div class="agent-pill pill-blue">
-          <span style="font-size: 26px;">🔎</span>
-          <div class="agent-name">researcher</div>
-          <div class="agent-role">문서 자료 수집</div>
+        <div class="role-card card-blue">
+          <span style="font-size: 22px;">🔎</span>
+          <div class="role-name">researcher</div>
+          <div class="role-desc">웹/문서 조사 요약</div>
+          <div class="role-mode">컨텍스트 오염 방지</div>
         </div>
       </div>
     </div>
@@ -266,42 +276,42 @@
     <!-- STEP 3 -->
     <div class="card">
       <div class="step-badge">3</div>
-      <div class="card-title">도우미를 너무 많이 두지 않아요</div>
-      <div class="card-desc">친구들이 너무 많아지면 서로 설명하느라 시간과 토큰만 낭비돼요.</div>
+      <div class="card-title">과분할 방지 트레이드오프 (Writer 보류)</div>
+      <div class="card-desc">세션 대화 맥락이 깊게 필요한 작업은 에이전트 분리보다 Skill 유지가 토큰 비용이 적습니다.</div>
 
-      <div class="contrast-row">
-        <div class="contrast-box box-bad">
-          <span style="font-size: 12px; font-weight: 800; color: #dc2626; background: #fee2e2; padding: 2px 8px; border-radius: 99px;">조심</span>
-          <div style="font-size: 15px; font-weight: 800;">서브에이전트 남발</div>
-          <div style="font-size: 13px; color: #78716c;">말 전달 비용(토큰) 급증 💸</div>
+      <div class="tradeoff-row">
+        <div class="tradeoff-box box-reject">
+          <span class="status-tag tag-reject">기각</span>
+          <div style="font-size: 14px; font-weight: 800;">writer 서브에이전트</div>
+          <div style="font-size: 12px; color: #78716c;">맥락 직렬화 핸드오프 비용 과다 💸</div>
         </div>
-        <div class="contrast-box box-good">
-          <span style="font-size: 12px; font-weight: 800; color: #16a34a; background: #dcfce7; padding: 2px 8px; border-radius: 99px;">선택</span>
-          <div style="font-size: 15px; font-weight: 800;">딱 3총사만 운영</div>
-          <div style="font-size: 13px; color: #78716c;">가볍고 정확한 협동 🤝</div>
+        <div class="tradeoff-box box-adopt">
+          <span class="status-tag tag-adopt">채택</span>
+          <div style="font-size: 14px; font-weight: 800;">기존 Skill 체제 유지</div>
+          <div style="font-size: 12px; color: #78716c;">세션 맥락 직접 활용 (빠르고 경제적) ⚡</div>
         </div>
       </div>
     </div>
 
     <!-- 자가 점검 퀴즈 -->
     <div class="card">
-      <div class="card-title" style="margin-bottom: 6px;">스스로 풀어보는 3초 퀴즈</div>
-      <div class="card-desc">방금 본 세 친구를 떠올리며 맞춰보세요!</div>
+      <div class="card-title" style="margin-bottom: 6px;">스스로 확인하는 점검 퀴즈</div>
+      <div class="card-desc">핵심 위임 원칙을 3초 만에 떠올려보세요!</div>
 
       <div class="quiz-item">
         <div class="quiz-q">
-          <span>Q1. 채점관인 Verifier는 코드를 직접 고칠 수 있을까요?</span>
-          <span style="font-size: 12px; color: #a8a29e;">정답 보기</span>
+          <span>Q1. Verifier에게 read-only 샌드박스를 부여한 핵심 목적은?</span>
+          <span style="font-size: 12px; color: #a8a29e;">정답 확인</span>
         </div>
-        <div class="quiz-a">💡 땡! 편향을 막기 위해 코드는 손대지 않고 오직 합격/불합격 판정만 내려요(read-only).</div>
+        <div class="quiz-a">💡 구현자의 편향을 배제하고, 검증 과정 중 코드를 임의로 수정(mutation)하지 못하게 불변성을 강제하기 위함입니다.</div>
       </div>
 
       <div class="quiz-item">
         <div class="quiz-q">
-          <span>Q2. 글을 쓰는 Writer 에이전트를 따로 만들지 않은 이유는?</span>
-          <span style="font-size: 12px; color: #a8a29e;">정답 보기</span>
+          <span>Q2. explain·이슈 작성을 서브에이전트로 떼어내지 않은 이유는?</span>
+          <span style="font-size: 12px; color: #a8a29e;">정답 확인</span>
         </div>
-        <div class="quiz-a">💡 대화 맥락을 새로 전달하는 비용이 너무 커서, 기존의 Skill 방식을 유지하는 게 더 유리하기 때문이에요!</div>
+        <div class="quiz-a">💡 세션 대화 맥락(이력)을 자식에게 프롬프트로 직렬화해 넘기는 핸드오프 비용이 모델 분리 이득보다 훨씬 크기 때문입니다.</div>
       </div>
     </div>
 
@@ -311,7 +321,7 @@
       <div class="details-content">
         <ul>
           <li><strong>생략된 전제:</strong> 각 에이전트는 <code>.codex/agents/*.toml</code>에 정의되며, <code>verifier</code>와 <code>reviewer</code>는 <code>sandbox_mode = "read-only"</code>로 설정되어 있습니다.</li>
-          <li><strong>전문가의 예외 지적:</strong> Codex 공식 사양상 부모 세션의 라이브 권한(<code>--yolo</code> 등)이 자식 에이전트의 <code>read-only</code>를 무효화할 수 있으므로, 하드 보안 강제가 아닌 '소프트 경계'로 취급합니다.</li>
+          <li><strong>전문가의 예외 지적:</strong> Codex 공식 사양상 부모 세션의 라이브 권한(<code>--yolo</code> 등)이 자식의 <code>read-only</code>를 무효화할 수 있으므로, 하드 보안 강제가 아닌 '소프트 경계'로 취급합니다.</li>
           <li><strong>미확인 사양:</strong> 부모의 전체 대화 히스토리가 자식 서브에이전트에게 자동 상속되지 않으므로, 호출 시 프롬프트에 명확한 수용 기준을 직렬화해야 합니다.</li>
           <li><strong>근거 자료:</strong> <a href="adr/0001-initial-subagent-roles.md" style="color: #2563eb;">ADR-0001</a> · <a href="https://github.com/taejung3852/OwnHands/issues/104" style="color: #2563eb;">Issue #104</a></li>
         </ul>
