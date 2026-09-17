@@ -1,7 +1,8 @@
 # V2 개요 — 무엇을 만들려는가
 
 > 이 문서는 **책임 관계의 지도**다. 구현 완료 보고가 아니다.
-> 2026-09-16 기준 V2의 제품 기능은 모두 미구현이다. → [결정 상태표](decisions.md)
+> 2026-09-17 기준 V2에 존재하는 실행 자산은 Skill 2개(`write-issue-pr`·`explain`)뿐이고,
+> 그 외 제품 기능은 미구현이다. → [결정 상태표](decisions.md)
 
 ---
 
@@ -84,7 +85,8 @@ flowchart LR
 > Codex는 Skills·Hooks·Subagents·MCP를 네이티브로 제공한다(확인일 2026-09-16).
 > 이 구분을 **직접 구현할 필요는 없고, 무엇을 어디에 둘지 결정하면 된다.** → [Codex 공식 문서](../references/codex-official.md)
 
-💬 Skill의 이름·수와 초기 Agent 역할·수는 **사용자와 결정한다.**
+✅ Skill의 이름·수는 **2026-09-17에 확정됐다** — `write-issue-pr`·`explain` 2개. → [결정 상태표 §1](decisions.md)
+💬 초기 Agent 역할·수는 여전히 **사용자와 결정한다.** → [#104](https://github.com/taejung3852/OwnHands/issues/104)
 
 ---
 

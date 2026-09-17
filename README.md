@@ -119,7 +119,7 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 | ✅ 확정 | 🤔 / 💬 / ⏳ 미확정 |
 |---|---|
 | Codex-first, 공식 문서 중심 | Company 정책 우선순위 (사용자 생각) |
-| 요청형 Explain | Skill 이름·수 (함께 결정) |
+| 요청형 Explain | ~~Skill 이름·수~~ → ✅ 2026-09-17 확정 (2개) |
 | clean-slate 설계 | 초기 Agent 역할·수 (함께 결정) |
 | 초기 작은 Eval + M5 확장 | 다른 vendor 지원 방식 |
 | 개인 전용으로 제한하지 않음 | Eval 지표·비용·gate |
@@ -153,7 +153,7 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 | 이슈 | 질문 | 상태 |
 |---|---|---|
 | [#102](https://github.com/taejung3852/OwnHands/issues/102) | Codex가 이미 제공하는 것은 무엇이고 무엇을 안 만들어도 되는가? | ✅ 조사 완료 |
-| [#103](https://github.com/taejung3852/OwnHands/issues/103) | Skill의 이름과 개수는 무엇인가? | 💬 함께 결정 |
+| [#103](https://github.com/taejung3852/OwnHands/issues/103) | Skill의 이름과 개수는 무엇인가? | ✅ 확정 — `write-issue-pr`·`explain` 2개 |
 | [#104](https://github.com/taejung3852/OwnHands/issues/104) | 초기 Agent 역할과 위임 조건은? | 💬 함께 결정 |
 | [#105](https://github.com/taejung3852/OwnHands/issues/105) | 기본·조직 정책을 어떻게 연결하는가? | 🤔 생각 단계 |
 | [#106](https://github.com/taejung3852/OwnHands/issues/106) | 초기 Eval을 어떻게 시작하고 M5에서 무엇을 확장하는가? | ⏳ 후속 결정 |
