@@ -24,6 +24,8 @@
    - 구현자 편향 없는 독립 수용성 기준 대조 및 Read-only 불변성 평가.
 3. [Eval 0003: Researcher 1차 자료 조사 및 지침 유효성 평가](0003-subagent-researcher.md)
    - 1차 출처 URL 직접 인용, 사실/공백 엄격 분리, 코드 무단 수정 방지 지침 평가.
+4. [Eval 0004: grill-spec Skill 정의 및 정적 적합성 평가](0004-skill-grill-spec.md)
+   - 팩트/결정 분리, 8단계 프로토콜, 3대 안전장치, M2 관통 정적 적합성 평가 (런타임 미검증 명시).
 
 ---
 
