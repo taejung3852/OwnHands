@@ -1,6 +1,6 @@
 # ADR-0007 — plan.md 아티팩트 규격과 SDD 기반 Build Feedback Loop
 
-- **상태:** Accepted — 사용자 합의
+- **상태:** Proposed — 검토 대기 (PR #124)
 - **일자:** 2026-09-19
 - **관련 Issue:** [#123](https://github.com/taejung3852/OwnHands/issues/123) (선행: [#121 Research Gate](https://github.com/taejung3852/OwnHands/issues/121))
 - **관련 PR:** [#122](https://github.com/taejung3852/OwnHands/pull/122) (M3 Research Gate 완료)
@@ -70,12 +70,12 @@ docs/v2/specs/<feature-name>/
   - `[MODIFY]` `경로/파일명`: 수정 범위 및 기존 동작 보존 경계
 
 ## 2. 작업 단위 분해 (Task Breakdown)
-> ⚠️ **원자적 단위(Atomic Unit)**: 한 번에 모든 것을 고치지 않고, "실패하는 테스트 ➔ 최소 구현 ➔ 통과 확인 ➔ 커밋"의 작은 단위로 쪼갭니다.
+> ⚠️ **원자적 단위(Atomic Unit)**: 한 번에 모든 것을 고치지 않고, "작은 변경 단위 ➔ 해당 Task에 적합한 Verification 수행 ➔ Evidence 확인 ➔ 다음 Task" 순서로 진행합니다. (TDD 전략이 지정된 Task에 한해 Red ➔ Green ➔ Refactor 적용)
 - [ ] **Task 1: [단위 작업명]**
-  - 작업 내용: 대상 함수/인터페이스 정의 및 단위 테스트 추가
+  - 작업 내용: 인터페이스 정의 및 실패하는 단위 테스트 작성 (TDD 대상)
   - 예상 변경 파일: `...`
 - [ ] **Task 2: [단위 작업명]**
-  - 작업 내용: 핵심 로직 구현 및 통합 검증
+  - 작업 내용: 설정 및 연동 로직 수정과 정적 분석/타입 검증 (비TDD 대상)
   - 예상 변경 파일: `...`
 
 ## 3. AC별 검증 전략 매핑 (Verification Strategy Mapping)
@@ -87,13 +87,13 @@ docs/v2/specs/<feature-name>/
 | `AC-03` | 수동 / 브라우저 점검 | CLI 출력 결과 또는 렌더링 확인 | 기대 출력 문자열 일치 |
 
 ## 4. 실행 및 신선한 검증 증거 (Execution & Fresh Evidence Checklist)
-> ⚠️ **The Iron Law**: "신선한 터미널 실행 증거 없는 완료 주장 금지"
+> ⚠️ **The Iron Law**: "신선한 관측 증거(Fresh Evidence) 없는 완료 주장 금지"
 - [ ] **Task 1 검증 증거**:
-  - 실행 명령어: `...`
-  - 실행 결과 요약: `...`
+  - 실행 명령어 또는 관측 대상: `...`
+  - 실행/관측 결과 요약: `...`
 - [ ] **Task 2 검증 증거**:
-  - 실행 명령어: `...`
-  - 실행 결과 요약: `...`
+  - 실행 명령어 또는 관측 대상: `...`
+  - 실행/관측 결과 요약: `...`
 - [ ] **최종 Acceptance Criteria 역추적 대조 (Verifier Subagent Gate)**:
   - Verifier 판정: `PASS / FAIL / UNOBSERVED`
 ```
@@ -128,9 +128,14 @@ docs/v2/specs/<feature-name>/
 - **채택**: 모든 AC는 적어도 하나 이상의 검증 전략과 관측 가능한 증거에 연결되어야 한다 (1:N, N:1 유연 매핑 허용).
 - 계약(AC)은 엄격하게 검증하되, 구현 세부사항(내부 함수명, 클래스 구조 등)에 대한 검증은 느슨하게 유지하여 리팩토링 저항성을 낮춘다.
 
-#### 원칙 3. The Iron Law of Fresh Evidence (신선한 실행 증거 필수)
-- 에이전트는 **자신이 직접 실행하여 성공한 최신 터미널 출력(Exit code 0, 출력 결과)** 없이 작업을 완료했다고 주장할 수 없다.
-- 과거 턴의 로그 재인용, 코드 작성만 해두고 "정상 동작할 것"이라고 추측하는 행위, 테스트를 건너뛰는 행위는 원천 차단된다.
+#### 원칙 3. The Iron Law of Fresh Evidence (신선한 실행/관측 증거 필수)
+- 에이전트는 **현재 변경에 대해 직접 관측하고 수집한 신선한 증거(Fresh Evidence: 단위 테스트 출력, 정적 검사 결과, 렌더링 관측, 벤치마크 수치 등)** 없이 작업을 완료했다고 주장할 수 없다.
+- 과거 턴의 로그 재인용, 코드 작성만 해두고 "정상 동작할 것"이라고 추측하는 행위, 검증을 건너뛰는 행위는 원천 차단된다.
+- **증거 유형 예시**:
+  - Unit Test / API: 최신 테스트 러너 실행 출력 (`exit code 0`, 통과 건수).
+  - UI / Layout: 브라우저 렌더링 관측 또는 스크린샷 증거.
+  - Lint / Type / Policy: 정적 분석 도구의 에러 0건 확인 출력.
+  - Performance: 최신 벤치마크 측정 수치.
 
 #### 원칙 4. Versioned Baseline (기준선 버전 관리)
 - 스펙은 불변이 아니지만, 구현자가 임의로 축소할 수 있는 대상도 아니다.
@@ -140,8 +145,9 @@ docs/v2/specs/<feature-name>/
   3. 사람이 승인한 후 `spec.md`를 갱신하고, 그에 맞춰 `plan.md`와 테스트를 재정렬한다.
 
 #### 원칙 5. 2단계 검증 게이트 (구현자 Self-Loop ➔ 독립 Verifier Gate)
-- **1단계 (구현 중 루프)**: 구현자가 자기 단위 작업마다 테스트/명령을 돌려 Fresh Evidence를 확보하며 빠르게 전진한다.
-- **2단계 (완료 선언 직전)**: 구현을 완료했다고 판단하면, 독립된 read-only Subagent인 `verifier`([ADR-0001](0001-initial-subagent-roles.md))를 호출하여 `spec.md`의 AC 전량과 터미널 실행 증거를 역추적 대조하여 `PASS / FAIL / UNOBSERVED` 판정을 받는다.
+- **1단계 (구현 중 루프)**: 구현자(Builder)가 자기 단위 작업마다 적합한 검증 전략을 돌려 Fresh Evidence를 확보하며 빠르게 전진한다.
+- **2단계 (완료 선언 직전)**: 구현을 완료했다고 판단하면, 독립된 read-only Subagent인 `verifier`([ADR-0001](0001-initial-subagent-roles.md))를 호출하여 `spec.md`의 AC 전량과 수집된 Evidence를 역추적 대조하여 `PASS / FAIL / UNOBSERVED` 판정을 받는다.
+- ⚠️ **Verifier 런타임 권한 경계**: 현재 `verifier.toml`은 `sandbox_mode = "read-only"`이므로, M3에서는 "검증 실행 및 증거 생성은 Builder, 독립 역추적 대조 및 판정은 Verifier"로 역할을 분리한다. Verifier가 테스트를 직접 재실행하는 권한/환경 확정은 런타임 실측 후 M4(`Test & Assurance`)에서 다룬다.
 
 ---
 

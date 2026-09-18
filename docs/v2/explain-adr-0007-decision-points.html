@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADR-0007 승인 가이드: 태정 님이 확인할 3가지 결정 포인트</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #fbf9f5;
+      color: #1c1917;
+      line-height: 1.5;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .badge-status {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: #fef3c7;
+      color: #92400e;
+      margin-bottom: 12px;
+      letter-spacing: -0.2px;
+    }
+    h1 {
+      font-size: 25px;
+      font-weight: 800;
+      color: #1c1917;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+    p.subtitle {
+      font-size: 15px;
+      color: #78716c;
+      font-weight: 500;
+    }
+
+    /* 카드 공통 */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 28px 24px;
+      margin-bottom: 22px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .step-badge {
+      width: 28px;
+      height: 28px;
+      background-color: #1c1917;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .step-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #1c1917;
+      letter-spacing: -0.3px;
+    }
+    .card-summary {
+      font-size: 14px;
+      color: #57534e;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    /* 시각 컴포넌트 */
+    .visual-box {
+      background: #f5f5f4;
+      border-radius: 16px;
+      padding: 18px 16px;
+      margin-bottom: 16px;
+    }
+
+    .chain-flow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .chain-node {
+      background: #ffffff;
+      border: 1px solid #e7e5e4;
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+      flex: 1;
+      font-size: 12px;
+      font-weight: 700;
+      color: #292524;
+    }
+    .chain-node.highlight {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+    }
+    .chain-arrow {
+      color: #a8a29e;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    /* 대비 그리드 */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .compare-item {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid #e7e5e4;
+      font-size: 12px;
+    }
+    .compare-item.ban {
+      border-left: 4px solid #ef4444;
+    }
+    .compare-item.allow {
+      border-left: 4px solid #10b981;
+    }
+    .compare-item strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    .compare-item.ban strong { color: #b91c1c; }
+    .compare-item.allow strong { color: #047857; }
+
+    /* 결정 가이드 박스 */
+    .decision-callout {
+      background: #fafaf9;
+      border-left: 3px solid #1c1917;
+      padding: 10px 14px;
+      border-radius: 0 10px 10px 0;
+      font-size: 13px;
+      color: #292524;
+    }
+    .decision-callout strong {
+      color: #1c1917;
+    }
+
+    /* 퀴즈 박스 */
+    .quiz-card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 22px;
+      margin-bottom: 22px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .quiz-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    details.quiz-item {
+      background: #f5f5f4;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    details.quiz-item summary {
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    details.quiz-item summary::-webkit-details-marker { display: none; }
+    .quiz-btn {
+      font-size: 11px;
+      background: #1c1917;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .quiz-answer {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #d6d3d1;
+      color: #44403c;
+      line-height: 1.5;
+    }
+
+    /* 접힌 기술 상세 */
+    details.tech-details {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 18px 20px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 13px;
+      color: #44403c;
+    }
+    details.tech-details summary {
+      font-weight: 700;
+      color: #78716c;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+    details.tech-details ul {
+      padding-left: 18px;
+      margin-top: 8px;
+    }
+    details.tech-details li {
+      margin-bottom: 6px;
+    }
+    .footer-link {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 12px;
+      color: #a8a29e;
+    }
+    .footer-link a {
+      color: #78716c;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-status">PR #124 리뷰 대기 • 상태: Proposed</div>
+      <h1>ADR-0007 확정 전<br/>태정 님이 검토할 3가지 핵심</h1>
+      <p class="subtitle">미승인 상태인 plan.md 규격을 정식 승인하기 위한 엔지니어링 체크포인트</p>
+    </header>
+
+    <!-- 스토리 카드 1 -->
+    <section class="card">
+      <div class="step-header">
+        <div class="step-badge">1</div>
+        <h2 class="step-title">plan.md를 Git에 영구 보존할 것인가?</h2>
+      </div>
+      <p class="card-summary">
+        Codex의 <code>/plan</code> 모드는 세션이 끝나면 사라집니다. 구현 변경의 이유와 단위 검증 내역을 프로젝트의 영구 Git 이력으로 남길지 결정합니다.
+      </p>
+
+      <div class="visual-box">
+        <div class="chain-flow">
+          <div class="chain-node">
+            <div>intent.md</div>
+            <span style="font-size: 10px; color: #78716c;">의도 (Why)</span>
+          </div>
+          <div class="chain-arrow">➔</div>
+          <div class="chain-node">
+            <div>spec.md</div>
+            <span style="font-size: 10px; color: #78716c;">설계 (What)</span>
+          </div>
+          <div class="chain-arrow">➔</div>
+          <div class="chain-node highlight">
+            <div>plan.md</div>
+            <span style="font-size: 10px; color: #1d4ed8;">실행 계획 (How)</span>
+          </div>
+          <div class="chain-arrow">➔</div>
+          <div class="chain-node">
+            <div>Code / Commit</div>
+            <span style="font-size: 10px; color: #78716c;">동작 검증</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="decision-callout">
+        <strong>💡 태정 님의 확인 사항:</strong> <code>docs/v2/specs/&lt;feature&gt;/plan.md</code>에 영구 저장하여 "의도 ➔ 설계 ➔ 실행 ➔ 검증"의 3단계 감사 체인을 구축하는 것에 동의하십니까?
+      </div>
+    </section>
+
+    <!-- 스토리 카드 2 -->
+    <section class="card">
+      <div class="step-header">
+        <div class="step-badge">2</div>
+        <h2 class="step-title">TDD는 '모든 작업 강제'인가, '적합한 로직에만'인가?</h2>
+      </div>
+      <p class="card-summary">
+        상위 계약은 스펙(spec.md)의 AC입니다. config, 문서, 권한, UI, 린트 같은 작업에까지 "실패하는 테스트"를 억지로 강제하지 않고 적절한 전략을 허용할 것인지 확인합니다.
+      </p>
+
+      <div class="visual-box">
+        <div class="compare-grid">
+          <div class="compare-item ban">
+            <strong>❌ 기각된 방식 (과경직성)</strong>
+            모든 Task를 무조건 Red-Green TDD로 고정. 린트/UI/설정에 억지 테스트 래퍼 양산.
+          </div>
+          <div class="compare-item allow">
+            <strong>✅ 채택된 방식 (위계 & 유연성)</strong>
+            SDD &gt; Strategy &gt; TDD.<br/>
+            로직/API는 TDD, UI는 렌더링 확인, 설정/문서는 정적 검사 수행.
+          </div>
+        </div>
+      </div>
+
+      <div class="decision-callout">
+        <strong>💡 태정 님의 확인 사항:</strong> AC 1개당 테스트 1개 강제를 배제하고, Task 성격에 따라 단위테스트 / 정적분석 / 벤치마크 / 수동 점검을 유연하게 매핑하는 규칙에 동의하십니까?
+      </div>
+    </section>
+
+    <!-- 스토리 카드 3 -->
+    <section class="card">
+      <div class="step-header">
+        <div class="step-badge">3</div>
+        <h2 class="step-title">Fresh Evidence의 범위와 Verifier의 경계</h2>
+      </div>
+      <p class="card-summary">
+        신선한 증거는 "터미널 명령"에만 갇히지 않으며, read-only 권한의 Verifier는 직접 테스트를 돌리기보다 독립 맥락에서 AC와 증거를 역추적 대조하는 역할로 한정합니다.
+      </p>
+
+      <div class="visual-box">
+        <div class="chain-flow" style="margin-bottom: 10px;">
+          <div class="chain-node" style="flex: 1.2;">
+            <div>🔨 Builder Agent</div>
+            <span style="font-size: 10px; color: #16a34a;">구현 + 신선한 증거 생성</span>
+          </div>
+          <div class="chain-arrow">➔</div>
+          <div class="chain-node" style="flex: 1.2; background: #faf5ff; border-color: #a855f7;">
+            <div>🛡️ Verifier Subagent</div>
+            <span style="font-size: 10px; color: #7e22ce;">read-only 역추적 대조</span>
+          </div>
+        </div>
+        <div style="font-size: 11px; color: #78716c; text-align: center;">
+          판정: <strong>PASS / FAIL / UNOBSERVED</strong> (테스트 재실행 권한은 M4에서 실측)
+        </div>
+      </div>
+
+      <div class="decision-callout">
+        <strong>💡 태정 님의 확인 사항:</strong> Fresh Evidence를 "직접 관측된 최신 증거(테스트 출력, 스크린샷, 린트 결과 등)"로 넓히고, Verifier는 증거 재실행자가 아닌 독립 대조자로 두는 경계에 동의하십니까?
+      </div>
+    </section>
+
+    <!-- 3초 퀴즈 -->
+    <section class="quiz-card">
+      <div class="quiz-title">
+        <span>⚡ 3초 자가 점검 퀴즈</span>
+      </div>
+
+      <details class="quiz-item">
+        <summary>
+          <span>Q1. plan.md의 모든 Task는 '실패하는 테스트(Red)'를 반드시 포함해야 할까?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          <strong>정답: 아닙니다 (X).</strong><br/>
+          API나 비즈니스 로직에는 TDD(Red-Green)가 필수적이지만, 환경설정, 문서, 린트, 권한 검사, UI 렌더링 같은 Task는 해당 성격에 맞는 Verification Strategy(정적 분석, 빌드 확인, 렌더링 관측 등)를 유연하게 적용합니다.
+        </div>
+      </details>
+
+      <details class="quiz-item">
+        <summary>
+          <span>Q2. Fresh Evidence의 핵심 요건은 '터미널 콘솔 출력'인가?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          <strong>정답: 아닙니다 (X).</strong><br/>
+          터미널 여부가 핵심이 아니라 <em>"현재 변경에 대해 직접 관측했고, 과거 로그를 재탕하지 않은 신선한 증거이며, AC의 통과를 실제로 입증하는가"</em>가 핵심입니다. 브라우저 스크린샷, 린트 무에러 출력, 벤치마크 수치도 모두 유효한 Evidence입니다.
+        </div>
+      </details>
+    </section>
+
+    <!-- 접힌 기술 세부 사항 -->
+    <details class="tech-details">
+      <summary>🔍 핸드오프 검수 배경 및 엔지니어링 정합화 내역</summary>
+      <ul>
+        <li><strong>Blocker 1 (승격 상태 정합화)</strong>: 사용자 최종 확인 전에는 ADR-0007을 <code>Accepted</code>가 아닌 <code>Proposed</code>로 유지하며, <code>decisions.md</code>의 확정 표 반영을 보류합니다.</li>
+        <li><strong>Blocker 2 (TDD 템플릿 강제 해소)</strong>: <code>plan.md</code> 템플릿의 Task 정의를 "작은 변경 단위 ➔ 해당 Task에 적합한 Verification 수행 ➔ Evidence 확인"으로 일반화하고, TDD는 전략이 단위테스트인 Task에만 한정 적용합니다.</li>
+        <li><strong>Blocker 3 (Fresh Evidence 정의 복원)</strong>: PR #122의 합의에 맞춰 터미널 로그로 축소된 표현을 관측 가능한 직접 증거(Fresh Evidence) 전반으로 복원합니다.</li>
+        <li><strong>Important (Verifier 권한 경계)</strong>: <code>verifier.toml</code>의 <code>sandbox_mode = "read-only"</code> 특성상 명령 실행이 제한되므로, M3에서는 "증거 생성은 Builder, 독립 역추적 대조는 Verifier"로 경계를 정의하고 재실행 권한은 M4 실측 과제로 넘깁니다.</li>
+      </ul>
+    </details>
+
+    <div class="footer-link">
+      <p>관련 PR: <a href="https://github.com/taejung3852/OwnHands/pull/124" target="_blank">taejung3852/OwnHands#124</a> • 관련 이슈: <a href="https://github.com/taejung3852/OwnHands/issues/123" target="_blank">#123</a></p>
+    </div>
+  </div>
+</body>
+</html>

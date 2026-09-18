@@ -79,22 +79,10 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **저장 위치** | `docs/v2/specs/<feature-name>/` 아래 영구 Git 아티팩트로 보존 (`intent.md`, `spec.md`, `plan.md`). | ✅ `specs/README.md` |
+| **저장 위치** | `docs/v2/specs/<feature-name>/` 아래 영구 Git 아티팩트로 보존 (`intent.md`, `spec.md`). (`plan.md`는 PR #124 검토 중) | ✅ `specs/README.md` |
 | **`intent.md`** | **"의도와 경계의 엄밀함"**. 문제(Why), 목표(What), **비목표(Non-goals)**, 제약(Constraints) 필수 정의. | ✅ |
 | **`spec.md`** | **"기술 구현의 극대화된 디테일"**. 에이전트 환각을 차단하기 위해 요구사항, 아키텍처/타입, 엣지케이스, 수용조건을 상세히 기술. | ✅ |
-| **기본 흐름 (Default Flow)** | 의도 검토(intent) ➔ 설계 검토(spec) ➔ 구현·검증(plan & feedback loop)의 3단계를 기본 권장 흐름으로 둠. (사소한 작업에는 면제) | ✅ `ADR-0007` |
-
-### plan.md 아티팩트 및 Build Feedback Loop — 2026-09-19 확정 ([#123](https://github.com/taejung3852/OwnHands/issues/123), [ADR-0007](adr/0007-plan-artifact-and-build-feedback-loop.md))
-
-| 주제 | 결정 내용 | 구현 |
-|---|---|---|
-| **저장 위치** | `docs/v2/specs/<feature-name>/plan.md` 아래 영구 Git 아티팩트로 보존. (`intent.md` ➔ `spec.md` ➔ `plan.md` 3단계 체인) | ✅ `specs/README.md` |
-| **`plan.md` 규격** | **"실행 단위 분해와 신선한 증거"**. 대상 파일, 작은 작업 분해(Task Breakdown), AC별 검증 전략 매핑, 신선한 증거 체크리스트 필수 기술. | ✅ `ADR-0007` |
-| **위계 구조** | **SDD > Verification Strategy > TDD**. 스펙이 상위 계약이며, TDD는 실행 가능한 로직을 위한 단위 피드백 루프로 배치. | ✅ `ADR-0007` |
-| **수용 기준 매핑** | AC-테스트 1:1 강제 안티패턴을 배제하고, AC별 적합한 전략(테스트, 정적분석, 벤치마크, 수동 등)과 관측 증거에 유연하게 매핑 (1:N, N:1 허용). | ✅ `ADR-0007` |
-| **신선한 증거 (Iron Law)** | 터미널 실제 실행 로그(Exit code 0 등) 없이는 완료 주장을 할 수 없다. (자가합리화 및 허위 통과 차단) | ✅ `ADR-0007` |
-| **2단계 검증 게이트** | 구현 중 자체 TDD 루프 ➔ 완료 직전 독립된 read-only `verifier` Subagent의 `PASS / FAIL / UNOBSERVED` 판정. | ✅ `ADR-0007` |
-| **기준선 버전 관리** | 구현 중 스펙 충돌/새 제약 발견 시 자의적 수정 금지, `spec.md` 수정 ➔ 사람 승인 ➔ `plan.md` 재정렬 절차 준수. | ✅ `ADR-0007` |
+| **기본 흐름 (Default Flow)** | 의도 검토(intent) ➔ 설계 검토(spec) ➔ 구현의 2단계를 기본 권장 흐름으로 둠. (`plan.md` 포함 3단계 확장은 PR #124 검토 중) | ✅ |
 
 ### grill-spec 인터뷰 도우미 설계 — 2026-09-18 확정 ([#119](https://github.com/taejung3852/OwnHands/issues/119), [ADR-0006](adr/0006-grill-spec-orchestration-tradeoffs.md))
 
@@ -149,7 +137,7 @@
 
 | 주제 | 결정할 내용 | 연결 |
 |---|---|---|
-| *(현재 모두 1차 합의되어 열린 공동 결정 항목 없음)* | 후속 세부 위임 실측 및 규칙 튜닝은 #110·#106에서 진행 | — |
+| `plan.md` 규격 및 Build Feedback Loop | `plan.md` 영구 아티팩트 저장 여부, SDD > Verification Strategy > TDD 위계, Fresh Evidence 범위 및 Verifier 경계 확정 | [PR #124](https://github.com/taejung3852/OwnHands/pull/124), [#123](https://github.com/taejung3852/OwnHands/issues/123), [ADR-0007 (Proposed)](adr/0007-plan-artifact-and-build-feedback-loop.md) |
 
 > ⚠️ `write-issue-pr`과 `explain`은 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
 > 그 밖에 문서에 보이는 `intent`, `design` 같은 표현은
