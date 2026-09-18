@@ -183,7 +183,7 @@ npm test / pytest / gh 명령어 등
 - [ ] **회귀 테스트 (Regression Gate)**:
   - 실행 명령어: `npm test` / `pytest` / native build check 등
   - 결과: 실행된 회귀 스위트 범위 내 실패 미관측(No failures observed) 증거 확보
-  - *(기존 테스트 부재 시)*: `[NO_EXISTING_REGRESSION_SUITE]` 선언, 변경 반경 통제 및 네이티브 프로젝트 검사(빌드/린트/타입체크 등 applicable checks) 무에러 확인 (없는 검사는 UNOBSERVED 명시)
+  - *(기존 테스트 부재 시)*: `[NO_EXISTING_REGRESSION_SUITE]` 선언, 프로젝트에 존재하는 applicable native checks를 실행하고 존재하지 않는 검사는 `[UNOBSERVED]`로 기록
 - [ ] **최종 Acceptance Criteria 역추적 대조 (Verifier Subagent Gate)**:
   - Verifier 판정: `PASS / FAIL / UNOBSERVED`
 ```

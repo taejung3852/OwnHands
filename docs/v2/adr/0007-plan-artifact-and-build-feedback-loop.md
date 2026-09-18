@@ -104,7 +104,7 @@ docs/v2/specs/<feature-name>/
   - 영향 분석(Impact Analysis): 변경에 따른 영향 범위 식별
   - 실행 명령어: `npm test` / `pytest` / `npm run build` 등
   - 결과: 실행된 회귀 스위트 범위 내 실패 미관측(No failures observed) 확인
-  - *(기존 테스트 부재 시)*: `[NO_EXISTING_REGRESSION_SUITE]` 선언 및 전체 빌드/린트/타입체크 무에러 확인
+  - *(기존 테스트 부재 시)*: `[NO_EXISTING_REGRESSION_SUITE]` 선언, 프로젝트에 존재하는 applicable native checks를 실행하고 존재하지 않는 검사는 `[UNOBSERVED]`로 기록
 - [ ] **최종 Acceptance Criteria 역추적 대조 (Verifier Subagent Gate)**:
   - Verifier 판정: `PASS / FAIL / UNOBSERVED`
 ```
