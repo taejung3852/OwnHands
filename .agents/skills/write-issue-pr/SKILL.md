@@ -1,57 +1,40 @@
 ---
 name: write-issue-pr
-description: Writes GitHub issue and PR bodies with a 3-part Human Brief, optional Mermaid diagram, and collapsed detailed context. Use when drafting or revising an issue or PR body.
+description: Writes GitHub issue and PR bodies as a short human brief over a collapsed detailed context. Use when drafting a new issue or PR, or revising an existing body.
 ---
 
-Use this skill when drafting or revising a GitHub issue or PR body.
+Use this skill when the user asks to write or revise a GitHub issue or PR body.
 
-## 1. Structure
+1. Read what the item covers: the work itself, the documents it depends on, and
+   the actual changes.
+2. Write the human brief at the top, unfolded, in three parts and this order.
+   Use these headings so the reader always knows where to look.
 
-Every body consists of an unfolded Human Brief at the top, followed by a collapsed `<details>` block.
+   | | PR | Issue |
+   |---|---|---|
+   | what | `## 무엇이 바뀌었나` | `## 무엇이 필요한가` |
+   | why | `## 왜 이렇게 했나` | `## 왜 지금인가` |
+   | theirs | `## 리뷰할 것` | `## 결정할 것` |
 
-```markdown
-## [Part 1: what]
-(Optional Mermaid diagram if flow/architecture is central)
-- Key changes or requirements (max 5 bullet points, conclusions first)
+   The third part is the reader's work, not yours — name what they have to
+   decide, review or approve, numbered. The second part is one or two sentences
+   of purpose; evidence, quotes and alternatives belong below, not here. Three
+   parts is the whole brief: do not add a fourth, and do not pad a part that has
+   little in it.
+3. Put the supporting material in a `<details>` block: scope, constraints,
+   sources, verification, and open questions.
+4. Link to the repository documents instead of copying them. The document stays
+   the original.
 
-## [Part 2: why]
-- Purpose and trigger in 1-2 concise sentences (no quotes or proofs here)
+The brief works when the reader can decide or review from it alone, without
+opening the details. Keep it scannable — lead each part with its conclusion,
+give real quantities, and keep a visible group to about five items. A brief that
+has to be read in order to be understood is too long.
 
-## [Part 3: theirs]
-1. Explicit action item or decision required from the reader
-2. Numbered checklist of decisions/reviews
+Split the two by depth, never by audience. The folded part is for anyone who
+wants more, not for machines — a reader who opens it is the point, not a
+mistake.
 
-<details>
-<summary>상세 맥락 및 검증 (Detailed Context)</summary>
-
-### 연관 이슈 및 마일스톤
-- Links to issues, milestones, and tracking tickets
-
-### 세부 내용 및 증거
-- Target files, constraints, edge cases, verification logs
-</details>
-```
-
-## 2. Fixed Headings
-
-Do not add a 4th heading to the brief. Keep exact titles:
-
-| | PR | Issue |
-|---|---|---|
-| Part 1 (what) | `## 무엇이 바뀌었나` | `## 무엇이 필요한가` |
-| Part 2 (why) | `## 왜 이렇게 했나` | `## 왜 지금인가` |
-| Part 3 (theirs) | `## 리뷰할 것` | `## 결정할 것` |
-
-## 3. Optional Visual Aid (Mermaid)
-
-- **When to use**: Include a small `mermaid` diagram under Part 1 only when visualizing architecture, state transitions, or pipeline flow directly clarifies the change.
-- **Rules**:
-  - Keep diagrams compact (3-5 nodes).
-  - Never replace the 3 text headings with a diagram.
-  - Do not force diagrams for typo fixes, minor refactors, or config updates.
-
-## 4. Principles
-
-- **Reader-centric**: Part 3 is exclusively the reader's decisions or review duties, never agent self-tasks.
-- **Scannable in 10s**: Lead with conclusions and specific quantities.
-- **Projection, not duplication**: The Human Brief is an executive projection of `<details>`. Never introduce facts or statuses unsupported by the detailed section.
+Do not put a fact, status, or acceptance criterion in the human brief that the
+detailed context does not support. The brief is a projection of the detail, not
+a second place to maintain it.
