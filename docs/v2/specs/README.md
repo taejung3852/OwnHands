@@ -35,6 +35,9 @@ docs/v2/specs/
     └── spec.md
 ```
 
+### 조직 정책(Company Policy) 확장 안내
+실무 조직이나 팀 특유의 보안/코딩 정책이 필요한 경우, 별도의 정책 엔진 코드를 짜지 않고 **Codex 네이티브 지침 계층(`~/.codex/AGENTS.md` 또는 디렉터리별 `AGENTS.override.md`)**에 정책을 덧붙입니다 ([ADR-0005](../adr/0005-policy-layering-boundary.md)).
+
 ---
 
 ## 2. `intent.md` 템플릿
