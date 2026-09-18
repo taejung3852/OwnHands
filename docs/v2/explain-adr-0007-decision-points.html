@@ -252,9 +252,9 @@
 <body>
   <div class="container">
     <header>
-      <div class="badge-status">PR #124 리뷰 대기 • 상태: Proposed</div>
-      <h1>ADR-0007 확정 전<br/>태정 님이 검토할 3가지 핵심</h1>
-      <p class="subtitle">미승인 상태인 plan.md 규격을 정식 승인하기 위한 엔지니어링 체크포인트</p>
+      <div class="badge-status" style="background: #dcfce7; color: #166534;">합의 및 승인 완료 • 상태: Accepted</div>
+      <h1>ADR-0007 확정:<br/>SDD 기반 Build Feedback Loop의 핵심 구조</h1>
+      <p class="subtitle">태정 님 합의 완료: 영구 plan.md, ISTQB 테스팅 및 회귀 방어선, 신선한 증거</p>
     </header>
 
     <!-- 스토리 카드 1 -->
@@ -300,28 +300,31 @@
     <section class="card">
       <div class="step-header">
         <div class="step-badge">2</div>
-        <h2 class="step-title">TDD는 '모든 작업 강제'인가, '적합한 로직에만'인가?</h2>
+        <h2 class="step-title">ISTQB 테스팅 표준 & 회귀 방어선 (Regression Gate)</h2>
       </div>
       <p class="card-summary">
-        상위 계약은 스펙(spec.md)의 AC입니다. config, 문서, 권한, UI, 린트 같은 작업에까지 "실패하는 테스트"를 억지로 강제하지 않고 적절한 전략을 허용할 것인지 확인합니다.
+        TDD는 내 기능만 볼 뿐 다른 팀원의 코드가 깨졌는지 모릅니다. ISTQB CTFL 표준(동등분할/경계값 분석, 양방향 추적성)과 <strong>전체 회귀 테스트 게이트</strong>를 통해 AI의 공통 모듈 파괴와 테스트 임의 조작을 원천 차단합니다.
       </p>
 
       <div class="visual-box">
         <div class="compare-grid">
           <div class="compare-item ban">
-            <strong>❌ 기각된 방식 (과경직성)</strong>
-            모든 Task를 무조건 Red-Green TDD로 고정. 린트/UI/설정에 억지 테스트 래퍼 양산.
+            <strong>❌ AI의 3대 회귀 참사</strong>
+            1. 공통 모듈 시그니처 무단 변경<br/>
+            2. 남의 테스트 코드 임의 수정/삭제<br/>
+            3. Target 외 무단 파일 수정
           </div>
           <div class="compare-item allow">
-            <strong>✅ 채택된 방식 (위계 & 유연성)</strong>
-            SDD &gt; Strategy &gt; TDD.<br/>
-            로직/API는 TDD, UI는 렌더링 확인, 설정/문서는 정적 검사 수행.
+            <strong>✅ OwnHands의 3대 방어선</strong>
+            1. Final Regression Gate (풀 테스트)<br/>
+            2. No Test Tampering (기존 테스트 불변)<br/>
+            3. Blast Radius Guard (대상 파일 통제)
           </div>
         </div>
       </div>
 
       <div class="decision-callout">
-        <strong>💡 태정 님의 확인 사항:</strong> AC 1개당 테스트 1개 강제를 배제하고, Task 성격에 따라 단위테스트 / 정적분석 / 벤치마크 / 수동 점검을 유연하게 매핑하는 규칙에 동의하십니까?
+        <strong>💡 확정된 규칙:</strong> 기존 테스트가 존재할 때는 전체 회귀 테스트 필수 실행! 기존 테스트가 없는 레거시/신규 환경에서는 <em>Target Files 통제 + 전체 빌드/린트 무에러 통과</em>를 대체 증거로 제출합니다.
       </div>
     </section>
 
