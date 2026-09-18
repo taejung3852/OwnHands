@@ -1,13 +1,14 @@
-# V2 Intent & Spec 작성 가이드
+# V2 Intent, Spec & Plan 작성 가이드
 
-> **핵심 원칙**: "의도(Intent)는 경계가 생명이고, 명세(Spec)는 극대화된 기술 디테일이 생명이다."  
-> — [ADR-0004 (intent.md와 spec.md의 정식 규격)](../adr/0004-intent-spec-specification.md)
+> **핵심 원칙**:
+> - "의도(Intent)는 경계가 생명이고, 명세(Spec)는 극대화된 기술 디테일이 생명이다." — [ADR-0004](../adr/0004-intent-spec-specification.md)
+> - "계획(Plan)은 실행 단위 분해와 신선한 검증 증거(Fresh Evidence)가 생명이다." — [ADR-0007](../adr/0007-plan-artifact-and-build-feedback-loop.md)
 
 ---
 
 ## 1. 개요 및 생명주기
  
- 구조적 설계나 아키텍처 변경이 수반되는 작업의 경우, 아래의 2단계 아티팩트 흐름을 **기본 권장 흐름(Default Flow)**으로 삼습니다:
+ 구조적 설계나 아키텍처 변경이 수반되는 작업의 경우, 아래의 3단계 아티팩트 체인을 **기본 권장 흐름(Default Flow)**으로 삼습니다:
  
  ```text
  [문제/아이디어]
@@ -20,10 +21,12 @@
        ↓
  [🛡️ Checkpoint 2 (권장)] ➔  사람과 spec.md 검토 (인터페이스, 엣지케이스, 수용조건)
        ↓
- Stage 3 (Build)      ➔  코드 구현 및 테스트 (Build Agent)
+ Stage 3 (Build)      ➔  plan.md 작성 및 단위 피드백 루프 (AI 실행 / "어떻게 구현·검증?")
+       ↓
+ [🛡️ Checkpoint 3 (필수)] ➔  신선한 검증 증거(Fresh Evidence) & Verifier Subagent Gate
  ```
  
- > ⚠️ **적용 범위 안내**: 오타 수정, 단순 버그 픽스 등 사소한 작업까지 intent/spec 아티팩트 작성을 의무 강제하지 않습니다.  
+ > ⚠️ **적용 범위 안내**: 오타 수정, 단순 버그 픽스 등 사소한 작업까지 intent/spec/plan 아티팩트 작성을 의무 강제하지 않습니다.  
  > 개발 시스템이 무거워지지 않도록 "어떤 작업에 이 흐름을 적용할 것인가"의 세부 기준은 후속으로 정립합니다.
 
 ### 저장 위치 규칙
@@ -31,8 +34,9 @@
 ```text
 docs/v2/specs/
 └── <feature-name>/
-    ├── intent.md
-    └── spec.md
+    ├── intent.md     # 의도와 경계
+    ├── spec.md       # 기술 설계 청사진 및 수용 기준 (AC)
+    └── plan.md       # 실행 단위 분해 및 검증 증거 체크리스트
 ```
 
 ### 개발 지침 및 조직 거버넌스 확장 안내
@@ -130,8 +134,61 @@ npm test / pytest / gh 명령어 등
 
 ---
 
-## 4. 권장 점검 체크리스트
+## 4. `plan.md` 템플릿
+
+`plan.md`는 에이전트가 코드를 수정하기 전 **"작업을 작은 단위로 쪼개고, 각 AC를 어떤 전략과 신선한 증거로 검증할 것인가를 정의하는 실행 계약(Execution Contract)"**입니다 ([ADR-0007](../adr/0007-plan-artifact-and-build-feedback-loop.md)).
+
+```markdown
+# Plan: [기능 / 과제 이름]
+
+- **기반 Spec**: [`spec.md`](spec.md)
+- **작성 주체**: AI 에이전트 (사람 검토 및 승인 권장)
+- **일자**: YYYY-MM-DD
+- **상태**: Draft / Approved / In Progress / Completed
+
+---
+
+## 1. 구현 맥락 및 대상 파일 (Context & Target Files)
+- **구현 목표 요약**: Spec에서 확정된 핵심 인터페이스 및 로직 구현.
+- **대상 파일 목록 및 책임 경계**:
+  - `[NEW]` `경로/파일명`: 생성 목적 및 모듈 책임
+  - `[MODIFY]` `경로/파일명`: 수정 범위 및 기존 동작 보존 경계
+
+## 2. 작업 단위 분해 (Task Breakdown)
+> ⚠️ **원자적 단위(Atomic Unit)**: 한 번에 모든 것을 고치지 않고, "실패하는 테스트 ➔ 최소 구현 ➔ 통과 확인 ➔ 커밋"의 작은 단위로 쪼갭니다.
+- [ ] **Task 1: [단위 작업명]**
+  - 작업 내용: 인터페이스 정의 및 실패하는 단위 테스트 작성
+  - 예상 변경 파일: `...`
+- [ ] **Task 2: [단위 작업명]**
+  - 작업 내용: 핵심 로직 구현 및 통과 확인
+  - 예상 변경 파일: `...`
+
+## 3. AC별 검증 전략 매핑 (Verification Strategy Mapping)
+> ⚠️ **유연한 매핑**: spec.md의 모든 AC는 최소 1개 이상의 전략과 관측 가능한 증거에 연결되어야 합니다 (1:1 강제 금지).
+| AC ID | 검증 전략 (Strategy) | 관측 증거 (Evidence) | 통과 기준 (Pass Criteria) |
+|---|---|---|---|
+| `AC-01` | 단위 테스트 (TDD) | 터미널 테스트 실행 로그 | 테스트 패스 (0 exit code) |
+| `AC-02` | 정적 분석 / 린트 | `npm run lint` 등 정적 검사 | 에러/경고 0건 |
+| `AC-03` | 수동 / CLI 점검 | CLI 출력 결과 또는 렌더링 확인 | 기대 출력 문자열 일치 |
+
+## 4. 실행 및 신선한 검증 증거 (Execution & Fresh Evidence Checklist)
+> ⚠️ **The Iron Law**: "신선한 터미널 실행 증거 없는 완료 주장 금지"
+- [ ] **Task 1 검증 증거**:
+  - 실행 명령어: `...`
+  - 실행 결과 요약: `...`
+- [ ] **Task 2 검증 증거**:
+  - 실행 명령어: `...`
+  - 실행 결과 요약: `...`
+- [ ] **최종 Acceptance Criteria 역추적 대조 (Verifier Subagent Gate)**:
+  - Verifier 판정: `PASS / FAIL / UNOBSERVED`
+```
+
+---
+
+## 5. 권장 점검 체크리스트
  
- - [ ] **Checkpoint 1 (Plan)**: `intent.md`의 문제 정의와 비목표(Non-goals)가 명확하게 합의되었는가?
- - [ ] **Checkpoint 2 (Design)**: `spec.md`에 타입, 인터페이스, 엣지 케이스가 에이전트의 추측을 배제할 만큼 충분히 구체적으로 기술되어 있는가?
- - [ ] **단일 진실 원칙**: `spec.md`가 `intent.md`의 목표와 제약을 벗어난 스코프 확장을 저지르고 있지 않은가?
+- [ ] **Checkpoint 1 (Plan)**: `intent.md`의 문제 정의와 비목표(Non-goals)가 명확하게 합의되었는가?
+- [ ] **Checkpoint 2 (Design)**: `spec.md`에 타입, 인터페이스, 엣지 케이스가 에이전트의 추측을 배제할 만큼 충분히 구체적으로 기술되어 있는가?
+- [ ] **Checkpoint 3 (Build Plan)**: `plan.md`의 작업 단위가 원자적으로 쪼개져 있고, 모든 AC가 적절한 검증 전략에 유연하게 매핑되어 있는가?
+- [ ] **The Iron Law**: 모든 완료 주장에 대해 실제 터미널 실행을 통한 신선한 증거(Fresh Evidence)가 확보되었는가?
+- [ ] **단일 진실 원칙 & 기준선 버전 관리**: 코드가 `spec.md`를 임의로 왜곡하거나 스펙 기준을 낮추지 않고, 모순 발생 시 사람 승인을 거쳐 갱신했는가?
