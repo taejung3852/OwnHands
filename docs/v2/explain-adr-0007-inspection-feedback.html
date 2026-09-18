@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADR-0007 검수 분석: 4대 팩트 &amp; 원칙 정합화</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #f7f6f2;
+      color: #1c1917;
+      line-height: 1.4;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .badge-status {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      background: #fef3c7;
+      color: #92400e;
+      margin-bottom: 12px;
+      border: 1px solid #fde68a;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 900;
+      color: #0c0a09;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    p.subtitle {
+      font-size: 15px;
+      color: #78716c;
+      font-weight: 600;
+    }
+
+    /* 카드 */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 24px 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .step-badge {
+      width: 28px;
+      height: 28px;
+      background-color: #0c0a09;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #0c0a09;
+    }
+
+    /* 대비 박스 */
+    .vs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .vs-box {
+      border-radius: 14px;
+      padding: 14px 12px;
+    }
+    .vs-box.ban {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+    }
+    .vs-box.allow {
+      background: #f0fdf4;
+      border: 1.5px solid #bbf7d0;
+    }
+    .vs-title {
+      font-size: 13px;
+      font-weight: 900;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .vs-box.ban .vs-title { color: #dc2626; }
+    .vs-box.allow .vs-title { color: #16a34a; }
+
+    .chip-list { display: flex; flex-direction: column; gap: 6px; }
+    .chip {
+      background: #ffffff;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .chip.danger { color: #991b1b; border-left: 3px solid #ef4444; }
+    .chip.success { color: #166534; border-left: 3px solid #22c55e; }
+
+    /* 흐름 노드 */
+    .flow-grid {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: #f5f5f4;
+      border-radius: 16px;
+      padding: 14px 10px;
+    }
+    .flow-node {
+      background: #ffffff;
+      border: 1.5px solid #e7e5e4;
+      border-radius: 10px;
+      padding: 8px 6px;
+      text-align: center;
+      flex: 1;
+    }
+    .flow-node.highlight {
+      background: #eff6ff;
+      border-color: #2563eb;
+    }
+    .node-title { font-size: 11px; font-weight: 800; color: #0c0a09; }
+    .node-sub { font-size: 9px; font-weight: 700; color: #64748b; }
+    .flow-arrow { font-size: 14px; font-weight: 900; color: #a8a29e; }
+
+    /* 퀴즈 */
+    .quiz-card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    details.quiz-item {
+      background: #f5f5f4;
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    details.quiz-item summary {
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    details.quiz-item summary::-webkit-details-marker { display: none; }
+    .quiz-btn {
+      font-size: 11px;
+      background: #0c0a09;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .quiz-answer {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed #d6d3d1;
+      color: #292524;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* 접힌 기술 정보 */
+    details.tech-details {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 14px 18px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 12px;
+      color: #57534e;
+    }
+    details.tech-details summary {
+      font-weight: 800;
+      cursor: pointer;
+      color: #78716c;
+    }
+    .footer-link {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 12px;
+      color: #a8a29e;
+    }
+    .footer-link a { color: #78716c; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-status">검수 의견 4건 분석 • 전건 타당 판정</div>
+      <h1>ADR-0007 검수 팩트 정합화</h1>
+      <p class="subtitle">승인 상태 분리 • ISTQB 위계 오류 수정 • 회귀 검증 엄밀화</p>
+    </header>
+
+    <!-- 카드 1: Blocker 1 승인 상태 -->
+    <section class="card">
+      <div class="card-header">
+        <div class="step-badge">1</div>
+        <h2 class="card-title">승인 상태: 대화 합의 vs 저장소 공식 승격</h2>
+      </div>
+
+      <div class="vs-grid">
+        <div class="vs-box ban">
+          <div class="vs-title">❌ 현재 상태 (충돌)</div>
+          <div class="chip-list">
+            <div class="chip danger">문서 상단: Accepted (승인 완료)</div>
+            <div class="chip danger">문서 하단: "동의하십니까?" 질문 잔존</div>
+            <div class="chip danger">GitHub #123: 공식 승인 코멘트 없음</div>
+          </div>
+        </div>
+
+        <div class="vs-box allow">
+          <div class="vs-title">✅ 정합화 조치 (AGENTS.md)</div>
+          <div class="chip-list">
+            <div class="chip success">ADR-0007: Proposed 로 복원</div>
+            <div class="chip success">decisions.md: '검토 중' 상태 유지</div>
+            <div class="chip success">PR #124 머지 시 Accepted 공식 승격</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 카드 2: Blocker 2 ISTQB 사실 정합화 -->
+    <section class="card">
+      <div class="card-header">
+        <div class="step-badge">2</div>
+        <h2 class="card-title">ISTQB 표준 팩트: EP/BVA의 정확한 위치</h2>
+      </div>
+
+      <div class="flow-grid">
+        <div class="flow-node">
+          <div class="node-title">Spec (설계)</div>
+          <div class="node-sub">Requirements</div>
+        </div>
+        <div class="flow-arrow">➔</div>
+        <div class="flow-node">
+          <div class="node-title">AC (기준선)</div>
+          <div class="node-sub">수용 기준</div>
+        </div>
+        <div class="flow-arrow">➔</div>
+        <div class="flow-node highlight">
+          <div class="node-title">Black-box 기법</div>
+          <div class="node-sub">EP / BVA / State / Table</div>
+        </div>
+        <div class="flow-arrow">➔</div>
+        <div class="flow-node">
+          <div class="node-title">Test Cases</div>
+          <div class="node-sub">Evidence 증거</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; font-size: 11px; color: #78716c; text-align: center; font-weight: 700;">
+        ⚠️ <strong>팩트 정정:</strong> EP/BVA는 AC 생성 도구가 아닌 <em>테스트 케이스 도출 기법</em>임. SDD-TDD 위계는 ISTQB가 아닌 <em>OwnHands 자체 설계</em>.
+      </div>
+    </section>
+
+    <!-- 카드 3: Blocker 3 & 4 회귀 검증의 엄밀함 -->
+    <section class="card">
+      <div class="card-header">
+        <div class="step-badge">3</div>
+        <h2 class="card-title">회귀 검증의 한계 &amp; 기존 테스트의 지위</h2>
+      </div>
+
+      <div class="vs-grid">
+        <div class="vs-box ban">
+          <div class="vs-title">❌ 철학 충돌 &amp; 과경직성</div>
+          <div class="chip-list">
+            <div class="chip danger">"전체 테스트 통과 = 0 회귀 증명" (과장)</div>
+            <div class="chip danger">"기존 테스트 불변" (정상 스펙 변경 차단)</div>
+          </div>
+        </div>
+
+        <div class="vs-box allow">
+          <div class="vs-title">✅ 엄밀한 엔지니어링 계약</div>
+          <div class="chip-list">
+            <div class="chip success">"실행 범위 내 실패 미관측" (정확)</div>
+            <div class="chip success">Baseline, not immutable (스펙 변경 시 갱신)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3초 퀴즈 -->
+    <section class="quiz-card">
+      <div style="font-size: 14px; font-weight: 900; margin-bottom: 8px;">⚡ 3초 퀴즈</div>
+
+      <details class="quiz-item">
+        <summary>
+          <span>Q1. 전체 테스트가 다 통과하면 시스템에 회귀(결함)가 0건이라고 증명된 것일까?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          <strong>A: 절대 아닙니다.</strong> 테스팅은 결함의 존재를 보일 뿐 결함의 부재를 증명하지 못합니다. <em>"실행된 테스트 스위트 내에서 실패가 관측되지 않았다"</em>가 정직하고 엄밀한 사실입니다.
+        </div>
+      </details>
+
+      <details class="quiz-item">
+        <summary>
+          <span>Q2. 기존 테스트 코드는 절대로 수정하거나 건드리면 안 될까?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          <strong>A: 아닙니다.</strong> 승인된 스펙 변경으로 API나 반환 규격이 바뀌면 기존 테스트도 정상 갱신되어야 합니다. 금지하는 것은 <em>"실패를 숨기기 위한 무승인 테스트 약화/삭제"</em>입니다.
+        </div>
+      </details>
+    </section>
+
+    <!-- 접힌 기술 세부 사항 -->
+    <details class="tech-details">
+      <summary>🔍 검수 지적 5건 상세 내용 및 수정 계획</summary>
+      <ul style="padding-left: 16px; margin-top: 8px; line-height: 1.6;">
+        <li><strong>Blocker 1</strong>: ADR-0007을 <code>Proposed</code>로 유지하고, decisions.md 확정 테이블 반영을 PR #124 머지 시점으로 유보.</li>
+        <li><strong>Blocker 2</strong>: EP/BVA를 'AC 생성'이 아닌 'Test Case 도출 기법'으로 위계 정정. SDD-TDD 위계는 OwnHands 자체 설계로 명시.</li>
+        <li><strong>Blocker 3</strong>: '0 회귀 증명' 표현을 '실행된 스위트 내 실패 미관측' 및 영향 분석(Impact Analysis)으로 정정.</li>
+        <li><strong>Blocker 4</strong>: '기존 테스트 불변'을 <code>Baseline, not immutable</code>로 바꾸고 승인된 스펙 변경 시 정상 수정 허용.</li>
+        <li><strong>Important</strong>: TDD 설명을 'Focused TDD loop의 범위 한계'로 엄밀화.</li>
+      </ul>
+    </details>
+
+    <div class="footer-link">
+      <p>OwnHands V2-M3 • PR #124 검수 정합화</p>
+    </div>
+  </div>
+</body>
+</html>

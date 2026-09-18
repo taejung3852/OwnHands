@@ -79,10 +79,27 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **저장 위치** | `docs/v2/specs/<feature-name>/` 아래 영구 Git 아티팩트로 보존 (`intent.md`, `spec.md`). | ✅ `specs/README.md` |
+| **저장 위치** | `docs/v2/specs/<feature-name>/` 아래 영구 Git 아티팩트로 보존 (`intent.md`, `spec.md`, `plan.md`). | ✅ `specs/README.md` |
 | **`intent.md`** | **"의도와 경계의 엄밀함"**. 문제(Why), 목표(What), **비목표(Non-goals)**, 제약(Constraints) 필수 정의. | ✅ |
 | **`spec.md`** | **"기술 구현의 극대화된 디테일"**. 에이전트 환각을 차단하기 위해 요구사항, 아키텍처/타입, 엣지케이스, 수용조건을 상세히 기술. | ✅ |
-| **기본 흐름 (Default Flow)** | 의도 검토(intent) ➔ 설계 검토(spec) ➔ 구현의 2단계를 기본 권장 흐름으로 둠. (모든 작업에 강제하지 않으며 세부 적용 기준은 후속 정리) | ✅ |
+| **기본 흐름 (Default Flow)** | 의도 검토(intent) ➔ 설계 검토(spec) ➔ 구현·검증(plan & feedback loop)의 3단계를 기본 권장 흐름으로 둠. (사소한 작업에는 면제) | ✅ `ADR-0007` |
+
+### plan.md 아티팩트 및 Build Feedback Loop — 2026-09-19 확정 ([#123](https://github.com/taejung3852/OwnHands/issues/123), [ADR-0007](adr/0007-plan-artifact-and-build-feedback-loop.md))
+
+| 주제 | 결정 내용 | 구현 |
+|---|---|---|
+| **저장 위치** | `docs/v2/specs/<feature-name>/plan.md` 아래 영구 Git 아티팩트로 보존. (`intent` ➔ `spec` ➔ `plan` 3단계 체인) | ✅ `specs/README.md` |
+| **`plan.md` 규격** | **"실행 단위 분해와 신선한 증거"**. 대상 파일(Blast Radius Guard), 작은 작업 분해(Task Breakdown), 양방향 추적성 매핑, 신선한 증거 체크리스트 필수 기술. | ✅ `ADR-0007` |
+| **위계 구조** | **SDD > Verification Strategy > TDD**. 스펙이 상위 계약이며, TDD는 실행 가능한 로직을 위한 단위 피드백 루프로 배치 (OwnHands 자체 설계). | ✅ `ADR-0007` |
+| **수용 기준 매핑** | AC-테스트 1:1 강제 안티패턴을 배제하고, ISTQB 블랙박스 기법(동등분할/경계값 분석) 및 양방향 추적성에 따라 유연 매핑 (1:N, N:1 허용). | ✅ `ADR-0007` |
+| **신선한 증거 (Iron Law)** | 직접 관측된 최신 증거(테스트 출력, 스크린샷, 정적 검사 무에러 등) 없이는 완료 주장을 할 수 없다. (자가합리화 및 허위 통과 차단) | ✅ `ADR-0007` |
+| **회귀 방어선** | 작업 완료 전 회귀 테스트를 실행하여 실행된 회귀 스위트 범위 내 실패 미관측(No failures observed)을 확인. | ✅ `ADR-0007` |
+| **테스트 부재 시 방어선** | 기존 테스트 부재 시 변경 반경 통제 + 네이티브 프로젝트 검사 무에러 증거 + 명시적 선언(미실행 검사는 `[UNOBSERVED]`). | ✅ `ADR-0007` |
+| **기준선 테스트 보존** | `Existing tests are baseline, not immutable`. 실패 회피를 위한 무단 수정/삭제 금지, 승인된 스펙 변경 시 정상 수정 허용. | ✅ `ADR-0007` |
+| **2단계 검증 게이트** | 구현자 자체 피드백 루프 ➔ 완료 직전 독립된 read-only `verifier` Subagent의 `PASS / FAIL / UNOBSERVED` 판정. | ✅ `ADR-0007` |
+| **기준선 버전 관리** | 구현 중 스펙 충돌/새 제약 발견 시 자의적 수정 금지, `spec.md` 수정 ➔ 사람 승인 ➔ `plan.md` 재정렬 절차 준수. | ✅ `ADR-0007` |
+
+
 
 ### grill-spec 인터뷰 도우미 설계 — 2026-09-18 확정 ([#119](https://github.com/taejung3852/OwnHands/issues/119), [ADR-0006](adr/0006-grill-spec-orchestration-tradeoffs.md))
 
@@ -151,7 +168,7 @@
 |---|---|---|
 | **다른 Vendor 지원** | adapter로 할지, 같은 저장소로 할지, 별도 저장소로 할지 **미정**. | ⏳ |
 | **공통 추상화** | 두 번째 플랫폼의 **실제 필요를 확인하기 전에** 범용 adapter나 공통 실행 엔진을 확정하지 않는다. | ⏳ |
-| **Artifact 형식** | `intent.md`·`spec.md` 저장 경로와 필수 규격은 확정(✅ [ADR-0004](adr/0004-intent-spec-specification.md)). `plan.md` 규격은 ⏳ M3, 메타데이터 및 자동화 규칙은 ⏳ 후속 결정. | ✅ / ⏳ |
+| **Artifact 형식** | `intent.md`·`spec.md`·`plan.md` 저장 경로와 필수 규격 확정(✅ [ADR-0004](adr/0004-intent-spec-specification.md), ✅ [ADR-0007](adr/0007-plan-artifact-and-build-feedback-loop.md)). 메타데이터 및 자동화 규칙은 ⏳ 후속 결정. | ✅ / ⏳ |
 | **Eval 상세** | 초기 작은 Eval 4종(`0001`~`0004`) 및 가이드(`evals/README.md`) 수립 완료. 자동화 지표·러너 확장은 M5 연계. | [#106](https://github.com/taejung3852/OwnHands/issues/106) |
 | **Hooks 상세** | 적용 역할은 논의했으나 구체 이벤트·규칙·권한·구현은 후속 설계. | [#102](https://github.com/taejung3852/OwnHands/issues/102) |
 | **마일스톤 내부 설계** | 이름·수·순서는 승인·등록됐다. 각 단계의 **내부 설계와 경계 조정**은 해당 이슈에서 정한다. | [#101](https://github.com/taejung3852/OwnHands/issues/101) |
