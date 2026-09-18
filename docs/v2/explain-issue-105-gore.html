@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>기본 규칙 ↔ 회사 규칙 (#105), GORE로 역할 나누기</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #fbf9f5;
+      color: #1c1917;
+      line-height: 1.5;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 640px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #1c1917;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    p.subtitle {
+      font-size: 15px;
+      color: #78716c;
+      font-weight: 500;
+    }
+
+    /* 카드 공통 */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 30px 26px;
+      margin-bottom: 22px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+    .step-badge {
+      width: 30px;
+      height: 30px;
+      background-color: #1c1917;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: #78716c;
+      margin-bottom: 20px;
+    }
+
+    /* 카드 1: GORE 닻 시각화 */
+    .anchor-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .anchor-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 12px 16px;
+      border-radius: 12px;
+    }
+    .anchor-icon { font-size: 24px; }
+    .anchor-text {
+      font-size: 14px;
+      font-weight: 800;
+      color: #1e40af;
+    }
+    .anchor-flow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+    }
+    .flow-arrow { color: #cbd5e1; font-size: 16px; }
+
+    /* 카드 2: 2열 역할 분담 */
+    .roles-split {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .role-col {
+      flex: 1;
+      min-width: 200px;
+      padding: 18px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .col-human { background: #fdf4ff; border-color: #f5d0fe; }
+    .col-agent { background: #f0fdf4; border-color: #bbf7d0; }
+    .role-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      width: fit-content;
+    }
+    .badge-human { background: #fae8ff; color: #a21caf; }
+    .badge-agent { background: #dcfce7; color: #15803d; }
+    .role-title { font-size: 15px; font-weight: 800; color: #1c1917; }
+    .role-items { font-size: 12px; color: #44403c; line-height: 1.6; }
+
+    /* 카드 3: 대비 칩 */
+    .compare-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .compare-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      font-size: 13px;
+    }
+    .row-bad { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .row-good { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .compare-label {
+      font-weight: 800;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .label-bad { background: #fee2e2; color: #b91c1c; }
+    .label-good { background: #dcfce7; color: #15803d; }
+
+    /* 퀴즈 아코디언 */
+    details.quiz-item {
+      background: #fafaf9;
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+    }
+    details.quiz-item summary {
+      cursor: pointer;
+      list-style: none;
+    }
+    details.quiz-item summary::-webkit-details-marker { display: none; }
+    .quiz-q {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1c1917;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .quiz-btn {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0284c7;
+      background: #e0f2fe;
+      padding: 3px 10px;
+      border-radius: 99px;
+      transition: all 0.2s ease;
+    }
+    details.quiz-item[open] .quiz-btn {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+    details.quiz-item[open] .quiz-btn::after {
+      content: ' (닫기)';
+    }
+    .quiz-a {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #e7e5e4;
+      font-size: 13px;
+      color: #059669;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    /* 엔지니어링 세부사항 접기 */
+    details.details-box {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 18px 22px;
+      margin-top: 20px;
+      border: 1px solid rgba(0,0,0,0.05);
+      font-size: 13px;
+      color: #78716c;
+    }
+    details.details-box summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: #44403c;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    details.details-box summary::-webkit-details-marker { display: none; }
+    details.details-box summary::after { content: '▾'; font-size: 13px; }
+    details.details-box[open] summary::after { content: '▴'; }
+    .details-content {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #f5f5f4;
+      line-height: 1.7;
+    }
+    .details-content li { margin-left: 18px; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>기본 규칙 ↔ 회사 규칙 (#105), GORE로 역할 나누기</h1>
+      <p class="subtitle">구현 세부사항으로 직행하지 않고, 최상위 목표에 사람과 에이전트의 역할을 닻(Anchor) 내립니다.</p>
+    </header>
+
+    <!-- STEP 1 -->
+    <div class="card">
+      <div class="step-badge">1</div>
+      <div class="card-title">GORE: 최상위 목표에 먼저 닻(Anchor)을 내린다</div>
+      <div class="card-desc">코드나 알고리즘부터 짜는 '상향식(Bottom-Up)' 함정을 피하고, 사람이 원하는 실제 가치에서 시작합니다.</div>
+
+      <div class="anchor-box">
+        <div class="anchor-head">
+          <span class="anchor-icon">⚓</span>
+          <div class="anchor-text">
+            최상위 목표: "기본 개발 흐름을 다시 구현하지 않고, 회사/팀 규칙을 자연스럽게 덧붙여 실무 무기로 쓴다"
+          </div>
+        </div>
+        <div class="anchor-flow">
+          <span>인간의 실무 의도</span>
+          <span class="flow-arrow">➔</span>
+          <span>플랫폼 네이티브 팩트</span>
+          <span class="flow-arrow">➔</span>
+          <span>최소 연결 설계 (Zero-Code)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="card">
+      <div class="step-badge">2</div>
+      <div class="card-title">역할 분담: 의도와 경계(인간) vs 팩트와 구조(에이전트)</div>
+      <div class="card-desc">각자가 가장 잘할 수 있는 영역에 집중하여 시스템 비대화와 환각을 원천 차단합니다.</div>
+
+      <div class="roles-split">
+        <div class="role-col col-human">
+          <span class="role-badge badge-human">👤 사람 (User)</span>
+          <div class="role-title">의도 · 경계 · 판정</div>
+          <div class="role-items">
+            • <strong>실제 원하는 사용 모습 제시</strong><br>
+            &nbsp;&nbsp;("기본 템플릿에 팀 규칙을 어떻게 얹을까?")<br>
+            • <strong>비목표(Non-goals) 승인</strong><br>
+            &nbsp;&nbsp;("복잡한 Policy Resolver 코드는 안 만든다!")<br>
+            • <strong>결정 상태 승격</strong><br>
+            &nbsp;&nbsp;(생각 🤔 ➔ 확정 ✅ 최종 판정)
+          </div>
+        </div>
+
+        <div class="role-col col-agent">
+          <span class="role-badge badge-agent">🤖 에이전트 (Antigravity)</span>
+          <div class="role-title">팩트 · 메커니즘 · 문서화</div>
+          <div class="role-items">
+            • <strong>Codex 공식 네이티브 팩트 조사</strong><br>
+            &nbsp;&nbsp;(개인 기본값, 모듈 override, 거버넌스 분리)<br>
+            • <strong>경량 연결 지점 초안 작성</strong><br>
+            &nbsp;&nbsp;(코드를 안 짜고도 연결되는 구조 설계)<br>
+            • <strong>ADR-0005 작성 및 상태표 정합</strong><br>
+            &nbsp;&nbsp;(미결정 사항을 확정으로 위장하지 않음)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="card">
+      <div class="step-badge">3</div>
+      <div class="card-title">우리가 절대 빠지지 말아야 할 함정 (Anti-patterns)</div>
+      <div class="card-desc">OwnHands의 AGENTS.md 규율에 따라 공식과 우리 결정을 엄격히 분리합니다.</div>
+
+      <div class="compare-container">
+        <div class="compare-row row-bad">
+          <span class="compare-label label-bad">❌ 피할 함정</span>
+          <div>
+            <strong>과설계 & 위장</strong>: 아직 오지도 않은 가상 회사 정책을 위해 복잡한 우선순위 알고리즘을 코드로 짜거나, 사용자의 "아이디어(🤔)"를 확정된 규칙인 양 멋대로 코딩하는 것.
+          </div>
+        </div>
+        <div class="compare-row row-good">
+          <span class="compare-label label-good">✅ GORE 방식</span>
+          <div>
+            <strong>네이티브 활용 & 정직함</strong>: Codex의 디렉터리 계층 기능을 활용해 최소한의 연결 방향만 확정하고, 코드는 한 줄도 짜지 않으며, 합의 전까지 🤔 상태를 정직하게 유지하는 것.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3초 점검 퀴즈 -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom: 6px;">스스로 확인하는 점검 퀴즈</div>
+      <div class="card-desc">질문을 읽고 정답 확인 버튼을 눌러보세요!</div>
+
+      <details class="quiz-item">
+        <summary class="quiz-q">
+          <span>Q1. GORE(목표 지향 요구공학)에서 구현 세부사항보다 항상 먼저 와야 하는 것은?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-a">💡 최상위 목표와 사용자의 의도(Top-Down Intent)입니다! 구현에 매몰되기 전에 "우리가 이걸 왜 만드는가"에 먼저 닻을 내립니다.</div>
+      </details>
+
+      <details class="quiz-item">
+        <summary class="quiz-q">
+          <span>Q2. 이슈 #105에서 '우선순위 알고리즘'이나 'Policy Resolver'를 코드로 짜지 않는 이유는?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-a">💡 과설계(Non-goal)이기 때문입니다! Codex가 이미 지원하는 계층 override 기능을 활용하면 복잡한 코드 없이도 경량 연결 지점을 설계할 수 있습니다.</div>
+      </details>
+    </div>
+
+    <!-- 엔지니어링 세부사항 (전문가용 접기) -->
+    <details class="details-box">
+      <summary>엔지니어링 세부사항: 주요 근거 아티팩트 링크</summary>
+      <div class="details-content">
+        <ul>
+          <li><strong>작업 이슈:</strong> <a href="https://github.com/taejung3852/OwnHands/issues/105" style="color: #2563eb;">Issue #105 (기본 정책과 조직 정책의 연결)</a></li>
+          <li><strong>핵심 원칙:</strong> <a href="../../AGENTS.md" style="color: #2563eb;">AGENTS.md (GORE 원칙 및 공식과 자체 결정 분리)</a></li>
+          <li><strong>결정 상태표:</strong> <a href="decisions.md" style="color: #2563eb;">docs/v2/decisions.md (§2 사용자 생각 보존)</a></li>
+          <li><strong>플랫폼 사양:</strong> Codex <code>AGENTS.md</code> 계층형 탐색 메커니즘 및 <code>Skills</code> 비-override 사양</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</body>
+</html>

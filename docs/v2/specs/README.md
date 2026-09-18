@@ -35,6 +35,10 @@ docs/v2/specs/
     └── spec.md
 ```
 
+### 개발 지침 및 조직 거버넌스 확장 안내
+- **팀/모듈별 개발 지침**: 저장소 root의 `AGENTS.md` 또는 특정 서브디렉터리의 `AGENTS.override.md`를 활용합니다.
+- **조직 강제 정책 (보안·권한)**: 프롬프트 지침이 아닌 Codex Enterprise의 관리자 설정(Managed Config 등)으로 분리합니다 ([ADR-0005](../adr/0005-policy-layering-boundary.md)).
+
 ---
 
 ## 2. `intent.md` 템플릿
