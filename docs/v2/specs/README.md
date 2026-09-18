@@ -165,7 +165,7 @@ npm test / pytest / gh 명령어 등
   - 예상 변경 파일: `...`
 
 ## 3. AC별 검증 전략 매핑 (Verification Strategy Mapping)
-> ⚠️ **ISTQB 기반 양방향 추적성**: spec.md의 모든 AC는 최소 1개 이상의 전략과 관측 가능한 증거에 유연하게 매핑되어야 합니다 (동등분할/경계값 고려, 1:1 강제 금지).
+> ⚠️ **양방향 추적성 & 테스트 설계 기법**: spec.md의 모든 AC는 최소 1개 이상의 전략과 관측 가능한 증거에 유연하게 매핑되어야 합니다 (1:1 강제 금지). 테스트 케이스 설계 시 ISTQB 동등 분할(EP) 및 경계값 분석(BVA) 기법을 활용하여 누락 없이 케이스를 도출합니다.
 | AC ID | 검증 전략 (Strategy) | 관측 증거 (Evidence) | 통과 기준 (Pass Criteria) |
 |---|---|---|---|
 | `AC-01` | 단위 테스트 (TDD) | 최신 테스트 실행 로그 | 테스트 패스 (0 exit code) |
@@ -180,10 +180,10 @@ npm test / pytest / gh 명령어 등
 - [ ] **Task 2 검증 증거**:
   - 실행 명령어 또는 관측 대상: `...`
   - 실행/관측 결과 요약: `...`
-- [ ] **전체 회귀 테스트 (Final Regression Gate)**:
+- [ ] **회귀 테스트 (Regression Gate)**:
   - 실행 명령어: `npm test` / `pytest` / `npm run build` 등
-  - 결과: 기존 테스트 스위트 전량 통과 증거 확보
-  - *(기존 테스트 부재 시)*: `[NO_EXISTING_REGRESSION_SUITE]` 선언 및 전체 빌드/린트/타입체크 무에러 확인
+  - 결과: 실행된 회귀 스위트 범위 내 실패 미관측(No failures observed) 증거 확보
+  - *(기존 테스트 부재 시)*: `[NO_EXISTING_REGRESSION_SUITE]` 선언, 변경 반경 통제 및 전체 빌드/린트/타입체크 무에러 확인
 - [ ] **최종 Acceptance Criteria 역추적 대조 (Verifier Subagent Gate)**:
   - Verifier 판정: `PASS / FAIL / UNOBSERVED`
 ```
@@ -193,8 +193,8 @@ npm test / pytest / gh 명령어 등
 ## 5. 권장 점검 체크리스트
  
 - [ ] **Checkpoint 1 (Plan)**: `intent.md`의 문제 정의와 비목표(Non-goals)가 명확하게 합의되었는가?
-- [ ] **Checkpoint 2 (Design)**: `spec.md`에 타입, 인터페이스, 엣지 케이스(동등 분할 & 경계값 분석)가 구체적으로 기술되어 있는가?
+- [ ] **Checkpoint 2 (Design)**: `spec.md`에 타입, 인터페이스, 엣지 케이스가 구체적으로 기술되어 있는가?
 - [ ] **Checkpoint 3 (Build Plan)**: `plan.md`의 대상 파일 범위(Blast Radius)가 통제되고, 모든 AC가 적절한 검증 전략에 양방향 추적 가능하게 매핑되어 있는가?
 - [ ] **The Iron Law**: 모든 완료 주장에 대해 실제 실행 및 관측을 통한 신선한 증거(Fresh Evidence)가 확보되었는가?
-- [ ] **회귀 방어선 & 기존 테스트 불변**: 기존 테스트 파일(`*.test.*`)의 임의 수정이 없었으며, 전체 회귀 테스트(또는 빌드/린트 대체 게이트)를 통과했는가?
+- [ ] **회귀 방어선 & 기준선 테스트 보존**: 기존 테스트는 시스템 동작의 기준선(Baseline)이며, 단순 실패 은폐를 위한 임의 수정/삭제/완화가 없었는가? (스펙 변경에 따른 수정 시 합법적 사유 명시 여부)
 - [ ] **단일 진실 원칙 & 기준선 버전 관리**: 코드가 `spec.md`를 임의로 왜곡하거나 스펙 기준을 낮추지 않고, 모순 발생 시 사람 승인을 거쳐 갱신했는가?
