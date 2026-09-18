@@ -79,10 +79,10 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **저장 위치** | `docs/v2/specs/<feature-name>/` 아래 영구 Git 아티팩트로 보존 (`intent.md`, `spec.md`, `plan.md`). | ✅ `specs/README.md` |
+| **저장 위치** | `docs/v2/specs/<feature-name>/` 아래 영구 Git 아티팩트로 보존 (`intent.md`, `spec.md`). (`plan.md`는 PR #124 검토 중) | ✅ `specs/README.md` |
 | **`intent.md`** | **"의도와 경계의 엄밀함"**. 문제(Why), 목표(What), **비목표(Non-goals)**, 제약(Constraints) 필수 정의. | ✅ |
 | **`spec.md`** | **"기술 구현의 극대화된 디테일"**. 에이전트 환각을 차단하기 위해 요구사항, 아키텍처/타입, 엣지케이스, 수용조건을 상세히 기술. | ✅ |
-| **기본 흐름 (Default Flow)** | 의도 검토(intent) ➔ 설계 검토(spec) ➔ 구현·검증(plan & feedback loop)의 3단계를 기본 권장 흐름으로 둠. (사소한 작업에는 면제) | ✅ `ADR-0007` |
+| **기본 흐름 (Default Flow)** | 의도 검토(intent) ➔ 설계 검토(spec) ➔ 구현의 2단계를 기본 권장 흐름으로 둠. (`plan.md` 포함 3단계 확장은 PR #124 검토 중) | ✅ |
 
 
 ### grill-spec 인터뷰 도우미 설계 — 2026-09-18 확정 ([#119](https://github.com/taejung3852/OwnHands/issues/119), [ADR-0006](adr/0006-grill-spec-orchestration-tradeoffs.md))

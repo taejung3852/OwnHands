@@ -175,8 +175,8 @@ docs/v2/specs/<feature-name>/
 - **기존 테스트가 존재하지 않는 경우 (레거시 / 신규 과제)**:
   - 기존 자동화 테스트가 없더라도 다음 **3대 대체 방어선**을 적용한다:
     1. **변경 반경(Blast Radius) 엄격 통제**: `plan.md`의 `Target Files`에 선언되지 않은 파일에 diff가 발생하면 결함으로 판정한다.
-    2. **전체 빌드 & 정적 검사 통과 증거**: 전체 프로젝트 빌드(`build`), 타입 검사(`tsc --noEmit`), 린트(`lint`) 무에러 통과 로그를 필수 증거로 제출한다.
-    3. **명시적 선언(Explicit Declaration)**: `plan.md`에 `[NO_EXISTING_REGRESSION_SUITE]`를 명시하고, 실행된 범위와 미관측 범위를 정직하게 기록한다.
+    2. **네이티브 프로젝트 검사(Native Project Checks) 실행 증거**: 해당 프로젝트 환경에 존재하는 applicable checks(빌드, 타입 검사, 린트 등)를 실행하고 무에러 통과 로그를 증거로 제출한다. 환경상 존재하지 않는 검사는 `[UNOBSERVED]`로 명시하여 거짓 증명을 배제한다.
+    3. **명시적 선언(Explicit Declaration)**: `plan.md`에 `[NO_EXISTING_REGRESSION_SUITE]`를 명시하고, 실행된 검사 범위와 미관측(UNOBSERVED) 범위를 정직하게 기록한다.
 
 ---
 
