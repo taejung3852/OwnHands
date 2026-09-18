@@ -44,18 +44,18 @@
   - 하지만 Skill 폴더 내 `references/` 디렉터리에 둔 문서들은 초기 카탈로그 예산을 **전혀 소모하지 않는다**.
   - ⚠️ **동작 조건**: `references/`에 문서를 넣어두기만 하면 자동으로 읽히는 것이 아니다. 반드시 상위 `SKILL.md` 본문에서 "어떤 상황에서 이 문서를 읽어라"고 명시적 조건과 경로를 링크해야 로드된다.
 
-### 2.2 Fact 2: `verifier` Subagent의 `sandbox_mode = "read-only"` 런타임 실측
+### 2.2 Fact 2: `verifier`의 read-only 런타임 제약 분석
 - **현재 설정 (`.codex/agents/verifier.toml`)**:
   ```toml
   name = "verifier"
   description = "Independent verification agent that runs tests, executes assertions, and verifies acceptance criteria without implementation bias."
   sandbox_mode = "read-only"
   ```
-- **런타임 제약 및 위험**:
-  - `sandbox_mode = "read-only"` 상태의 에이전트는 파일시스템 수정(`workspace-write`)이 차단된다.
-  - 대부분의 모던 테스트 러너(`pytest`, `jest`, `vitest`, `cargo test` 등)는 테스트 실행 시 임시 파일(`__pycache__`, `.pytest_cache`, `dist/`, `.tmp` 등)을 파일시스템에 쓰려고 시도한다.
-  - 순수 `read-only` 샌드박스에서 테스트 러너를 실행하면 쓰기 권한 부족(`PermissionDenied` / `EACCES`)으로 인해 코드가 정상임에도 테스트 자체가 비정상 크래시될 위험이 높다.
+- **런타임 제약 분석**:
+  - 공식 문서상 `read-only`에서는 파일시스템 쓰기(`workspace-write`)가 제한된다.
+  - `pytest`, `jest` 등 일부 테스트 러너는 실행 중 캐시·임시 파일(`__pycache__`, `.pytest_cache` 등)을 쓸 수 있으므로 `read-only` 환경에서 실패할 가능성이 있다.
   - 또한 Codex 공식 문서(§4.5)에 따르면, Subagent는 부모의 live runtime permissions/yolo 설정을 상속받으므로 `sandbox_mode`만으로 완벽한 격리를 보장할 수 없다.
+  - ⚠️ **실제 `verifier` Subagent를 통한 테스트 재실행 성공/실패 여부는 아직 런타임 실측하지 않았다.**
 
 ### 2.3 Fact 3: V1 검증 자산 중 버릴 것과 가져올 것 (선별 기준)
 - **버릴 것 (Deprecate & Exclude)**:
@@ -87,8 +87,8 @@
 
 | 안 | 메커니즘 | 장점 | 단점 / 트레이드오프 |
 |---|---|---|---|
-| **안 A. Fresh Evidence 감사관 모델 (ADR-0007)** | Builder가 테스트를 실행하고 터미널 증거를 남김 ➔ Verifier는 read-only로 AC와 증거를 역추적 대조만 수행 | `read-only` 샌드박스에서 완벽 동작. 테스트 러너의 파일 쓰기 충돌 없음. 가볍고 빠름. | Builder가 가짜 터미널 로그를 만들어낼 극단적 환각 시 감지 난이도 존재. |
-| **안 B. 독립 재실행 모델 (Independent Runner)** | Verifier에게 격리된 샌드박스 실행 권한을 주고, 처음부터 끝까지 테스트를 직접 재실행 | 구현자 편향을 물리적으로 100% 차단. | 테스트 러너 임시 파일 쓰기 권한 필요. 빌드/테스트 시간이 2배로 소요됨. |
+| **안 A. Fresh Evidence 감사관 모델 (ADR-0007)** | Builder가 테스트를 실행하고 터미널 증거를 남김 ➔ Verifier는 read-only로 AC와 증거를 역추적 대조만 수행 | Evidence 읽기·대조에는 read-only와 잘 맞음. 테스트 러너의 파일 쓰기 충돌 없음. 가볍고 빠름. | Builder가 가짜 터미널 로그를 만들어낼 극단적 환각 시 감지 난이도 존재. |
+| **안 B. 독립 재실행 모델 (Independent Runner)** | Verifier에게 격리된 샌드박스 실행 권한을 주고, 처음부터 끝까지 테스트를 직접 재실행 | 구현자와 독립된 재실행으로 편향을 더 줄일 수 있음. | 테스트 러너 임시 파일 쓰기 권한 필요. 빌드/테스트 시간이 2배로 소요됨. |
 
 > 💡 **추천 방향**: **안 A(Fresh Evidence 감사관 모델)를 기본값으로 채택**.  
 > 이유: V2의 핵심인 Thin Harness에 부합하며, 샌드박스 쓰기 충돌 없이 즉시 안정적으로 작동함. Verifier는 AC 항목별로 Builder가 제시한 터미널 출력(Exit code, Assertion 로그, 커밋 해시)의 신선도를 교차 검증함.
