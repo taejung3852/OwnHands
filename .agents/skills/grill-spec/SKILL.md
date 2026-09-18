@@ -1,6 +1,6 @@
 ---
 name: grill-spec
-description: Sharpens development intent and technical specifications into OwnHands intent.md and spec.md artifacts through GORE goal anchoring, codebase fact gathering, and frontier grilling. Use when planning features, defining requirements, designing architectures, or invoked with /grill-spec.
+description: Sharpens development intent and technical specifications into OwnHands intent.md and spec.md artifacts through GORE goal anchoring, codebase fact gathering, and frontier grilling. Use when planning features, defining requirements, designing architectures, or explicitly invoked as $grill-spec.
 ---
 
 # grill-spec
