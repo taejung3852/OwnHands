@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>검증 누락 방지: SDD와 TDD의 결합 및 결정 기록 메커니즘</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #fbf9f5;
+      color: #1c1917;
+      line-height: 1.5;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #1c1917;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    p.subtitle {
+      font-size: 15px;
+      color: #78716c;
+      font-weight: 500;
+    }
+
+    /* 카드 공통 */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 30px 26px;
+      margin-bottom: 22px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+    .step-badge {
+      width: 32px;
+      height: 32px;
+      background-color: #1c1917;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: #78716c;
+      margin-bottom: 20px;
+    }
+
+    /* 카드 1: SDD vs TDD 고질적 약점 비교 */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .compare-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .compare-box.bad {
+      border-color: #fecaca;
+      background: #fff5f5;
+    }
+    .compare-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #991b1b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .compare-points {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      color: #475569;
+    }
+    .compare-points li strong {
+      color: #0f172a;
+    }
+
+    /* 카드 2: 3대 강제 연결 파이프라인 */
+    .pipeline-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .pipeline-row {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .pipe-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pipe-num {
+      width: 26px;
+      height: 26px;
+      background: #2563eb;
+      color: #ffffff;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pipe-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: #1e293b;
+    }
+    .pipe-desc {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .pipe-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      white-space: nowrap;
+    }
+
+    /* 카드 3: 결정(ADR) 기록 선택지 */
+    .decision-compare {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .decision-option {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .decision-option.recommended {
+      background: #f0fdf4;
+      border-color: #86efac;
+    }
+    .opt-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #1e293b;
+      margin-bottom: 2px;
+    }
+    .opt-desc {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .opt-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .opt-badge.win {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .opt-badge.loss {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    /* 퀴즈 공통 */
+    .quiz-card {
+      background: #fdfbf7;
+      border: 1px solid #e7e5e4;
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 22px;
+    }
+    .quiz-header {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .quiz-item {
+      background: #ffffff;
+      border: 1px solid #e7e5e4;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .quiz-item summary {
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1c1917;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      list-style: none;
+    }
+    .quiz-item summary::-webkit-details-marker { display: none; }
+    .quiz-btn {
+      font-size: 11px;
+      font-weight: 700;
+      color: #b45309;
+      background: #fef3c7;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .quiz-answer {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #e7e5e4;
+      font-size: 13px;
+      color: #15803d;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    /* 접힌 기술 디테일 */
+    details.tech-details {
+      background: #ffffff;
+      border-radius: 16px;
+      border: 1px solid #e7e5e4;
+      padding: 16px 20px;
+      font-size: 13px;
+      color: #57534e;
+    }
+    details.tech-details summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: #1c1917;
+      margin-bottom: 8px;
+    }
+    details.tech-details ul {
+      margin-left: 18px;
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>왜 회사의 필수 검증사항은 배포 전에 누락되는가?</h1>
+      <p class="subtitle">기존 SDD의 문서 박제화와 TDD의 터널 시야를 깨부수는 1:1 강제 연결선</p>
+    </header>
+
+    <!-- 카드 1 -->
+    <div class="card">
+      <div class="step-badge">1</div>
+      <div class="card-title">단독 SDD와 단독 TDD가 실패하는 이유</div>
+      <div class="card-desc">스펙은 실행되지 않아 방치되고, TDD는 자기가 아는 쉬운 것만 테스트합니다.</div>
+
+      <div class="compare-grid">
+        <div class="compare-box bad">
+          <div class="compare-title">⚠️ 기존 SDD의 고질적 결함</div>
+          <ul class="compare-points">
+            <li>• <strong>비실행성 (Non-executable)</strong>: 문서는 컴파일/자동실행되지 않아 방치됨</li>
+            <li>• <strong>체크리스트 눈속임</strong>: 바쁘면 읽지도 않고 "검토완료" 체크</li>
+            <li>• <strong>에이전트 환각</strong>: 코드가 예외를 못 다뤄도 "준수했다"고 거짓말</li>
+          </ul>
+        </div>
+
+        <div class="compare-box bad">
+          <div class="compare-title">⚠️ 기존 TDD의 고질적 결함</div>
+          <ul class="compare-points">
+            <li>• <strong>터널 시야</strong>: 자기가 생각 못한 회사 규칙은 테스트조차 안 짬</li>
+            <li>• <strong>해피패스 편향</strong>: 복잡한 엣지케이스는 빼고 쉬운 것만 통과</li>
+            <li>• <strong>Mock 잔치</strong>: 가짜 객체로 100% 통과시키고 실운영서 폭발</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 2 -->
+    <div class="card">
+      <div class="step-badge">2</div>
+      <div class="card-title">검증 누락을 원천 차단하는 3대 연결선</div>
+      <div class="card-desc">스펙의 수용 기준을 기계적 테스트 경로와 1:1로 묶고, 제3자 검증자로 인가합니다.</div>
+
+      <div class="pipeline-container">
+        <div class="pipeline-row">
+          <div class="pipe-left">
+            <div class="pipe-num">1</div>
+            <div>
+              <div class="pipe-label">Acceptance Criteria 1:1 테스트 매핑</div>
+              <div class="pipe-desc">spec.md의 모든 수용 기준/엣지케이스에 테스트 파일·함수를 필수 할당</div>
+            </div>
+          </div>
+          <span class="pipe-badge">스펙 누락 방지</span>
+        </div>
+
+        <div class="pipeline-row">
+          <div class="pipe-left">
+            <div class="pipe-num">2</div>
+            <div>
+              <div class="pipe-label">Red(실패) 사전 증거 확보</div>
+              <div class="pipe-desc">코드 구현 전, 테스트가 먼저 실패하는 터미널 출력을 근거로 고정</div>
+            </div>
+          </div>
+          <span class="pipe-badge">사후 조작 차단</span>
+        </div>
+
+        <div class="pipeline-row">
+          <div class="pipe-left">
+            <div class="pipe-num">3</div>
+            <div>
+              <div class="pipe-label">독립 Verifier (read-only) 최종 대조</div>
+              <div class="pipe-desc">구현 에이전트와 격리된 검증자가 spec.md 기준선 전량 역추적 판정</div>
+            </div>
+          </div>
+          <span class="pipe-badge">자가합리화 봉쇄</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 3 -->
+    <div class="card">
+      <div class="step-badge">3</div>
+      <div class="card-title">인간의 고민 흔적(ADR)은 spec.md와 물리적으로 분리한다</div>
+      <div class="card-desc">기계용 명세서(spec.md)의 노이즈를 원천 차단하고, 생각의 궤적은 decision.md에 독립 보존합니다.</div>
+
+      <div class="decision-compare">
+        <div class="decision-option recommended">
+          <div>
+            <div class="opt-title">📄 spec.md (AI 에이전트·검증기용 기술 청사진)</div>
+            <div class="opt-desc">엄밀한 요구사항·수용 기준만 담아 <strong>노이즈 제로</strong> 유지 (컨텍스트 오염 및 환각 방지)</div>
+          </div>
+          <span class="opt-badge win">Noise-Free</span>
+        </div>
+
+        <div class="decision-option recommended">
+          <div>
+            <div class="opt-title">📝 decision.md (인간 엔지니어용 고민 흔적 및 결정 일지)</div>
+            <div class="opt-desc">고려했던 대안, 버린 이유, 트레이드오프 기록 (선택적 작성으로 문서 피로도 방지)</div>
+          </div>
+          <span class="opt-badge win" style="background: #e0f2fe; color: #0369a1;">Thought Trail</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3초 퀴즈 -->
+    <div class="quiz-card">
+      <div class="quiz-header">💡 스스로 풀어보는 3초 퀴즈</div>
+
+      <details class="quiz-item">
+        <summary>
+          <span>Q1. 모든 단위 테스트가 초록색(PASS)인데도 현업에서 장애가 나는 주된 이유는?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          👉 TDD는 개발자가 생각한 코드만 테스트하므로, 회사의 필수 비즈니스 규칙이나 엣지케이스가 스펙에서 테스트 코드로 연결되지 않고 애초에 누락되었기 때문입니다.
+        </div>
+      </details>
+
+      <details class="quiz-item">
+        <summary>
+          <span>Q2. 왜 고민의 흔적(ADR)을 spec.md 본문에 직접 넣지 않고 분리하나요?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          👉 에이전트가 코드를 구현할 때 버린 대안이나 장황한 인간의 고민 과정을 읽으면 컨텍스트 토큰이 낭비되고, 무엇이 진짜 구현 요구사항인지 헷갈려 환각(탈선)을 일으키는 직접적인 노이즈가 되기 때문입니다.
+        </div>
+      </details>
+    </div>
+
+    <!-- 기술 세부 사항 -->
+    <details class="tech-details">
+      <summary>🛠️ 엔지니어링 세부 사항 및 원문 근거 (Detailed Context)</summary>
+      <ul>
+        <li><strong>문서 역할 분리</strong>: <code>spec.md</code>는 기계가 읽는 건조한 명세서로 순도를 지키고, <code>decision.md</code>는 인간이 설계 갈림길에서 고민한 맥락을 남기는 독립 아티팩트로 관리합니다.</li>
+        <li><strong>선택적 작성</strong>: 모든 사소한 작업에 <code>decision.md</code>를 강제하지 않으며, 설계 트레이드오프가 컸던 작업에만 작성하여 문서 오버헤드를 막습니다.</li>
+        <li><strong>근거 자료</strong>: <a href="adr/0004-intent-spec-contract.md">ADR-0004 (intent/spec 규격)</a> · <a href="explain-m3-kickoff.html">M3 킥오프 설명</a></li>
+      </ul>
+    </details>
+  </div>
+</body>
+</html>
