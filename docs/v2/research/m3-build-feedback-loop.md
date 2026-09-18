@@ -25,8 +25,9 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
    - [`/docs/developer-commands.md`](https://learn.chatgpt.com/docs/developer-commands.md): CLI/TUI 명령어 및 `--sandbox`, `--ask-for-approval` 사양.
 2. **Anthropic AI-Native SDLC Playbook** (확인일: 2026-09-16)
    - 원문 대응표: [`docs/references/anthropic-playbook.md`](../../references/anthropic-playbook.md) (§2 세 가지 Artifact, §6 검증과 리뷰).
-3. **Superpowers 플러그인 로컬 소스 코드** (확인일: 2026-09-18)
-   - 경로: `/Users/parktaejung/.gemini/config/plugins/superpowers/skills/`
+3. **Superpowers 오픈소스 저장소 및 로컬 설치본** (확인일: 2026-09-18)
+   - 원본 출처: [`https://github.com/obra/superpowers`](https://github.com/obra/superpowers) (v6.3.0, commit `b36e082`)
+   - 로컬 참조 경로: `/Users/parktaejung/.gemini/config/plugins/superpowers/skills/`
    - 분석 스킬: `verification-before-completion`, `writing-plans`, `test-driven-development`, `subagent-driven-development`.
 4. **OwnHands 기존 아키텍처 및 V1 교훈**
    - [`docs/v2/overview.md`](../overview.md) (§3 세 문서는 다른 질문에 답한다, §5 Baseline과 Review의 재배치).
@@ -57,7 +58,7 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
   - 공식 문서는 "작업 완료(Definition of Done)를 정의할 때 테스트나 측정 기준(Verification criteria)을 포함하여 에이전트 스스로 완료 여부를 검증할 수 있게 하라"고 강조한다.
   - 테스트 실행 시 `--sandbox workspace-write` 모드를 통해 안전하게 로컬 테스트를 돌릴 수 있다.
 - **OwnHands에 주는 의미**:
-  - 스펙에 적힌 검증 기준을 기계가 실행 가능한 명령(Test script/command)으로 연결해야 에이전트의 자체 피드백 루프가 작동한다.
+  - 스펙의 검증 기준을 적절한 Verification Strategy와 관측 가능한 Evidence에 연결한다. 실행 가능한 동작은 가능한 경우 테스트/명령으로 연결한다.
 
 ### Q4. Subagent의 Build 루프 연계
 - **공식 확인 사실**:
@@ -70,15 +71,15 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
 - **공식 확인 사실**:
   - Codex의 hook 이벤트(`PreToolUse`, `PostToolUse` 등)가 존재하나, 복잡한 런타임 스크립트를 지금 작성하면 유지보수 부담이 커진다.
 - **OwnHands에 주는 의미**:
-  - M3 단계에서는 무거운 Hook 스크립트를 코드로 짜지 않고, 지침(`AGENTS.md`) 및 `plan.md` 프로토콜 기반의 Thin Harness 원칙을 유지한다. (Zero-Code 원칙 유지)
+  - M3 단계에서는 복잡한 런타임 Hook 스크립트를 직접 개발하지 않고, 플랫폼 기본 제공 기능 및 지침 프로토콜 기반으로 검증 루프를 연결한다.
 
 ### Q6. Anthropic Playbook의 원문 분석 및 Stage 구분
-- **Anthropic 원문 (Stage 구분)**:
-  - **`Stage 3 — Build`**: `plan mode` ➔ `plan.md` ➔ `implementation` (구현 및 코드 작성).
-  - **`Stage 4 — Test`**: `continuous feedback loop` (작업 중 자동 자기 검증) + `fresh-context verifier` (별도 맥락의 최종 검수).
+- **Anthropic 원문 (Stage 정의 및 책임 구분)**:
+  - **`Stage 3 — Build`**: `plan mode` ➔ `plan.md` ➔ `implementation` (구현), 그리고 `verifier subagent` 같은 독립 검증 역할이 포함됨.
+  - **`Stage 4 — Test`**: 작업 전반의 `continuous feedback loop`가 위치하며, verifier(독립 검증 역할)와 feedback loop(작업 중 지속적 루프)는 서로 다른 책임으로 구분됨.
 - **OwnHands의 재배치 후보**:
-  - OwnHands는 V2-M3을 `Build & Feedback Loop`로 정의하여, 구현 중 self-verification feedback loop(TDD)까지 앞당겨 연결한다.
-  - 독립 Assurance 및 증거의 최종 판정은 V2-M4(`Test & Assurance`)에서 더 깊게 다룬다.
+  - OwnHands는 V2-M3을 `Build & Feedback Loop`로 정의하여, 구현 중 self-verification feedback loop(TDD)까지 앞당겨 빌드 루프에 연결한다.
+  - 독립 Assurance 및 증거의 최종 판정(독립 verifier subagent 등)은 V2-M4(`Test & Assurance`)에서 본격적으로 다룬다.
   - ⚠️ Anthropic 원문의 Stage 정의와 OwnHands 마일스톤의 자체 재배치를 명확히 구분하여 기록한다.
 
 ### Q7. Superpowers 플러그인 분석 및 V1의 교훈
@@ -120,7 +121,7 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
    ▼
 [독립 판정] Verifier Subagent Gate
       • spec.md의 AC 체크리스트와 Evidence 역추적 대조
-      • PASS / FAIL / UNKNOWN 엄격 판정
+      • PASS / FAIL / UNOBSERVED 엄격 판정
 ```
 
 ### 4.2 Acceptance Criteria 추적성 후보 규칙
@@ -138,7 +139,7 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
 
 | 구분 | 플랫폼 제공 / 배제 대상 | OwnHands가 할 일 |
 |---|---|---|
-| **계획 도구** | Codex `/plan`, `/goal` 네이티브 모드 | `docs/v2/specs/<feature>/plan.md` 영구 아티팩트 템플릿 및 규약 제정 |
+| **계획 도구** | Codex `/plan`, `/goal` 네이티브 모드 | 영구 `plan.md` 아티팩트의 필요 여부·저장 위치·최소 계약을 ADR-0007에서 결정 (후보: `docs/v2/specs/<feature>/plan.md`) |
 | **코드 리뷰** | Codex `/review` dedicated reviewer | PR 전담 `reviewer` Subagent 호출 지침 연계 |
 | **작업 격리** | Codex `/worktree` | 필요 시 worktree 분리 안내 |
 | **프레임워크** | 무거운 범용 SDD Engine / 독자 CLI 러너 개발 배제 | 마크다운 기반 얇은 계약(Thin Contract) 유지 |
