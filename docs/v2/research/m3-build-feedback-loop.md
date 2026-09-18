@@ -42,8 +42,8 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
   - `/goal` 명령어로 장기 실행 목표(Goal Mode)를 설정할 수 있으며, 공식 문서는 **"결과가 불명확할 때는 먼저 `/plan`으로 인터뷰하고 제약을 파악한 뒤, 측정 가능한 완료 기준을 가진 `/goal`로 구체화하라"**고 명시한다.
   - 공식이 제시하는 Goal의 3대 필수 요소는 **Outcome(결과), Constraints(제약), Verification(완료를 증명하는 테스트/측정 기준)**이다.
 - **OwnHands에 주는 의미**:
-  - 특정 호스트의 `/plan` 대화 세션은 휘발될 수 있으므로, 프로젝트의 영구 Git 아티팩트인 `plan.md` 저장을 대체하지 않는다.
-  - 하지만 Codex의 `/plan`과 `/goal`의 인터랙션 흐름은 OwnHands의 GORE(최상위 목표 닻) 및 `intent ➔ spec ➔ plan` 파이프라인과 완벽히 일치한다.
+  - Codex의 `/goal`(Outcome, Constraints, Verification)은 GORE 최상위 닻 내리기와 방향이 잘 맞으며, `/plan`은 multi-step 인터뷰를 위한 네이티브 planning primitive로 유용하게 연계할 수 있다.
+  - ⚠️ 특정 호스트의 `/plan` 대화 세션 자체가 프로젝트의 영구 Git 아티팩트인 `plan.md` 저장을 대신하지는 않으므로, 저장소 규약으로서의 아티팩트 관리는 분리 유지한다.
 
 ### Q2. Codex 네이티브 피드백 루프 (Review & Worktree)
 - **공식 확인 사실**:
@@ -64,7 +64,7 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
   - Codex는 `.codex/agents/*.toml`을 통해 독립된 설정, 시스템 프롬프트, 도구를 갖는 커스텀 에이전트를 선언하고 호출할 수 있다.
 - **OwnHands에 주는 의미**:
   - OwnHands는 이미 `ADR-0001`을 통해 `verifier.toml`(`sandbox_mode = "read-only"`)을 정의해 두었다.
-  - 빌드 중 구현자가 자기 코드를 셀프 검증하는 TDD 루프와, 작업 완료 직전 독립된 `verifier`가 `spec.md` 기준선 전량을 역추적 대조하는 2단계 검증 구조로 자연스럽게 연결된다.
+  - 빌드 중 구현자가 자기 코드를 셀프 검증하는 TDD 루프와, 작업 완료 직전 독립된 `verifier`가 `spec.md` 기준선 전량을 역추적 대조하는 2단계 검증 구조로 자연스럽게 연결할 수 있는 기반이 마련되어 있다.
 
 ### Q5. Hooks / Scripts 최소 범위
 - **공식 확인 사실**:
@@ -72,36 +72,38 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
 - **OwnHands에 주는 의미**:
   - M3 단계에서는 무거운 Hook 스크립트를 코드로 짜지 않고, 지침(`AGENTS.md`) 및 `plan.md` 프로토콜 기반의 Thin Harness 원칙을 유지한다. (Zero-Code 원칙 유지)
 
-### Q6. Anthropic Playbook의 Build 단계 원문 분석
-- **공식 확인 사실**:
-  - Playbook은 `spec.md`(What/설계)에서 `plan.md`(How/구현 계획)로 넘어갈 때, 파일별 수정 계획과 테스트 전략을 포함하도록 명시한다.
-  - 구현 중에는 에이전트가 테스트를 직접 실행하여 확인-수정 루프(Feedback Loop)를 돌도록 권장한다.
-- **OwnHands에 주는 의미**:
-  - `spec.md`와 `plan.md`의 책임을 명확히 구분한다:
-    - `spec.md`: "어떤 설계로 무엇을 만족시킬 것인가?" (Requirements, Architecture, Edge Cases, Acceptance Criteria)
-    - `plan.md`: "현재 코드베이스에서 어떤 파일들을 어떤 순서로 수정하고 어떻게 증명할 것인가?" (Files to touch, Bite-sized Tasks, Verification Strategy, Evidence)
+### Q6. Anthropic Playbook의 원문 분석 및 Stage 구분
+- **Anthropic 원문 (Stage 구분)**:
+  - **`Stage 3 — Build`**: `plan mode` ➔ `plan.md` ➔ `implementation` (구현 및 코드 작성).
+  - **`Stage 4 — Test`**: `continuous feedback loop` (작업 중 자동 자기 검증) + `fresh-context verifier` (별도 맥락의 최종 검수).
+- **OwnHands의 재배치 후보**:
+  - OwnHands는 V2-M3을 `Build & Feedback Loop`로 정의하여, 구현 중 self-verification feedback loop(TDD)까지 앞당겨 연결한다.
+  - 독립 Assurance 및 증거의 최종 판정은 V2-M4(`Test & Assurance`)에서 더 깊게 다룬다.
+  - ⚠️ Anthropic 원문의 Stage 정의와 OwnHands 마일스톤의 자체 재배치를 명확히 구분하여 기록한다.
 
 ### Q7. Superpowers 플러그인 분석 및 V1의 교훈
 - **로컬 코드 분석 결과**:
   - Superpowers 플러그인은 14개의 대형 스킬을 포함하고 있으며, 독자적인 경로(`docs/superpowers/plans/`)와 worktree 도구에 강결합되어 있다.
-  - **전량 복사 금지**: 14개 스킬을 그대로 복제하면 Codex의 **10,000 토큰 카탈로그 한도를 즉시 초과**하여 기존 스킬이 탈락하는 치명적 부작용이 발생한다.
-  - **흡수할 3대 황금 원칙 (Golden Principles)**:
+  - **전체 도입 배제**: 14개 Skill 전체 도입은 catalog 크기와 routing 복잡도를 증가시키며, 큰 Skill set에서는 description 축약이나 catalog 누락이 발생할 수 있다. 따라서 OwnHands는 필요한 원칙만 선택적으로 흡수한다.
+  - **검토 대상 핵심 원칙 후보 (Candidates)**:
     1. **`verification-before-completion`의 The Iron Law**:
        > *"NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE"*  
-       (신선한 터미널 검증 실행 증거 없이 완료 주장을 절대 하지 못하게 차단).
-    2. **`writing-plans`의 Bite-sized Task 분해**:
-       작업 단위를 2~5분 크기("실패하는 테스트 작성 ➔ 최소 구현 ➔ 통과 확인 ➔ 커밋")로 쪼개어 에이전트의 컨텍스트 오버헤드와 탈선을 방지.
-    3. **`subagent-driven-development`의 Context 격리**:
-       구현 및 검증 시 불필요한 메인 대화 히스토리를 차단하고 핀포인트 정보만 전달하여 환각 억제.
+       (신선한 터미널 검증 실행 증거 없이 완료 주장을 하지 못하게 차단).
+    2. **`writing-plans`의 Task 분해 패턴**:
+       작업 단위를 "실패하는 테스트 작성 ➔ 최소 구현 ➔ 통과 확인 ➔ 커밋"의 작은 단위로 쪼개는 계획법.
+    3. **`subagent-driven-development`의 Context 격리 원칙**:
+       구현 및 검증 시 불필요한 메인 대화 히스토리를 차단하고 핀포인트 정보만 전달하는 방식.
 - **V1의 교훈**:
   - V1은 검증을 위해 거대한 검증 프레임워크와 러너를 자체 제작하여 배보다 배꼽이 더 커졌다.
   - V2는 플랫폼 네이티브 기능(TUI, CLI, subagent) 위에 가벼운 규약만 얹는 **Thin Harness**를 철저히 고수해야 한다.
 
 ---
 
-## 4. M3 산출물 규격을 위한 권장 설계 (Draft Architecture)
+## 4. M3 산출물 규격을 위한 설계 후보 (Candidate Design)
 
-### 4.1 SDD 기반 Build Feedback Loop 위계
+*주의: 아래 내용은 Research Gate 단계의 검토 후보이며, Step ②(ADR-0007)에서 사용자와 확정한다.*
+
+### 4.1 SDD 기반 Build Feedback Loop 후보 구조
 ```text
 [상위 계약] Spec-Driven Development (spec.md)
    │  • Requirements, Constraints, Edge Cases
@@ -109,25 +111,25 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
    ▼
 [실행 계획] Implementation Plan (docs/v2/specs/<feature>/plan.md)
    │  • 대상 파일 목록 및 책임 경계
-   │  • Bite-sized Tasks (2~5분 단위 분해)
+   │  • 작업 단위 분해 후보
    │  • AC별 Verification Strategy (TDD, 벤치마크, 정적분석, 권한검사 등)
    ▼
 [단위 루프] Build Feedback Loop
    │  • TDD (Red 실패 확인 ➔ Green 구현 ➔ Refactor)
-   │  • The Iron Law: 신선한 실행 증거(Fresh Evidence) 확보
+   │  • Fresh Verification Evidence 원칙
    ▼
 [독립 판정] Verifier Subagent Gate
       • spec.md의 AC 체크리스트와 Evidence 역추적 대조
       • PASS / FAIL / UNKNOWN 엄격 판정
 ```
 
-### 4.2 Acceptance Criteria 추적성 규칙
-- **금지**: "AC 하나당 테스트 함수 하나 1:1 강제 매핑" (과도한 프로세스 경직성 및 구현 형태 고정 안티패턴).
-- **채택**: "모든 AC는 최소 하나 이상의 Verification Strategy 및 Evidence에 유연하게 추적 가능해야 한다" (1:N, N:1 허용).
-- **계약-구현 분리**: 계약(AC)은 강하게 검증하고, 구현 형태(특정 함수명, 코드 구조)는 느슨하게 검증한다.
+### 4.2 Acceptance Criteria 추적성 후보 규칙
+- **금지 후보**: "AC 하나당 테스트 함수 하나 1:1 강제 매핑" (과도한 프로세스 경직성 및 구현 형태 고정 안티패턴).
+- **채택 후보**: "모든 AC는 최소 하나 이상의 Verification Strategy 및 Evidence에 유연하게 추적 가능해야 한다" (1:N, N:1 허용).
+- **계약-구현 분리 원칙**: 계약(AC)은 강하게 검증하고, 구현 형태(특정 함수명, 코드 구조)는 느슨하게 검증한다.
 
-### 4.3 Versioned Baseline 원칙
-- 스펙은 불변(immutable)이 아니라 버전 관리되는 기준선(Baseline)이다.
+### 4.3 Versioned Baseline 원칙 후보
+- 스펙은 불변(immutable)이 아니라 버전 관리되는 기준선(Baseline)으로 취급한다.
 - 구현 중 숨겨진 모순이나 새 제약이 드러나면 몰래 테스트 기준을 낮추지 않고, **`spec.md` 수정 ➔ 사람 승인 ➔ `plan.md`/테스트 재정렬** 흐름을 거친다.
 
 ---
@@ -140,13 +142,18 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
 | **코드 리뷰** | Codex `/review` dedicated reviewer | PR 전담 `reviewer` Subagent 호출 지침 연계 |
 | **작업 격리** | Codex `/worktree` | 필요 시 worktree 분리 안내 |
 | **프레임워크** | 무거운 범용 SDD Engine / 독자 CLI 러너 개발 배제 | 마크다운 기반 얇은 계약(Thin Contract) 유지 |
-| **플러그인** | Superpowers 14개 스킬 일괄 복제 배제 (토큰 천장 보호) | 3대 핵심 원칙(Iron Law, Task 분해, Context 격리)만 지침으로 흡수 |
+| **플러그인** | Superpowers 14개 스킬 일괄 복제 배제 | 필요한 핵심 원칙(Fresh Evidence, Task 분해, Context 격리)만 선택적 흡수 |
 
 ---
 
-## 6. 결론 및 다음 단계
+## 6. 결론 및 M3 설계 후보 요약
 
 Codex는 계획(`/plan`), 장기 목표(`/goal`), 리뷰(`/review`), 격리(`/worktree`)를 이미 네이티브로 제공하고 있다.  
-따라서 OwnHands V2-M3는 거대한 빌드 시스템을 새로 만들지 않고, **Superpowers의 3대 철칙(Iron Law, Task 분해, Context 격리)을 흡수한 가벼운 `plan.md` 규약과 TDD 피드백 루프**를 정립하는 것으로 충분하다.
+따라서 OwnHands V2-M3는 거대한 빌드 시스템을 새로 만들지 않고, 다음 **4대 설계 후보**를 Step ②에서 확정하는 방향으로 좁힌다:
 
-- **다음 단계**: Step ① 조사 결과를 PR로 제출하고, 승인 후 **Step ② `plan.md` 아티팩트 정식 규격 제정(ADR-0007)**으로 진입한다.
+1. **Fresh verification evidence**: 완료 선언 전 신선한 실행 증거 필수 확보.
+2. **작은 task decomposition**: AC를 실행 가능한 작은 단위 작업으로 분해.
+3. **Context isolation**: 구현/검증 시 독립된 subagent 컨텍스트 활용.
+4. **SDD > Verification Strategy > TDD**: 스펙이 상위 계약을 정의하고 TDD를 핵심 단위 루프로 배치.
+
+- **다음 단계**: Step ① 조사 결과를 PR(#122)로 검토·머지한 후, **Step ② `plan.md` 아티팩트 정식 규격 제정(ADR-0007)**에서 위 후보들을 정식 확정한다.
