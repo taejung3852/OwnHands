@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ADR-0007 승인 가이드: 태정 님이 확인할 3가지 결정 포인트</title>
+  <title>ADR-0007 확정 구조: SDD 기반 Build Feedback Loop</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
-      background-color: #fbf9f5;
+      background-color: #f7f6f2;
       color: #1c1917;
-      line-height: 1.5;
+      line-height: 1.4;
       padding: 40px 20px 80px;
       display: flex;
       flex-direction: column;
@@ -22,386 +22,404 @@
     }
     header {
       text-align: center;
-      margin-bottom: 36px;
+      margin-bottom: 32px;
     }
     .badge-status {
       display: inline-block;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 14px;
       border-radius: 9999px;
-      background: #fef3c7;
-      color: #92400e;
+      background: #dcfce7;
+      color: #15803d;
       margin-bottom: 12px;
-      letter-spacing: -0.2px;
+      border: 1px solid #bbf7d0;
     }
     h1 {
-      font-size: 25px;
-      font-weight: 800;
-      color: #1c1917;
+      font-size: 26px;
+      font-weight: 900;
+      color: #0c0a09;
       letter-spacing: -0.5px;
-      margin-bottom: 8px;
-      line-height: 1.3;
+      margin-bottom: 6px;
     }
     p.subtitle {
       font-size: 15px;
       color: #78716c;
-      font-weight: 500;
+      font-weight: 600;
     }
 
-    /* 카드 공통 */
+    /* 카드 */
     .card {
       background: #ffffff;
       border-radius: 24px;
-      padding: 28px 24px;
-      margin-bottom: 22px;
-      border: 1px solid rgba(0, 0, 0, 0.05);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+      padding: 26px 22px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
     }
-    .step-header {
+    .card-header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 10px;
+      margin-bottom: 18px;
     }
     .step-badge {
-      width: 28px;
-      height: 28px;
-      background-color: #1c1917;
+      width: 30px;
+      height: 30px;
+      background-color: #0c0a09;
       color: #ffffff;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
-      font-weight: 800;
+      font-size: 14px;
+      font-weight: 900;
       flex-shrink: 0;
     }
-    .step-title {
-      font-size: 17px;
+    .card-title {
+      font-size: 18px;
       font-weight: 800;
-      color: #1c1917;
+      color: #0c0a09;
       letter-spacing: -0.3px;
     }
-    .card-summary {
-      font-size: 14px;
-      color: #57534e;
-      margin-bottom: 20px;
-      line-height: 1.6;
-    }
 
-    /* 시각 컴포넌트 */
-    .visual-box {
-      background: #f5f5f4;
-      border-radius: 16px;
-      padding: 18px 16px;
-      margin-bottom: 16px;
-    }
-
-    .chain-flow {
+    /* 시각 노드 */
+    .flow-grid {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 6px;
+      gap: 8px;
+      background: #f5f5f4;
+      border-radius: 18px;
+      padding: 18px 12px;
     }
-    .chain-node {
+    .flow-node {
       background: #ffffff;
-      border: 1px solid #e7e5e4;
-      border-radius: 12px;
-      padding: 10px 8px;
+      border: 2px solid #e7e5e4;
+      border-radius: 14px;
+      padding: 12px 6px;
       text-align: center;
       flex: 1;
-      font-size: 12px;
-      font-weight: 700;
-      color: #292524;
     }
-    .chain-node.highlight {
+    .flow-node.active {
       background: #eff6ff;
-      border-color: #3b82f6;
-      color: #1d4ed8;
-      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+      border-color: #2563eb;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
     }
-    .chain-arrow {
-      color: #a8a29e;
-      font-weight: 900;
-      font-size: 13px;
+    .node-icon { font-size: 20px; margin-bottom: 4px; }
+    .node-title { font-size: 13px; font-weight: 800; color: #0c0a09; }
+    .node-tag {
+      font-size: 10px;
+      font-weight: 700;
+      color: #64748b;
+      margin-top: 2px;
+      display: inline-block;
+      padding: 1px 6px;
+      background: #f1f5f9;
+      border-radius: 4px;
     }
+    .flow-arrow { font-size: 16px; font-weight: 900; color: #a8a29e; }
 
-    /* 대비 그리드 */
-    .compare-grid {
+    /* 대비 박스 */
+    .vs-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 12px;
     }
-    .compare-item {
+    .vs-box {
+      border-radius: 16px;
+      padding: 16px 14px;
+    }
+    .vs-box.ban {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+    }
+    .vs-box.allow {
+      background: #f0fdf4;
+      border: 1.5px solid #bbf7d0;
+    }
+    .vs-title {
+      font-size: 13px;
+      font-weight: 900;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .vs-box.ban .vs-title { color: #dc2626; }
+    .vs-box.allow .vs-title { color: #16a34a; }
+
+    .chip-list { display: flex; flex-direction: column; gap: 6px; }
+    .chip {
       background: #ffffff;
-      border-radius: 12px;
-      padding: 12px;
-      border: 1px solid #e7e5e4;
+      padding: 8px 10px;
+      border-radius: 8px;
       font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     }
-    .compare-item.ban {
-      border-left: 4px solid #ef4444;
-    }
-    .compare-item.allow {
-      border-left: 4px solid #10b981;
-    }
-    .compare-item strong {
-      display: block;
-      margin-bottom: 4px;
-      font-size: 13px;
-    }
-    .compare-item.ban strong { color: #b91c1c; }
-    .compare-item.allow strong { color: #047857; }
+    .chip.danger { color: #991b1b; border-left: 3px solid #ef4444; }
+    .chip.success { color: #166534; border-left: 3px solid #22c55e; }
 
-    /* 결정 가이드 박스 */
-    .decision-callout {
-      background: #fafaf9;
-      border-left: 3px solid #1c1917;
-      padding: 10px 14px;
-      border-radius: 0 10px 10px 0;
-      font-size: 13px;
-      color: #292524;
+    /* Verifier 역할 분리 시각화 */
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 10px;
+      align-items: center;
+      background: #f5f5f4;
+      border-radius: 18px;
+      padding: 16px 12px;
     }
-    .decision-callout strong {
-      color: #1c1917;
+    .role-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 14px 10px;
+      text-align: center;
+      border: 1.5px solid #e7e5e4;
     }
+    .role-card.builder { border-color: #3b82f6; }
+    .role-card.verifier { border-color: #a855f7; }
+    .role-icon { font-size: 24px; margin-bottom: 4px; }
+    .role-name { font-size: 14px; font-weight: 900; color: #0c0a09; }
+    .role-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      margin: 4px 0 8px;
+    }
+    .role-badge.write { background: #dbeafe; color: #1d4ed8; }
+    .role-badge.readonly { background: #f3e8ff; color: #7e22ce; }
+    .role-task { font-size: 11px; font-weight: 700; color: #57534e; }
 
-    /* 퀴즈 박스 */
+    /* 판정 뱃지 */
+    .verdict-bar {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+    .verdict-tag {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 6px;
+    }
+    .verdict-tag.pass { background: #dcfce7; color: #15803d; }
+    .verdict-tag.fail { background: #fee2e2; color: #b91c1c; }
+    .verdict-tag.unobserved { background: #f3f4f6; color: #4b5563; }
+
+    /* 퀴즈 */
     .quiz-card {
       background: #ffffff;
       border-radius: 20px;
-      padding: 22px;
-      margin-bottom: 22px;
-      border: 1px solid rgba(0, 0, 0, 0.05);
-    }
-    .quiz-title {
-      font-size: 15px;
-      font-weight: 800;
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
     }
     details.quiz-item {
       background: #f5f5f4;
       border-radius: 12px;
       padding: 12px 14px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       font-size: 13px;
     }
     details.quiz-item summary {
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      user-select: none;
     }
     details.quiz-item summary::-webkit-details-marker { display: none; }
     .quiz-btn {
       font-size: 11px;
-      background: #1c1917;
+      background: #0c0a09;
       color: #fff;
       padding: 2px 8px;
       border-radius: 6px;
-      font-weight: 600;
+      font-weight: 700;
     }
     .quiz-answer {
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px dashed #d6d3d1;
-      color: #44403c;
-      line-height: 1.5;
+      color: #292524;
+      font-size: 12px;
+      font-weight: 600;
     }
 
-    /* 접힌 기술 상세 */
+    /* 접힌 기술 정보 */
     details.tech-details {
       background: #ffffff;
       border-radius: 16px;
-      padding: 18px 20px;
+      padding: 14px 18px;
       border: 1px solid rgba(0, 0, 0, 0.05);
-      font-size: 13px;
-      color: #44403c;
+      font-size: 12px;
+      color: #57534e;
     }
     details.tech-details summary {
-      font-weight: 700;
-      color: #78716c;
+      font-weight: 800;
       cursor: pointer;
-      margin-bottom: 10px;
-    }
-    details.tech-details ul {
-      padding-left: 18px;
-      margin-top: 8px;
-    }
-    details.tech-details li {
-      margin-bottom: 6px;
+      color: #78716c;
     }
     .footer-link {
       text-align: center;
-      margin-top: 24px;
+      margin-top: 20px;
       font-size: 12px;
       color: #a8a29e;
     }
-    .footer-link a {
-      color: #78716c;
-      text-decoration: underline;
-    }
+    .footer-link a { color: #78716c; text-decoration: underline; }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <div class="badge-status" style="background: #dcfce7; color: #166534;">합의 및 승인 완료 • 상태: Accepted</div>
-      <h1>ADR-0007 확정:<br/>SDD 기반 Build Feedback Loop의 핵심 구조</h1>
-      <p class="subtitle">태정 님 합의 완료: 영구 plan.md, ISTQB 테스팅 및 회귀 방어선, 신선한 증거</p>
+      <div class="badge-status">태정 님 합의 완료 • Accepted</div>
+      <h1>ADR-0007: SDD & Build Feedback Loop</h1>
+      <p class="subtitle">영구 감사 체인 • ISTQB 회귀 방어선 • 신선한 증거</p>
     </header>
 
-    <!-- 스토리 카드 1 -->
+    <!-- 카드 1: 영구 3단계 감사 체인 -->
     <section class="card">
-      <div class="step-header">
+      <div class="card-header">
         <div class="step-badge">1</div>
-        <h2 class="step-title">plan.md를 Git에 영구 보존할 것인가?</h2>
+        <h2 class="card-title">3단계 영구 Git 감사 체인</h2>
       </div>
-      <p class="card-summary">
-        Codex의 <code>/plan</code> 모드는 세션이 끝나면 사라집니다. 구현 변경의 이유와 단위 검증 내역을 프로젝트의 영구 Git 이력으로 남길지 결정합니다.
-      </p>
 
-      <div class="visual-box">
-        <div class="chain-flow">
-          <div class="chain-node">
-            <div>intent.md</div>
-            <span style="font-size: 10px; color: #78716c;">의도 (Why)</span>
-          </div>
-          <div class="chain-arrow">➔</div>
-          <div class="chain-node">
-            <div>spec.md</div>
-            <span style="font-size: 10px; color: #78716c;">설계 (What)</span>
-          </div>
-          <div class="chain-arrow">➔</div>
-          <div class="chain-node highlight">
-            <div>plan.md</div>
-            <span style="font-size: 10px; color: #1d4ed8;">실행 계획 (How)</span>
-          </div>
-          <div class="chain-arrow">➔</div>
-          <div class="chain-node">
-            <div>Code / Commit</div>
-            <span style="font-size: 10px; color: #78716c;">동작 검증</span>
-          </div>
+      <div class="flow-grid">
+        <div class="flow-node">
+          <div class="node-icon">🎯</div>
+          <div class="node-title">intent.md</div>
+          <div class="node-tag">Why • 의도/경계</div>
         </div>
-      </div>
-
-      <div class="decision-callout">
-        <strong>💡 태정 님의 확인 사항:</strong> <code>docs/v2/specs/&lt;feature&gt;/plan.md</code>에 영구 저장하여 "의도 ➔ 설계 ➔ 실행 ➔ 검증"의 3단계 감사 체인을 구축하는 것에 동의하십니까?
+        <div class="flow-arrow">➔</div>
+        <div class="flow-node">
+          <div class="node-icon">📐</div>
+          <div class="node-title">spec.md</div>
+          <div class="node-tag">What • AC/인터페이스</div>
+        </div>
+        <div class="flow-arrow">➔</div>
+        <div class="flow-node active">
+          <div class="node-icon">📋</div>
+          <div class="node-title">plan.md</div>
+          <div class="node-tag">How • 단위분해/추적</div>
+        </div>
+        <div class="flow-arrow">➔</div>
+        <div class="flow-node">
+          <div class="node-icon">🛡️</div>
+          <div class="node-title">Evidence</div>
+          <div class="node-tag">Result • 검증증거</div>
+        </div>
       </div>
     </section>
 
-    <!-- 스토리 카드 2 -->
+    <!-- 카드 2: AI 회귀 참사 vs 3대 방어선 -->
     <section class="card">
-      <div class="step-header">
+      <div class="card-header">
         <div class="step-badge">2</div>
-        <h2 class="step-title">ISTQB 테스팅 표준 & 회귀 방어선 (Regression Gate)</h2>
+        <h2 class="card-title">AI 회귀 참사 vs 3대 방어선 (ISTQB)</h2>
       </div>
-      <p class="card-summary">
-        TDD는 내 기능만 볼 뿐 다른 팀원의 코드가 깨졌는지 모릅니다. ISTQB CTFL 표준(동등분할/경계값 분석, 양방향 추적성)과 <strong>전체 회귀 테스트 게이트</strong>를 통해 AI의 공통 모듈 파괴와 테스트 임의 조작을 원천 차단합니다.
-      </p>
 
-      <div class="visual-box">
-        <div class="compare-grid">
-          <div class="compare-item ban">
-            <strong>❌ AI의 3대 회귀 참사</strong>
-            1. 공통 모듈 시그니처 무단 변경<br/>
-            2. 남의 테스트 코드 임의 수정/삭제<br/>
-            3. Target 외 무단 파일 수정
+      <div class="vs-grid">
+        <div class="vs-box ban">
+          <div class="vs-title">❌ AI의 3대 회귀 참사</div>
+          <div class="chip-list">
+            <div class="chip danger">공통 모듈 오염 (타 기능 파괴)</div>
+            <div class="chip danger">남의 테스트 수정/삭제 (은폐)</div>
+            <div class="chip danger">무단 파일 수정 (Blast Radius)</div>
           </div>
-          <div class="compare-item allow">
-            <strong>✅ OwnHands의 3대 방어선</strong>
-            1. Final Regression Gate (풀 테스트)<br/>
-            2. No Test Tampering (기존 테스트 불변)<br/>
-            3. Blast Radius Guard (대상 파일 통제)
+        </div>
+
+        <div class="vs-box allow">
+          <div class="vs-title">✅ OwnHands 3대 방어선</div>
+          <div class="chip-list">
+            <div class="chip success">Final Regression Gate (풀 테스트)</div>
+            <div class="chip success">No Test Tampering (기존 테스트 불변)</div>
+            <div class="chip success">Blast Radius Guard (선언 파일만)</div>
           </div>
         </div>
       </div>
 
-      <div class="decision-callout">
-        <strong>💡 확정된 규칙:</strong> 기존 테스트가 존재할 때는 전체 회귀 테스트 필수 실행! 기존 테스트가 없는 레거시/신규 환경에서는 <em>Target Files 통제 + 전체 빌드/린트 무에러 통과</em>를 대체 증거로 제출합니다.
+      <div style="margin-top: 12px; font-size: 11px; color: #78716c; text-align: center; font-weight: 700;">
+        ⚠️ 기존 테스트 부재 시: <code>Target Files 엄격 통제</code> + <code>전체 빌드/린트 무에러</code> 증거 제출
       </div>
     </section>
 
-    <!-- 스토리 카드 3 -->
+    <!-- 카드 3: Builder vs Verifier 경계 -->
     <section class="card">
-      <div class="step-header">
+      <div class="card-header">
         <div class="step-badge">3</div>
-        <h2 class="step-title">Fresh Evidence의 범위와 Verifier의 경계</h2>
+        <h2 class="card-title">Builder와 Verifier의 명확한 경계</h2>
       </div>
-      <p class="card-summary">
-        신선한 증거는 "터미널 명령"에만 갇히지 않으며, read-only 권한의 Verifier는 직접 테스트를 돌리기보다 독립 맥락에서 AC와 증거를 역추적 대조하는 역할로 한정합니다.
-      </p>
 
-      <div class="visual-box">
-        <div class="chain-flow" style="margin-bottom: 10px;">
-          <div class="chain-node" style="flex: 1.2;">
-            <div>🔨 Builder Agent</div>
-            <span style="font-size: 10px; color: #16a34a;">구현 + 신선한 증거 생성</span>
-          </div>
-          <div class="chain-arrow">➔</div>
-          <div class="chain-node" style="flex: 1.2; background: #faf5ff; border-color: #a855f7;">
-            <div>🛡️ Verifier Subagent</div>
-            <span style="font-size: 10px; color: #7e22ce;">read-only 역추적 대조</span>
-          </div>
+      <div class="role-grid">
+        <div class="role-card builder">
+          <div class="role-icon">🔨</div>
+          <div class="role-name">Builder</div>
+          <span class="role-badge write">workspace-write</span>
+          <div class="role-task">구현 + Fresh Evidence 생성</div>
         </div>
-        <div style="font-size: 11px; color: #78716c; text-align: center;">
-          판정: <strong>PASS / FAIL / UNOBSERVED</strong> (테스트 재실행 권한은 M4에서 실측)
+
+        <div class="flow-arrow">대조➔</div>
+
+        <div class="role-card verifier">
+          <div class="role-icon">⚖️</div>
+          <div class="role-name">Verifier</div>
+          <span class="role-badge readonly">read-only</span>
+          <div class="role-task">AC vs 증거 독립 역추적 판정</div>
         </div>
       </div>
 
-      <div class="decision-callout">
-        <strong>💡 태정 님의 확인 사항:</strong> Fresh Evidence를 "직접 관측된 최신 증거(테스트 출력, 스크린샷, 린트 결과 등)"로 넓히고, Verifier는 증거 재실행자가 아닌 독립 대조자로 두는 경계에 동의하십니까?
+      <div class="verdict-bar">
+        <span class="verdict-tag pass">PASS</span>
+        <span class="verdict-tag fail">FAIL</span>
+        <span class="verdict-tag unobserved">UNOBSERVED</span>
       </div>
     </section>
 
     <!-- 3초 퀴즈 -->
     <section class="quiz-card">
-      <div class="quiz-title">
-        <span>⚡ 3초 자가 점검 퀴즈</span>
-      </div>
+      <div style="font-size: 14px; font-weight: 900; margin-bottom: 10px;">⚡ 3초 점검 퀴즈</div>
 
       <details class="quiz-item">
         <summary>
-          <span>Q1. plan.md의 모든 Task는 '실패하는 테스트(Red)'를 반드시 포함해야 할까?</span>
+          <span>Q1. 기존 테스트가 아예 없는 프로젝트는 회귀 테스트를 어떻게 방어할까?</span>
           <span class="quiz-btn">정답 확인</span>
         </summary>
         <div class="quiz-answer">
-          <strong>정답: 아닙니다 (X).</strong><br/>
-          API나 비즈니스 로직에는 TDD(Red-Green)가 필수적이지만, 환경설정, 문서, 린트, 권한 검사, UI 렌더링 같은 Task는 해당 성격에 맞는 Verification Strategy(정적 분석, 빌드 확인, 렌더링 관측 등)를 유연하게 적용합니다.
+          <strong>A:</strong> Target Files 외 무단 수정 절대 금지(Blast Radius Guard) + 전체 빌드(`build`) 및 린트(`lint`) 무에러 통과를 대체 증거로 요구합니다.
         </div>
       </details>
 
       <details class="quiz-item">
         <summary>
-          <span>Q2. Fresh Evidence의 핵심 요건은 '터미널 콘솔 출력'인가?</span>
+          <span>Q2. TDD만 돌리면 다른 팀원의 기존 기능이 안전할까?</span>
           <span class="quiz-btn">정답 확인</span>
         </summary>
         <div class="quiz-answer">
-          <strong>정답: 아닙니다 (X).</strong><br/>
-          터미널 여부가 핵심이 아니라 <em>"현재 변경에 대해 직접 관측했고, 과거 로그를 재탕하지 않은 신선한 증거이며, AC의 통과를 실제로 입증하는가"</em>가 핵심입니다. 브라우저 스크린샷, 린트 무에러 출력, 벤치마크 수치도 모두 유효한 Evidence입니다.
+          <strong>A: 아닙니다.</strong> TDD는 현재 파일의 단위 테스트만 돌리므로, 완료 직전 <strong>전체 회귀 테스트 스위트 풀 실행(Final Regression Gate)</strong>이 반드시 필요합니다.
         </div>
       </details>
     </section>
 
     <!-- 접힌 기술 세부 사항 -->
     <details class="tech-details">
-      <summary>🔍 핸드오프 검수 배경 및 엔지니어링 정합화 내역</summary>
-      <ul>
-        <li><strong>Blocker 1 (승격 상태 정합화)</strong>: 사용자 최종 확인 전에는 ADR-0007을 <code>Accepted</code>가 아닌 <code>Proposed</code>로 유지하며, <code>decisions.md</code>의 확정 표 반영을 보류합니다.</li>
-        <li><strong>Blocker 2 (TDD 템플릿 강제 해소)</strong>: <code>plan.md</code> 템플릿의 Task 정의를 "작은 변경 단위 ➔ 해당 Task에 적합한 Verification 수행 ➔ Evidence 확인"으로 일반화하고, TDD는 전략이 단위테스트인 Task에만 한정 적용합니다.</li>
-        <li><strong>Blocker 3 (Fresh Evidence 정의 복원)</strong>: PR #122의 합의에 맞춰 터미널 로그로 축소된 표현을 관측 가능한 직접 증거(Fresh Evidence) 전반으로 복원합니다.</li>
-        <li><strong>Important (Verifier 권한 경계)</strong>: <code>verifier.toml</code>의 <code>sandbox_mode = "read-only"</code> 특성상 명령 실행이 제한되므로, M3에서는 "증거 생성은 Builder, 독립 역추적 대조는 Verifier"로 경계를 정의하고 재실행 권한은 M4 실측 과제로 넘깁니다.</li>
+      <summary>🔍 세부 아티팩트 링크 및 마일스톤</summary>
+      <ul style="padding-left: 16px; margin-top: 8px; line-height: 1.6;">
+        <li><strong>ADR-0007</strong>: <code>docs/v2/adr/0007-plan-artifact-and-build-feedback-loop.md</code></li>
+        <li><strong>PR</strong>: <a href="https://github.com/taejung3852/OwnHands/pull/124" target="_blank">taejung3852/OwnHands#124</a> • <strong>Issue</strong>: #123</li>
+        <li><strong>ISTQB CTFL</strong>: 동등 분할, 경계값 분석, 양방향 추적성, 회귀 테스팅 명문화.</li>
       </ul>
     </details>
 
     <div class="footer-link">
-      <p>관련 PR: <a href="https://github.com/taejung3852/OwnHands/pull/124" target="_blank">taejung3852/OwnHands#124</a> • 관련 이슈: <a href="https://github.com/taejung3852/OwnHands/issues/123" target="_blank">#123</a></p>
+      <p>OwnHands V2-M3 • Build & Feedback Loop</p>
     </div>
   </div>
 </body>
