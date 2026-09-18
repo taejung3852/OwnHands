@@ -1,6 +1,6 @@
 # ADR-0007 — plan.md 아티팩트 규격과 SDD 기반 Build Feedback Loop
 
-- **상태:** Proposed — 검토 대기 (PR #124)
+- **상태:** Accepted — 사용자 합의
 - **일자:** 2026-09-19
 - **관련 Issue:** [#123](https://github.com/taejung3852/OwnHands/issues/123) (선행: [#121 Research Gate](https://github.com/taejung3852/OwnHands/issues/121))
 - **관련 PR:** [#122](https://github.com/taejung3852/OwnHands/pull/122), [#124](https://github.com/taejung3852/OwnHands/pull/124)
@@ -34,7 +34,7 @@
 
 ## 2. Decision (결정)
 
-OwnHands는 V2-M3(`Build & Feedback Loop`)의 실행 규약으로 **`plan.md` 아티팩트 정식 규격**과 **SDD 기반 Build Feedback Loop 6대 원칙**을 제안(Proposed)하고 확정 절차를 밟는다.
+OwnHands는 V2-M3(`Build & Feedback Loop`)의 실행 규약으로 **`plan.md` 아티팩트 정식 규격**과 **SDD 기반 Build Feedback Loop 6대 원칙**을 확정한다.
 
 ### 2.1 저장 위치 및 생명주기
 
