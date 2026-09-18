@@ -69,9 +69,10 @@ OwnHands의 개발 원칙에 따라, 구현에 착수하기 전 **Codex 최신 �
 
 ### Q5. Hooks / Scripts 최소 범위
 - **공식 확인 사실**:
-  - Codex의 hook 이벤트(`PreToolUse`, `PostToolUse` 등)가 존재하나, 복잡한 런타임 스크립트를 지금 작성하면 유지보수 부담이 커진다.
+  - Codex는 `PreToolUse`, `PostToolUse` 등의 hook 이벤트를 제공한다.
 - **OwnHands에 주는 의미**:
-  - M3 단계에서는 복잡한 런타임 Hook 스크립트를 직접 개발하지 않고, 플랫폼 기본 제공 기능 및 지침 프로토콜 기반으로 검증 루프를 연결한다.
+  - 복잡한 런타임 Hook 스크립트는 현재 유지보수 비용 대비 필요성이 확인되지 않았다.
+  - M3에서는 이를 직접 개발하지 않고, 플랫폼 기본 제공 기능 및 지침 프로토콜 기반으로 검증 루프를 연결한다.
 
 ### Q6. Anthropic Playbook의 원문 분석 및 Stage 구분
 - **Anthropic 원문 (Stage 정의 및 책임 구분)**:
