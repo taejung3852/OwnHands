@@ -21,7 +21,7 @@
 | 🚧 미구현 | V2에서 아직 만들지 않았다. |
 | 📦 V1 구현 기록 있음 | V1에 구현·검증 기록이 있으나 **V2로 자동 승계되지 않는다.** |
 
-> **2026-09-18 기준 V2에 존재하는 실행 자산은 Skill 2개(`write-issue-pr`·`explain`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
+> **2026-09-18 기준 V2에 존재하는 실행 자산은 Skill 3개(`write-issue-pr`·`explain`·`grill-spec`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
 > 그 외 제품 기능은 🚧 미구현이다. 이 문서는 방향 문서이지 완료 보고가 아니다.
 
 ---
@@ -49,7 +49,7 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **이름과 개수** | `write-issue-pr`과 `explain` **2개**로 시작한다. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
+| **이름과 개수** | `write-issue-pr`, `explain`, `grill-spec` **3개**. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
 | **배치** | `.agents/skills/` — Codex REPO scope 탐색 경로다. V1의 `skills/`는 이 경로가 아니었다. | ✅ |
 | **판단 축** (공식) | 공식이 제시하는 축은 셋이다 — *"Split workflows when they have different **triggers, inputs, or success criteria**."* **`or`다.** 셋 중 **하나만 달라도** 공식 기준으로는 분할 근거가 된다. | — |
 | **분할 게이트** (OwnHands) | **공식보다 엄격하게 쓴다.** 세 축이 **모두** 뚜렷하게 다를 때만 새 Skill 후보로 본다. 근거는 10,000 토큰 천장과 description 상호 모순 위험이며, **공식이 요구하는 것이 아니라 우리가 과분할을 막으려고 좁힌 것이다.** | — |
@@ -142,7 +142,7 @@
 | **다른 Vendor 지원** | adapter로 할지, 같은 저장소로 할지, 별도 저장소로 할지 **미정**. | ⏳ |
 | **공통 추상화** | 두 번째 플랫폼의 **실제 필요를 확인하기 전에** 범용 adapter나 공통 실행 엔진을 확정하지 않는다. | ⏳ |
 | **Artifact 형식** | `intent.md`·`spec.md` 저장 경로와 필수 규격은 확정(✅ [ADR-0004](adr/0004-intent-spec-specification.md)). `plan.md` 규격은 ⏳ M3, 메타데이터 및 자동화 규칙은 ⏳ 후속 결정. | ✅ / ⏳ |
-| **Eval 상세** | 초기 작은 Eval 2종(`0001`, `0002`) 및 가이드(`evals/README.md`) 수립 완료. 자동화 지표·러너 확장은 M5 연계. | [#106](https://github.com/taejung3852/OwnHands/issues/106) |
+| **Eval 상세** | 초기 작은 Eval 4종(`0001`~`0004`) 및 가이드(`evals/README.md`) 수립 완료. 자동화 지표·러너 확장은 M5 연계. | [#106](https://github.com/taejung3852/OwnHands/issues/106) |
 | **Hooks 상세** | 적용 역할은 논의했으나 구체 이벤트·규칙·권한·구현은 후속 설계. | [#102](https://github.com/taejung3852/OwnHands/issues/102) |
 | **마일스톤 내부 설계** | 이름·수·순서는 승인·등록됐다. 각 단계의 **내부 설계와 경계 조정**은 해당 이슈에서 정한다. | [#101](https://github.com/taejung3852/OwnHands/issues/101) |
 | **개발 속도** | 공식 기능을 활용하면 더 빨라질 것으로 **기대**한다. 이미 시간을 절감했다고 쓰지 않는다. | — |
