@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>지금 우리 어디까지 왔나? (V2 현황)</title>
+  <title>지금 상황과 앞으로의 할 일 (V2-M2 현황)</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -32,7 +32,7 @@
       margin-bottom: 8px;
     }
     p.subtitle {
-      font-size: 16px;
+      font-size: 15px;
       color: #78716c;
       font-weight: 500;
     }
@@ -69,66 +69,83 @@
     .card-desc {
       font-size: 14px;
       color: #78716c;
-      margin-bottom: 22px;
+      margin-bottom: 20px;
     }
 
-    /* 카드 1 시각 요소: 자산 요약 */
-    .assets-grid {
+    /* 카드 1: 지금 확정한 아티팩트 이원화 */
+    .spec-split-box {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       justify-content: center;
       flex-wrap: wrap;
     }
-    .asset-pill {
+    .spec-col {
       flex: 1;
-      min-width: 130px;
-      padding: 16px 12px;
+      min-width: 180px;
+      padding: 16px 14px;
       border-radius: 16px;
-      text-align: center;
+      border: 1px solid rgba(0,0,0,0.06);
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
-    .pill-blue { background: #e0f2fe; }
-    .pill-green { background: #dcfce7; }
-    .pill-yellow { background: #fef3c7; }
-    .asset-title { font-size: 14px; font-weight: 800; color: #1c1917; }
-    .asset-sub { font-size: 12px; color: #44403c; font-weight: 600; }
+    .col-intent { background: #f0fdf4; border-color: #bbf7d0; }
+    .col-spec { background: #eff6ff; border-color: #bfdbfe; }
+    .col-tag {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      width: fit-content;
+      text-transform: uppercase;
+    }
+    .tag-intent { background: #dcfce7; color: #15803d; }
+    .tag-spec { background: #dbeafe; color: #1d4ed8; }
+    .col-title { font-size: 15px; font-weight: 800; color: #1c1917; }
+    .col-points { font-size: 12px; color: #44403c; line-height: 1.6; }
 
-    /* 카드 2 시각 요소: 연속 검증 */
-    .eval-row {
+    /* 카드 2: 4단계 파이프라인 */
+    .pipeline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .pipeline-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #fafaf9;
-      border-radius: 18px;
-      padding: 16px 20px;
-      gap: 12px;
-    }
-    .eval-badge {
+      padding: 12px 16px;
+      border-radius: 14px;
       font-size: 13px;
       font-weight: 700;
-      color: #059669;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
+    .item-done { background: #f4fdf7; color: #166534; border: 1px solid #bbf7d0; }
+    .item-current { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; box-shadow: 0 2px 8px rgba(245,158,11,0.1); }
+    .item-next { background: #fafaf9; color: #78716c; border: 1px solid #f5f5f4; }
+    .status-pill {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 99px;
+      font-weight: 800;
+    }
+    .pill-done { background: #dcfce7; color: #15803d; }
+    .pill-current { background: #fef3c7; color: #b45309; }
+    .pill-next { background: #e7e5e4; color: #78716c; }
 
-    /* 카드 3 시각 요소: 다음 경로 */
-    .next-box {
+    /* 카드 3: 실행 원칙과 다음 행동 */
+    .action-banner {
       background: #f0fdf4;
       border: 1px solid #4ade80;
       border-radius: 18px;
-      padding: 18px;
+      padding: 18px 20px;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 6px;
     }
-    .next-title { font-size: 15px; font-weight: 800; color: #166534; }
-    .next-desc { font-size: 13px; color: #15803d; font-weight: 600; }
+    .action-title { font-size: 15px; font-weight: 800; color: #166534; }
+    .action-desc { font-size: 13px; color: #15803d; font-weight: 600; }
 
     /* 퀴즈 아코디언 */
     details.quiz-item {
@@ -211,30 +228,36 @@
   <div class="container">
     <header>
       <h1>지금 우리 어디까지 왔나? (V2 현황)</h1>
-      <p class="subtitle">V2-M1의 핵심 기둥(지침, 스킬, 서브에이전트, 작은 Eval)이 모두 메인에 안착했습니다.</p>
+      <p class="subtitle">V2-M2(Plan & Design)의 핵심 산출물 규격이 정립되었고, 다음 검증을 준비합니다.</p>
     </header>
 
     <!-- STEP 1 -->
     <div class="card">
       <div class="step-badge">1</div>
-      <div class="card-title">기초 실행 자산 3종 구축 완료</div>
-      <div class="card-desc">Codex REPO scope에 꼭 필요한 도구와 위임 경계만 미니멀하게 세웠습니다.</div>
+      <div class="card-title">의도(Intent)와 기술 청사진(Spec)의 이원화 확정</div>
+      <div class="card-desc">사람의 의도·경계와 에이전트의 구현 통제 명세를 분리하여 환각과 과잉 개발을 방지합니다.</div>
 
-      <div class="assets-grid">
-        <div class="asset-pill pill-blue">
-          <span style="font-size: 22px;">📜</span>
-          <div class="asset-title">지침 (AGENTS.md)</div>
-          <div class="asset-sub">GORE 및 공식 구분</div>
+      <div class="spec-split-box">
+        <div class="spec-col col-intent">
+          <span class="col-tag tag-intent">사람 작성 (Why & What)</span>
+          <div class="col-title">intent.md</div>
+          <div class="col-points">
+            • <strong>문제 정의 (Why)</strong><br>
+            • <strong>목표 가치 (What)</strong><br>
+            • <strong>비목표 (Non-goals)</strong> 🛡️<br>
+            • <strong>핵심 제약 (Constraints)</strong>
+          </div>
         </div>
-        <div class="asset-pill pill-green">
-          <span style="font-size: 22px;">⚡</span>
-          <div class="asset-title">Skill 2종</div>
-          <div class="asset-sub">write-issue-pr · explain</div>
-        </div>
-        <div class="asset-pill pill-yellow">
-          <span style="font-size: 22px;">🤖</span>
-          <div class="asset-title">Subagent 3종</div>
-          <div class="asset-sub">verifier · reviewer · researcher</div>
+
+        <div class="spec-col col-spec">
+          <span class="col-tag tag-spec">AI 분석 + 사람 검토</span>
+          <div class="col-title">spec.md</div>
+          <div class="col-points">
+            • <strong>기술 요구사항</strong><br>
+            • <strong>아키텍처 및 인터페이스</strong><br>
+            • <strong>엣지 케이스 및 예외</strong><br>
+            • <strong>수용성 기준 & 검증 명령</strong>
+          </div>
         </div>
       </div>
     </div>
@@ -242,14 +265,25 @@
     <!-- STEP 2 -->
     <div class="card">
       <div class="step-badge">2</div>
-      <div class="card-title">초기 작은 Eval 및 ADR-0002 확정 (#106)</div>
-      <div class="card-desc">방금 머지된 PR #112로 평가 기준선과 ELI5 스토리 카드 시각 모델이 공식화되었습니다.</div>
+      <div class="card-title">M2 4단계 파이프라인 진행 현황</div>
+      <div class="card-desc">조사 먼저 ➔ 규격 결정 ➔ 정책 계층화 ➔ 실측 관통의 순서로 단단하게 진행 중입니다.</div>
 
-      <div class="eval-row">
-        <div style="font-size: 14px; font-weight: 700; color: #1c1917;">실측 결과 수립</div>
-        <div class="eval-badge">
-          <span>🛡️</span>
-          <span>Eval 0001 (5/5) & 0002 (4/4) All Pass</span>
+      <div class="pipeline-list">
+        <div class="pipeline-item item-done">
+          <span>① Research Gate (#114) — 공식 팩트 조사 및 가드레일</span>
+          <span class="status-pill pill-done">머지 완료 ✅</span>
+        </div>
+        <div class="pipeline-item item-done">
+          <span>② Intent & Spec 규격 확정 (#116, PR #117) — ADR-0004</span>
+          <span class="status-pill pill-done">머지 완료 ✅</span>
+        </div>
+        <div class="pipeline-item item-current">
+          <span>③ 정책 연결 (#105) — 기본 규칙 ↔ 프로젝트 규칙 계층화</span>
+          <span class="status-pill pill-current">착수 대상 🟡</span>
+        </div>
+        <div class="pipeline-item item-next">
+          <span>④ 파이프라인 관통 실측 — 실제 기능/과제 1건 끝까지 검증</span>
+          <span class="status-pill pill-next">대기 ⏳</span>
         </div>
       </div>
     </div>
@@ -257,12 +291,12 @@
     <!-- STEP 3 -->
     <div class="card">
       <div class="step-badge">3</div>
-      <div class="card-title">다음 발걸음: V2-M1 마무리 및 후속 준비</div>
-      <div class="card-desc">이슈 #106을 정리하고, V2-M1 마일스톤의 다음 목표를 확인하는 단계입니다.</div>
+      <div class="card-title">다음 발걸음 & 핵심 원칙</div>
+      <div class="card-desc">무거운 의식(Ceremony) 대신 유연한 기본 흐름(Default Flow)으로 속도와 안전을 지킵니다.</div>
 
-      <div class="next-box">
-        <div class="next-title">🎯 다음 즉시 행동</div>
-        <div class="next-desc">이슈 #106 완료 코멘트 등록 및 V2-M1 잔여 이슈 확인</div>
+      <div class="action-banner">
+        <div class="action-title">🎯 다음 즉시 행동</div>
+        <div class="action-desc">Step ③ 정책 연결(#105) 브랜치 생성 및 작업 착수</div>
       </div>
     </div>
 
@@ -273,18 +307,18 @@
 
       <details class="quiz-item">
         <summary class="quiz-q">
-          <span>Q1. 지금까지 우리가 확정한 ADR은 총 몇 건일까요?</span>
+          <span>Q1. 모든 사소한 작업(오타 수정 등)에도 intent/spec 작성이 강제되나요?</span>
           <span class="quiz-btn">정답 확인</span>
         </summary>
-        <div class="quiz-a">💡 총 2건입니다! ADR-0001(초기 Subagent 3종)과 ADR-0002(Explain ELI5 시각 모델)가 확정되었습니다.</div>
+        <div class="quiz-a">💡 아닙니다! 프로세스가 무거워지는 것을 막기 위해 '기본 권장 흐름(Default Flow)'으로 삼았으며, 가벼운 수정에는 강제하지 않습니다.</div>
       </details>
 
       <details class="quiz-item">
         <summary class="quiz-q">
-          <span>Q2. V2의 Continuous Evals는 언제부터 시작했나요?</span>
+          <span>Q2. PR #117이 머지된 후 바로 이어질 다음 단계는 무엇인가요?</span>
           <span class="quiz-btn">정답 확인</span>
         </summary>
-        <div class="quiz-a">💡 M5로 미루지 않고, V2-M1인 지금 바로 '작은 Eval' 2종을 돌려 기준선을 세웠습니다.</div>
+        <div class="quiz-a">💡 Step ③인 '정책 연결(#105)'입니다. 기본 규칙과 조직 규칙을 어떻게 계층화·합성할지 설계합니다.</div>
       </details>
     </div>
 
@@ -293,9 +327,10 @@
       <summary>엔지니어링 세부사항: 주요 근거 아티팩트 링크</summary>
       <div class="details-content">
         <ul>
-          <li><strong>최신 머지 PR:</strong> <a href="https://github.com/taejung3852/OwnHands/pull/112" style="color: #2563eb;">PR #112</a> (커밋 <code>7b57f1a</code>)</li>
-          <li><strong>완료된 이슈:</strong> <a href="https://github.com/taejung3852/OwnHands/issues/106" style="color: #2563eb;">Issue #106 (작은 Eval 설계)</a></li>
-          <li><strong>확정된 ADR:</strong> <a href="adr/0001-initial-subagent-roles.md" style="color: #2563eb;">ADR-0001 (Subagent 3종)</a> · <a href="adr/0002-explain-visual-story-cards.md" style="color: #2563eb;">ADR-0002 (Explain 시각 모델)</a></li>
+          <li><strong>머지 완료 PR:</strong> <a href="https://github.com/taejung3852/OwnHands/pull/117" style="color: #2563eb;">PR #117 (intent/spec 규격 및 템플릿)</a></li>
+          <li><strong>연결된 이슈:</strong> <a href="https://github.com/taejung3852/OwnHands/issues/116" style="color: #2563eb;">Issue #116 (완료)</a> · <a href="https://github.com/taejung3852/OwnHands/issues/105" style="color: #2563eb;">Issue #105 (정책 계층화 — 착수)</a></li>
+          <li><strong>확정된 ADR:</strong> <a href="adr/0004-intent-spec-specification.md" style="color: #2563eb;">ADR-0004 (intent/spec 규격)</a> · <a href="adr/0003-work-item-human-brief.md" style="color: #2563eb;">ADR-0003 (Work Item 3칸 표기)</a></li>
+          <li><strong>가이드:</strong> <a href="specs/README.md" style="color: #2563eb;">docs/v2/specs/README.md</a></li>
           <li><strong>결정 상태표:</strong> <a href="decisions.md" style="color: #2563eb;">docs/v2/decisions.md</a></li>
         </ul>
       </div>
