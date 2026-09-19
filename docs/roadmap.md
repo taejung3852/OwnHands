@@ -114,7 +114,7 @@ flowchart LR
 - **목적·완료 결과**: PR 검토·CI/CD·Human Gate·권한과 통제를 연결함
 - **선행**: V2-M4 (검증), V2-M5 (평가 기준)
 - **남겨둔 결정**: 실행 환경·승인·Hook 배치의 상세
-- **착수 시 확인할 공식 자료**: Codex sandboxing·approvals·cloud/CI 비대화형 실행 (현재 `미확인`)
+- **Research Gate**: Codex review·sandboxing/approvals·non-interactive/CI·managed policy·Hooks 공식 기능과 OwnHands 공백을 확인함. 내부 연결 방식은 아직 미정 → [M6 Research](research/m6-deploy-governance.md), [#144](https://github.com/taejung3852/OwnHands/issues/144)
 
 ### [V2-M7 — Maintain & Closed Loop](https://github.com/taejung3852/OwnHands/milestone/20)
 
