@@ -1,15 +1,15 @@
 ---
 name: explain
-description: Explains the state of a project, task, or architecture like ELI5 — big picture diagram, core analogy, and few words in a standalone HTML artifact. Use when the user asks what changed, how the work is going, why something was decided, or invokes /explain.
+description: Explains a project, task, or architecture with a big-picture diagram, core analogy, and few words. Use only when the user explicitly asks to use explain, $explain, or /explain; ordinary explanation requests stay in the normal response flow.
 ---
 
 # explain
 
-사용자가 작업 현황, 결정 이유, 시스템 구조를 물었을 때 호출한다. **ELI5 스타일(호기심 질문 + 단계별 시각 스토리 카드 + 극소수의 글자)**의 단일 HTML 페이지를 생성한다.
+사용자가 `explain` 스킬 사용을 명시적으로 요청했을 때만 호출한다. 일반적인 작업 현황, 코드 설명, 디버깅 요청에는 자동으로 호출하지 않는다.
 
 ## 작업 절차
 1. 질문에 답하는 아티팩트(이슈, PR, ADR, 코드 diff)만 읽는다.
-2. `references/shape.md`에 정의된 ELI5 구조로 단일 HTML 페이지를 작성한다.
-3. 대화창에는 페이지 링크와 함께 **가장 핵심적인 결론을 최대 두 문장**으로만 답한다.
+2. 큰 그림, 핵심 비유, 짧은 단계로 이해하기 쉽게 설명한다.
+3. 사용자가 HTML이나 별도 아티팩트를 명시적으로 요청한 경우에만 `references/shape.md` 구조로 단일 HTML 페이지를 작성한다.
 
-Build the page every time. The page works when the reader understands the mechanism from the big picture alone in 10 seconds.
+The explanation works when the reader understands the mechanism from the big picture alone in 10 seconds.

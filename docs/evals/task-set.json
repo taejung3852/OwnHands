@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "OwnHands V2-M5 Continuous Evals 5대 핵심 Task Set (단일 선언형 표준 규격)",
-  "updated_at": "2026-09-19",
+  "updated_at": "2026-09-20",
   "tasks": [
     {
       "id": "EVAL-0001",
@@ -17,6 +17,9 @@
         "forbidden_commands": ["gh issue create", "gh pr create"]
       },
       "static_contract": {
+        "required_files": [
+          ".agents/skills/explain/agents/openai.yaml"
+        ],
         "required_skills": ["write-issue-pr", "explain", "grill-spec", "verify"],
         "file_assertions": [
           {
@@ -25,17 +28,69 @@
               "run_command: gh issue create",
               "run_command: gh pr create"
             ]
+          },
+          {
+            "file": ".agents/skills/explain/agents/openai.yaml",
+            "contains": [
+              "allow_implicit_invocation: false"
+            ]
           }
         ]
       },
       "runtime_contract": {
+        "execution_target": "agent",
         "scenarios": [
-          { "id": "P1", "prompt": "이슈 하나 만들어줘. 목표는 V2 캐시 무효화 설계야", "expected_skill": "write-issue-pr" },
-          { "id": "P2", "prompt": "PR 본문 다시 써줘", "expected_skill": "write-issue-pr" },
-          { "id": "P3", "prompt": "지금 우리 상황 정리해줘", "expected_skill": "explain" },
-          { "id": "P4", "prompt": "이 함수 뭐하는지 설명해줘", "expected_skill": null },
-          { "id": "P5", "prompt": "이 에러 왜 나는지 봐줘", "expected_skill": null }
-        ]
+          {
+            "id": "P1",
+            "prompt": "이슈 하나 만들어줘. 목표는 V2 캐시 무효화 설계야",
+            "expected_skill": "write-issue-pr",
+            "expected_behavior": "이슈 초안 작성 (gh issue create 미호출)",
+            "output_contains": ["## 무엇이 필요한가", "## 왜 지금인가", "## 결정할 것"]
+          },
+          {
+            "id": "P2",
+            "prompt": "PR 본문 다시 써줘",
+            "expected_skill": "write-issue-pr",
+            "expected_behavior": "3칸 Human Brief 초안 작성",
+            "output_contains": ["## 무엇이 바뀌었나", "## 왜 이렇게 했나", "## 리뷰할 것"]
+          },
+          {
+            "id": "P3",
+            "prompt": "$explain 지금 우리 상황 정리해줘",
+            "expected_skill": "explain",
+            "expected_behavior": "explain 스킬을 사용한 이해하기 쉬운 상황 설명",
+            "output_contains": ["현재", "핵심"]
+          },
+          {
+            "id": "P4",
+            "prompt": "이 함수 뭐하는지 설명해줘",
+            "expected_skill": null,
+            "expected_behavior": "인라인 코드 설명 제공",
+            "output_not_contains": [
+              "## 무엇이 필요한가",
+              "## 왜 지금인가",
+              "## 결정할 것",
+              "## 무엇이 바뀌었나",
+              "## 왜 이렇게 했나",
+              "## 리뷰할 것"
+            ]
+          },
+          {
+            "id": "P5",
+            "prompt": "이 에러 왜 나는지 봐줘",
+            "expected_skill": null,
+            "expected_behavior": "인라인 디버깅 분석 제공",
+            "output_not_contains": [
+              "## 무엇이 필요한가",
+              "## 왜 지금인가",
+              "## 결정할 것",
+              "## 무엇이 바뀌었나",
+              "## 왜 이렇게 했나",
+              "## 리뷰할 것"
+            ]
+          }
+        ],
+        "require_all_scenarios_pass": true
       },
       "judgment_mode": "deterministic"
     },
@@ -72,6 +127,14 @@
           }
         ]
       },
+      "runtime_contract": {
+        "agent": "verifier",
+        "prompt": "docs/specs/grill-spec/spec.md 와 fresh evidence를 감사하여 3-State 판정 보고서를 작성하라.",
+        "required_judgments": ["PASS", "FAIL", "UNOBSERVED"],
+        "forbidden_judgments": ["PARTIAL PASS"],
+        "require_ac_table": true,
+        "allow_repo_mutation": false
+      },
       "judgment_mode": "auditor"
     },
     {
@@ -80,16 +143,15 @@
       "category": "subagent",
       "target_asset": ".codex/agents/researcher.toml",
       "execution_mode": "runtime",
-      "sandbox_mode": "isolated-write",
+      "sandbox_mode": "read-only",
       "side_effect_policy": {
         "allow_repo_mutation": false,
-        "allow_artifact_output": true,
+        "allow_artifact_output": false,
         "allow_network_writes": false
       },
       "static_contract": {
         "required_files": [
-          ".codex/agents/researcher.toml",
-          "docs/research/0002-m2-intent-spec-gate.md"
+          ".codex/agents/researcher.toml"
         ],
         "file_assertions": [
           {
@@ -102,6 +164,13 @@
             ]
           }
         ]
+      },
+      "runtime_contract": {
+        "agent": "researcher",
+        "prompt": "Codex 공식 non-interactive mode의 지원 플래그와 제약을 1차 출처 위주로 조사하여 결과를 반환하라.",
+        "require_primary_source_url": true,
+        "require_fact_gap_separation": true,
+        "allow_repo_mutation": false
       },
       "judgment_mode": "schema"
     },
@@ -139,6 +208,7 @@
       "category": "composite",
       "execution_mode": "composite",
       "target_asset": ".agents/skills/verify/",
+      "timeout_ms": 240000,
       "phases": {
         "static_conformance": {
           "required_files": [
@@ -156,9 +226,12 @@
           ]
         },
         "runtime_audit": {
+          "agent": "verifier",
+          "prompt": "docs/specs/grill-spec/spec.md 와 Fresh Evidence를 감사하고 7대 AC 역추적 판정 보고서를 작성하라.",
           "spec_file": "docs/specs/grill-spec/spec.md",
           "expected_overall_verdict": "UNOBSERVED",
-          "forbidden_patterns": ["| PARTIAL PASS |"]
+          "forbidden_patterns": ["| PARTIAL PASS |"],
+          "allow_repo_mutation": false
         }
       },
       "judgment_mode": "auditor"

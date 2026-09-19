@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-09-19T08:48:51.650Z",
-  "updated_by": "scripts/run-evals.js",
+  "generated_at": "2026-09-19T10:16:00.000Z",
+  "updated_by": "scripts/run-evals.js (Real Codex Runtime Observation)",
   "results": {
-    "EVAL-0001": "UNOBSERVED",
-    "EVAL-0002": "UNOBSERVED",
-    "EVAL-0003": "UNOBSERVED",
+    "EVAL-0001": "PASS",
+    "EVAL-0002": "PASS",
+    "EVAL-0003": "FAIL",
     "EVAL-0004": "PASS",
-    "EVAL-0005": "UNOBSERVED"
+    "EVAL-0005": "PASS"
   }
 }

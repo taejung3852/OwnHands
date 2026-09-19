@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V2-M5 Step ④: codex exec 비대화형 구동 및 Runtime Judge 파이프라인</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #f7f6f2;
+      color: #1c1917;
+      line-height: 1.4;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .badge-status {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 900;
+      color: #0c0a09;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    p.subtitle {
+      font-size: 14px;
+      color: #78716c;
+      font-weight: 600;
+    }
+
+    /* 카드 공통 */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 24px 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .step-badge {
+      width: 28px;
+      height: 28px;
+      background: #1c1917;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    h2 {
+      font-size: 17px;
+      font-weight: 800;
+      color: #0c0a09;
+    }
+    .summary-text {
+      font-size: 14.5px;
+      color: #44403c;
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+    .highlight {
+      font-weight: 700;
+      color: #0284c7;
+    }
+
+    /* 다이어그램 / 시각화 박스 */
+    .visual-box {
+      background: #fafaf9;
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid #e7e5e4;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+    }
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: #ffffff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .flow-step:last-child {
+      margin-bottom: 0;
+    }
+    .tag {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+    .tag-blue { background: #dbeafe; color: #1e40af; }
+    .tag-emerald { background: #d1fae5; color: #065f46; }
+    .tag-amber { background: #fef3c7; color: #92400e; }
+    .tag-red { background: #fee2e2; color: #991b1b; }
+
+    /* 대조 표 */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .compare-item {
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+    .compare-item.unobserved {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+    .compare-item.fail {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+    .compare-title {
+      font-weight: 800;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    /* 3초 퀴즈 */
+    .quiz-card {
+      background: #0f172a;
+      color: #f8fafc;
+      border-radius: 24px;
+      padding: 26px 22px;
+      margin-top: 10px;
+    }
+    .quiz-card h2 {
+      color: #38bdf8;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .quiz-question {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #e2e8f0;
+    }
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .quiz-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #f1f5f9;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+    }
+    .quiz-btn:hover {
+      background: #334155;
+      border-color: #38bdf8;
+    }
+    .quiz-result {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      display: none;
+    }
+    .quiz-result.correct {
+      background: #064e3b;
+      color: #6ee7b7;
+      display: block;
+    }
+    .quiz-result.wrong {
+      background: #7f1d1d;
+      color: #fca5a5;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="badge-status">M5 Step ④ 아키텍처 확정</div>
+      <h1>codex exec 비대화형 구동 및 Runtime Judge</h1>
+      <p class="subtitle">단일 Source of Truth에 기반한 실측 및 3-State 엄격 판정 파이프라인</p>
+    </header>
+
+    <!-- 카드 1: codex exec --json 채택 이유 -->
+    <section class="card">
+      <div class="card-header">
+        <div class="step-badge">1</div>
+        <h2>왜 일반 stdout 대신 codex exec --json 인가?</h2>
+      </div>
+      <p class="summary-text">
+        일반 텍스트 파싱은 취약합니다. 공식 <span class="highlight">--json</span> 플래그를 통해 구조화된 JSONL 이벤트 스트림을 수집하여 기계 판독합니다.
+      </p>
+      <div class="visual-box">
+        <div class="flow-step">
+          <span class="tag tag-blue">Input</span>
+          <span>codex exec --json --sandbox read-only "프롬프트"</span>
+        </div>
+        <div class="flow-step">
+          <span class="tag tag-amber">Events</span>
+          <span>thread.started ➔ item.started/completed ➔ turn.completed</span>
+        </div>
+        <div class="flow-step">
+          <span class="tag tag-emerald">Detect</span>
+          <span>item.changes(파일변경) / item.command(커맨드) / item.text(출력)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 카드 2: FAIL vs UNOBSERVED -->
+    <section class="card">
+      <div class="card-header">
+        <div class="step-badge">2</div>
+        <h2>FAIL과 UNOBSERVED의 엄격한 판정 경계</h2>
+      </div>
+      <p class="summary-text">
+        "환경 부재"를 제품 실패로 오인하지 않습니다. 실행 미개시와 실행 후 결함을 철저히 분리합니다.
+      </p>
+      <div class="compare-grid">
+        <div class="compare-item unobserved">
+          <div class="compare-title">👁️ UNOBSERVED</div>
+          <p>• codex CLI 바이너리 부재</p>
+          <p>• 인증/환경 미구성으로 실행 미개시</p>
+          <p><strong>➔ 개발 환경 상태 (품질 실패 아님)</strong></p>
+        </div>
+        <div class="compare-item fail">
+          <div class="compare-title">❌ FAIL</div>
+          <p>• 무단 파일 수정(Mutation) 발생</p>
+          <p>• 계약 위반 어휘/형식, 세션 타임아웃</p>
+          <p><strong>➔ 에이전트 제품 결함 (회귀 차단)</strong></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 카드 3: 단일 SoT -->
+    <section class="card">
+      <div class="card-header">
+        <div class="step-badge">3</div>
+        <h2>task-set.json 선언형 runtime_contract 동적 해석</h2>
+      </div>
+      <p class="summary-text">
+        JS 러너에 하드코딩하지 않습니다. <span class="highlight">task-set.json</span>에 정의된 계약을 런타임에 동적으로 대조합니다.
+      </p>
+      <div class="visual-box">
+        <div class="flow-step">
+          <span class="tag tag-blue">EVAL-0001</span>
+          <span>P1-P5 5대 시나리오 출력 계약 및 gh 생성 명령 금지</span>
+        </div>
+        <div class="flow-step">
+          <span class="tag tag-emerald">EVAL-0002</span>
+          <span>PASS/FAIL/UNOBSERVED 어휘 필수, PARTIAL PASS 금지</span>
+        </div>
+        <div class="flow-step">
+          <span class="tag tag-amber">EVAL-0003</span>
+          <span>1차 출처 URL(http/https) 인용 및 사실/공백 분리</span>
+        </div>
+        <div class="flow-step">
+          <span class="tag tag-red">EVAL-0005</span>
+          <span>Verifier 7개 AC 감사 총괄 판정(UNOBSERVED) 일치</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 카드 4: 관측 가능한 행동 중심 -->
+    <section class="card">
+      <div class="card-header">
+        <div class="step-badge">4</div>
+        <h2>정직한 관측: 내부 라우팅 추정 금지</h2>
+      </div>
+      <p class="summary-text">
+        이벤트에서 보이지 않는 "내부 스킬 선택"을 자의적으로 추정하지 않습니다. <span class="highlight">"그 프롬프트에 기대한 행동/출력을 올바르게 완수했는가?"</span>로 판정합니다.
+      </p>
+      <div class="visual-box">
+        <div class="flow-step">
+          <span class="tag tag-red">금지된 접근</span>
+          <span>"이 모델이 내부적으로 write-issue-pr을 골랐을 것이다" (추정 ❌)</span>
+        </div>
+        <div class="flow-step">
+          <span class="tag tag-emerald">OwnHands 원칙</span>
+          <span>실제 출력에 3칸 규격(무엇/왜/리뷰)이 존재하는지 확인 (실측 ✅)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3초 퀴즈 -->
+    <div class="quiz-card">
+      <h2>⚡ 3초 퀴즈</h2>
+      <div class="quiz-question">
+        로컬 머신이나 CI 환경에 codex CLI 바이너리가 설치되어 있지 않아 비대화형 세션을 시작조차 못했다면 최종 판정은 무엇이어야 할까요?
+      </div>
+      <div class="quiz-options">
+        <button class="quiz-btn" onclick="answerQuiz(false)">① 세션을 못 돌렸으므로 에이전트 실패(FAIL)로 처리한다.</button>
+        <button class="quiz-btn" onclick="answerQuiz(true)">② 환경 부재와 제품 결함을 혼동하지 않기 위해 UNOBSERVED로 정직하게 판정한다.</button>
+        <button class="quiz-btn" onclick="answerQuiz(false)">③ 프롬프트 파일이 존재하므로 PASS로 추정한다.</button>
+      </div>
+      <div id="quiz-result" class="quiz-result"></div>
+    </div>
+  </div>
+
+  <script>
+    function answerQuiz(isCorrect) {
+      const el = document.getElementById('quiz-result');
+      if (isCorrect) {
+        el.className = 'quiz-result correct';
+        el.innerText = '정답입니다! 🎉 개발 환경의 부재를 제품의 결함(FAIL)이나 허위 통과(PASS)로 오인하지 않고 솔직하게 UNOBSERVED로 분리하는 것이 OwnHands의 정직한 엔지니어링 원칙입니다.';
+      } else {
+        el.className = 'quiz-result wrong';
+        el.innerText = '오답입니다! 환경 미구성을 FAIL로 처리하면 개발환경 상태를 제품 결함으로 오판하게 되며, PASS로 추정하는 것은 허위 판정입니다. 정답은 UNOBSERVED입니다.';
+      }
+    }
+  </script>
+</body>
+</html>
