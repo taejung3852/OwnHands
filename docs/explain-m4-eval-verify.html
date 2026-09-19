@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V2-M4 Eval 0005: verify 스킬 및 Verifier 독립 감사 실측</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #f7f6f2;
+      color: #1c1917;
+      line-height: 1.4;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .badge-status {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      background: #ecfdf5;
+      color: #065f46;
+      margin-bottom: 12px;
+      border: 1px solid #a7f3d0;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 900;
+      color: #0c0a09;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    p.subtitle {
+      font-size: 14px;
+      color: #78716c;
+      font-weight: 600;
+    }
+
+    /* 카드 공통 */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 24px 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .step-badge {
+      width: 28px;
+      height: 28px;
+      background: #1c1917;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #1c1917;
+      letter-spacing: -0.3px;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: #57534e;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    /* 시각 컴포넌트 1: 분할 로딩 다이어그램 */
+    .split-pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #fafaf9;
+      border: 1px solid #e7e5e4;
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .main-box {
+      background: #ffffff;
+      border: 2px solid #0284c7;
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .main-box-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0369a1;
+    }
+    .main-box-tag {
+      font-size: 11px;
+      font-weight: 700;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .arrow-down {
+      text-align: center;
+      font-size: 14px;
+      color: #a8a29e;
+      font-weight: 800;
+    }
+    .ref-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .ref-item {
+      background: #ffffff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .ref-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+      margin-bottom: 4px;
+    }
+    .ref-duty {
+      font-size: 10px;
+      color: #64748b;
+      line-height: 1.3;
+    }
+
+    /* 시각 컴포넌트 2: 3대 판정 어휘 */
+    .judgment-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .judgment-card {
+      border-radius: 14px;
+      padding: 14px 10px;
+      text-align: center;
+      border: 1px solid transparent;
+    }
+    .judgment-pass { background: #f0fdf4; border-color: #bbf7d0; }
+    .judgment-fail { background: #fef2f2; border-color: #fecaca; }
+    .judgment-unobs { background: #f8fafc; border-color: #cbd5e1; }
+    .judgment-name {
+      font-size: 15px;
+      font-weight: 900;
+      margin-bottom: 4px;
+    }
+    .judgment-pass .judgment-name { color: #15803d; }
+    .judgment-fail .judgment-name { color: #b91c1c; }
+    .judgment-unobs .judgment-name { color: #475569; }
+    .judgment-rule {
+      font-size: 11px;
+      color: #475569;
+      line-height: 1.4;
+      font-weight: 600;
+    }
+
+    /* 시각 컴포넌트 3: Claim별 입증 책임 */
+    .claim-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    .claim-table th {
+      background: #f1f5f9;
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 800;
+      color: #334155;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .claim-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #1e293b;
+    }
+    .claim-table tr:last-child td {
+      border-bottom: none;
+    }
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .pill-req { background: #fee2e2; color: #991b1b; }
+    .pill-na { background: #f1f5f9; color: #64748b; }
+    .pill-fresh { background: #dcfce7; color: #166534; }
+
+    /* 퀴즈 섹션 */
+    .quiz-section {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 24px 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .quiz-header {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .quiz-item {
+      background: #fafaf9;
+      border-radius: 14px;
+      border: 1px solid #e7e5e4;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .quiz-item:last-child {
+      margin-bottom: 0;
+    }
+    .quiz-summary {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      color: #292524;
+      list-style: none;
+      user-select: none;
+    }
+    .quiz-summary::-webkit-details-marker {
+      display: none;
+    }
+    .quiz-btn {
+      font-size: 11px;
+      background: #e7e5e4;
+      color: #44403c;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .quiz-answer {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #d6d3d1;
+      color: #0369a1;
+      font-size: 12px;
+      line-height: 1.5;
+      font-weight: 600;
+    }
+
+    /* 하단 접힌 기술 디테일 */
+    .details-box {
+      background: #ffffff;
+      border-radius: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      padding: 18px 20px;
+      font-size: 13px;
+      color: #57534e;
+    }
+    .details-box summary {
+      cursor: pointer;
+      font-weight: 800;
+      color: #1c1917;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    .details-content ul {
+      padding-left: 20px;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+    .details-content li {
+      margin-bottom: 4px;
+    }
+    .artifact-link {
+      color: #0284c7;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .artifact-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-status">V2-M4 Test & Assurance · Eval 0005 실측 완료</div>
+      <h1>verify 스킬과 Verifier 독립 감사는 어떻게 편향을 뚫었는가?</h1>
+      <p class="subtitle">테스트 통과 수의 착시를 거부하고, AC 1:1 대조와 3대 판정 어휘로 실측된 독립 감사 프로토콜</p>
+    </header>
+
+    <!-- 카드 1: 스킬 경량화 및 온디맨드 분할 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-badge">1</div>
+        <div class="card-title">스킬 본문 경량화 + 온디맨드 Reference 분할 (29행의 미학)</div>
+      </div>
+      <div class="card-desc">핵심 4단계 워크플로만 메인에 남기고 세부 규칙은 필요한 순간에만 동적 로드합니다.</div>
+      
+      <div class="split-pipeline">
+        <div class="main-box">
+          <div>
+            <div class="main-box-title">.agents/skills/verify/SKILL.md</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Claim 확인 ➔ 회귀 검증 ➔ Fresh Evidence 수집 ➔ Verifier 호출</div>
+          </div>
+          <div class="main-box-tag">29행 (경량 게이트)</div>
+        </div>
+        <div class="arrow-down">⬇ 온디맨드 참조 (필요할 때만 호출)</div>
+        <div class="ref-grid">
+          <div class="ref-item">
+            <div class="ref-name">before-after-baseline</div>
+            <div class="ref-duty">비교 주장 사전 측정치 의무화 (33행)</div>
+          </div>
+          <div class="ref-item">
+            <div class="ref-name">regression-defense</div>
+            <div class="ref-duty">Dijkstra 원칙 & 3대 대체 방어선 (29행)</div>
+          </div>
+          <div class="ref-item">
+            <div class="ref-name">evidence-guide</div>
+            <div class="ref-duty">5대 채널 신선한 증거 양식 (36행)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 2: AC 1:1 역추적과 3대 판정 어휘 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-badge">2</div>
+        <div class="card-title">AC 1:1 역추적과 엄격한 3-State 판정 어휘 (편향 원천 차단)</div>
+      </div>
+      <div class="card-desc">구현자의 주관적 추측을 거부하고 수용 기준과 신선한 증거를 1:1로 직접 대조합니다.</div>
+
+      <div class="judgment-grid">
+        <div class="judgment-card judgment-pass">
+          <div class="judgment-name">PASS</div>
+          <div class="judgment-rule">신선한 증거가 AC를 객관적이고 충분하게 입증</div>
+        </div>
+        <div class="judgment-card judgment-fail">
+          <div class="judgment-name">FAIL</div>
+          <div class="judgment-rule">실행 오류, assertion 실패, 동작 불일치 발생</div>
+        </div>
+        <div class="judgment-card judgment-unobs">
+          <div class="judgment-name">UNOBSERVED</div>
+          <div class="judgment-rule">증거 누락, 미관측, 사전 측정치 부재 (추정 금지)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 3: Claim별 Before 입증 책임 & 증거 다각화 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-badge">3</div>
+        <div class="card-title">비교 주장의 Before 기준선과 증거 채널 다각화 (입증 책임 확립)</div>
+      </div>
+      <div class="card-desc">버그 수정과 성능 향상은 사전 재현치 없이 통과할 수 없으며 터미널 외 UI/린트도 포용합니다.</div>
+
+      <table class="claim-table">
+        <thead>
+          <tr>
+            <th>작업 유형 (Claim)</th>
+            <th>Before 기준선</th>
+            <th>적용 가능한 신선한 증거 (Fresh Evidence)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>버그 수정 (bugfix)</strong></td>
+            <td><span class="pill pill-req">필수 (재현 로그)</span></td>
+            <td>수정 후 결함 미재현 터미널 로그 (부재 시 UNOBSERVED)</td>
+          </tr>
+          <tr>
+            <td><strong>성능 개선 (performance)</strong></td>
+            <td><span class="pill pill-req">필수 (사전 수치)</span></td>
+            <td>동일 환경/도구 측정 사후 벤치마크 (부재 시 UNOBSERVED)</td>
+          </tr>
+          <tr>
+            <td><strong>신규 기능 (feature)</strong></td>
+            <td><span class="pill pill-na">N/A (사전 없음)</span></td>
+            <td>AC 1:1 입증 증거 (테스트, UI 렌더링 관측, 린트 무에러)</td>
+          </tr>
+          <tr>
+            <td><strong>리팩토링 (refactor)</strong></td>
+            <td><span class="pill pill-fresh">기존 회귀 패스</span></td>
+            <td>사후 동일 회귀 스위트 통과 로그 (Blast Radius 무단 수정 0건)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 스스로 풀어보는 3초 퀴즈 -->
+    <div class="quiz-section">
+      <div class="quiz-header">
+        <span>⚡ 스스로 풀어보는 3초 퀴즈</span>
+      </div>
+
+      <details class="quiz-item">
+        <summary class="quiz-summary">
+          <span>Q1. 버그 수정 후 테스트가 다 통과했지만 Before 결함 로그가 없다면 Verifier의 판정은?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          💡 <strong>UNOBSERVED</strong> 입니다! Before 재현 로그가 없으면 에이전트가 실제로 결함을 해결했는지 사후 통과만으로는 입증할 수 없기 때문입니다.
+        </div>
+      </details>
+
+      <details class="quiz-item">
+        <summary class="quiz-summary">
+          <span>Q2. Fresh Evidence는 오직 CLI 터미널 텍스트 로그만 인정되는가?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          💡 <strong>아닙니다!</strong> UI/레이아웃 스크린샷, DOM 관측, 린트/타입 무에러, 벤치마크 등 작업 성격에 부합하는 모든 '적용 가능한 신선한 증거(applicable Fresh Evidence)'가 인정됩니다.
+        </div>
+      </details>
+    </div>
+
+    <!-- 하단 접힌 엔지니어링 세부 사항 -->
+    <details class="details-box">
+      <summary>🛠️ 엔지니어링 투명성 및 실측 세부 사항 (M5 연계)</summary>
+      <div class="details-content">
+        <p><strong>쉽게 그리느라 생략한 기술적 전제:</strong></p>
+        <ul>
+          <li>Verifier는 read-only 샌드박스에서 구동되므로, 무거운 테스트 러너를 직접 재실행하여 쓰기 권한 충돌을 내기보다 구현자가 수집한 Fresh Evidence의 진위와 AC 대조를 수행하는 독립 감사관(Auditor) 모델을 채택합니다.</li>
+          <li>Git 커밋 해시는 검증 증거의 provenance(출처 추적) 역할을 수행하지만, uncommitted 작업 트리 상태에서도 유효한 Fresh Evidence가 관측되면 판정을 진행할 수 있도록 완화되었습니다.</li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>V2-M5 (Continuous Evals) 확장 시사점:</strong></p>
+        <ul>
+          <li>M5에서는 `spec.md`의 AC와 `plan.md`의 Fresh Evidence 블록을 JSON/YAML 머신 판독 구조체로 자동 파싱하는 AC Traceability Runner 도입을 검토합니다.</li>
+          <li>버그 수정 시 Before 재현 로그를 `scratch/`에 자동 스냅샷하는 파이프라인 연계를 검토합니다.</li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>근거 아티팩트:</strong></p>
+        <ul>
+          <li>실측 평가 문서: <a class="artifact-link" href="evals/0005-verify-assurance.md">docs/evals/0005-verify-assurance.md</a></li>
+          <li>아키텍처 결정 기록: <a class="artifact-link" href="adr/0008-verification-references-and-verifier-protocol.md">docs/adr/0008-verification-references-and-verifier-protocol.md</a></li>
+          <li>관련 이슈: <a class="artifact-link" href="https://github.com/taejung3852/OwnHands/issues/129">#129 (V2-M4 Step ③)</a></li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</body>
+</html>

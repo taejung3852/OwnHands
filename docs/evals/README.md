@@ -26,6 +26,8 @@
    - 1차 출처 URL 직접 인용, 사실/공백 엄격 분리, 코드 무단 수정 방지 지침 평가.
 4. [Eval 0004: grill-spec Skill 정의 및 정적 적합성 평가](0004-skill-grill-spec.md)
    - 팩트/결정 분리, 8단계 프로토콜, 3대 안전장치, M2 관통 정적 적합성 평가 (런타임 미검증 명시).
+5. [Eval 0005: verify 스킬 및 Verifier 독립 감사 프로토콜 실측 평가](0005-verify-assurance.md)
+   - 스킬-레퍼런스 분할 경량성, Verifier 5대 감사 규칙, AC 1:1 대조 및 3대 판정 어휘, Before Baseline 입증 책임 실측 평가.
 
 ---
 
