@@ -10,24 +10,24 @@
 
 1. [프로젝트 여정](story/project-journey.md) — 왜 시작했고 무엇을 배웠는가
 2. [왜 V2인가](story/why-v2.md) — 무엇을 바꾸고 왜 바꾸는가
-3. [V2 개요](v2/overview.md) — 무엇을 만들려는가
-4. [로드맵](v2/roadmap.md) — 어떤 순서로 가는가
+3. [개요](overview.md) — 무엇을 만들려는가
+4. [로드맵](roadmap.md) — 어떤 순서로 가는가
 
 ### 설계 검토
 
-1. [결정 상태표](v2/decisions.md) — 무엇이 확정이고 무엇이 아닌가. 먼저 읽는다
-2. [V2 개요](v2/overview.md) — 책임 관계
+1. [결정 상태표](decisions.md) — 무엇이 확정이고 무엇이 아닌가. 먼저 읽는다
+2. [개요](overview.md) — 책임 관계
 3. [Codex 공식 문서 확인](references/codex-official.md) — 실제 형식·기능·제약의 기준
 4. [Anthropic Playbook 대응](references/anthropic-playbook.md) — 가져온 것과 가져오지 않은 것
-5. [로드맵](v2/roadmap.md) — 순서와 각 단계에 남겨둔 질문
+5. [로드맵](roadmap.md) — 순서와 각 단계에 남겨둔 질문
 
 ### 구현 작업
 
-1. [결정 상태표](v2/decisions.md) — 대신 확정하면 안 되는 것을 먼저 확인
-2. [개발 방법](v2/development-method.md) — 공식 조사 → 네이티브 대응 → 최소 구현
+1. [결정 상태표](decisions.md) — 대신 확정하면 안 되는 것을 먼저 확인
+2. [개발 방법](development-method.md) — 공식 조사 → 네이티브 대응 → 최소 구현
 3. [Codex 공식 문서 확인](references/codex-official.md) — 확인된 것과 미확인의 구분
-4. [V2 개요](v2/overview.md) — Skill·Reference·Agent·Script의 책임 구분
-5. [로드맵](v2/roadmap.md) — 현재 마일스톤과 선행 조건
+4. [개요](overview.md) — Skill·Reference·Agent·Script의 책임 구분
+5. [로드맵](roadmap.md) — 현재 마일스톤과 선행 조건
 
 대신 확정하지 말 것: Company 정책 우선순위, Skill 이름·수, 초기 Agent 역할·수, 다른 vendor 지원 방식, Eval 지표, 마일스톤 내부 설계.
 
@@ -43,21 +43,17 @@
 ```text
 docs/
 ├── README.md                  이 문서
-├── story/
-│   ├── project-journey.md     시작 → V1 → 한계 발견 → Playbook → V2
-│   └── why-v2.md              전환 이유 (1인칭)
-├── v2/
-│   ├── overview.md            큰 구조와 책임 관계
-│   ├── roadmap.md             실행 순서와 각 단계의 남겨둔 결정
-│   ├── decisions.md           확정 / 생각 / 함께 결정 / 후속
-│   └── development-method.md  각 단계 진행 방식
-├── references/
-│   ├── anthropic-playbook.md  SDLC 큰 틀, 가져온 것과 안 가져온 것
-│   └── codex-official.md      실제 형식·기능·권한·제약, 확인일 기록
-└── history/
-    ├── v1.md                  구현 범위, 마일스톤, V1 snapshot과 원본 위치
-    └── conversation-notes.md  사용자 발언 원문
- 
+├── decisions.md               확정 / 생각 / 함께 결정 / 후속 (Source of Truth)
+├── overview.md                큰 구조와 책임 관계
+├── roadmap.md                 실행 순서와 각 단계의 남겨둔 결정
+├── development-method.md      각 단계 진행 방식
+├── adr/                       아키텍처 결정 기록 (ADR-0001 ~ ADR-0008)
+├── specs/                     의도(intent), 명세(spec), 실행 계획(plan) 산출물
+├── research/                  마일스톤별 1차 공식 자료 조사 보고서
+├── evals/                     지침 및 에이전트 시스템 Continuous Evals
+├── references/                SDLC 큰 틀(Playbook) 및 Codex 공식 문서 확인
+├── story/                     시작 → V1 → 한계 발견 → V2 전환 여정
+└── history/                   V1 구현 범위, 마일스톤, 스냅샷 기록
 ```
 
 ---
@@ -82,7 +78,7 @@ docs/
 |---|---|
 | [#101](https://github.com/taejung3852/OwnHands/issues/101) V2 전체 추적 | 입구, 진행 중 |
 | [#102](https://github.com/taejung3852/OwnHands/issues/102) 공식 자료 조사 | ✅ 완료 — [결과](references/codex-official.md) |
-| [#103](https://github.com/taejung3852/OwnHands/issues/103) Skill 구성·이름 | ✅ 완료 (2026-09-17) — [결정](v2/decisions.md) |
+| [#103](https://github.com/taejung3852/OwnHands/issues/103) Skill 구성·이름 | ✅ 완료 (2026-09-17) — [결정](decisions.md) |
 | [#104](https://github.com/taejung3852/OwnHands/issues/104) Agent 역할·위임 | 사용자와 결정 |
 | [#105](https://github.com/taejung3852/OwnHands/issues/105) 정책 연결 | 사용자 생각 단계 |
 | [#106](https://github.com/taejung3852/OwnHands/issues/106) 평가 설계 | 후속 결정 |

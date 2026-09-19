@@ -4,7 +4,7 @@
 
 목표 지향 요구공학(GORE: Goal-Oriented Requirements Engineering)을 따른다: 구현 세부사항을 결정하기 전에 항상 최상위 목표와 사용자의 의도(Top-Down)에 요구사항, 설계, 서브에이전트 역할을 닻 내린다(anchor).
 
-기획 및 설계(Plan & Design) 작업 시 `docs/v2/specs/` 규약(`intent.md`, `spec.md`)을 따른다.
+기획 및 설계(Plan & Design) 작업 시 `docs/specs/` 규약(`intent.md`, `spec.md`)을 따른다.
 
 <!--
 이 규칙이 존재하는 이유: 2026-09-17 세션에서 세 번 반복해서 수정되었음 —
