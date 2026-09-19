@@ -48,17 +48,16 @@
 ```text
 node scripts/review-gate.js record \
   --base origin/main \
-  --verdict PASS \
-  --accepted 0 \
-  --rejected <non-negative integer> \
-  --needs-human 0
+  --plan docs/specs/<feature>/plan.md \
+  --verdict PASS
 
 node scripts/review-gate.js check-hook
 node scripts/review-gate.js clear
 ```
 
-- 알 수 없는 subcommand·flag, 누락된 필수값, 음수·정수가 아닌 finding count는 exit code `2`와 사용법 요약을 반환한다.
-- `record`는 `verdict=PASS`, `accepted=0`, `needs-human=0`일 때만 기록한다. 그 외는 exit code `1`로 거부한다.
+- 알 수 없는 subcommand·flag, 누락된 필수값, 저장소 밖 `--plan` 경로는 exit code `2`와 사용법 요약을 반환한다.
+- `record`는 `--plan`의 `Review Results`에서 Finding 상태 count를 직접 계산한다. Caller가 count를 입력하거나 덮어쓸 수 없다.
+- `record`는 `verdict=PASS`, 미해결 `accepted=0`, `needs-human=0`, 모든 `rejected-with-evidence`의 Reviewer claim·Reason·Evidence가 존재할 때만 기록한다. 그 외는 exit code `1`로 거부한다.
 - `clear`는 현재 checkout의 로컬 Evidence만 삭제하며 파일이 없어도 성공한다.
 
 ### 2.2 Evidence 저장과 fingerprint
@@ -74,7 +73,27 @@ node scripts/review-gate.js clear
 - Evidence JSON은 Spec `REQ-08` 필드를 그대로 사용하며 추가 필드는 만들지 않는다.
 - `check-hook`은 Evidence의 `base_sha`, `head_sha`, fingerprint, verdict, finding count를 모두 재검증한다.
 
-### 2.3 대상 command 판정과 Hook 출력
+### 2.3 `plan.md` Review Results 계약
+
+- `plan.md`의 `Review Results`는 Finding 상세 reasoning의 유일한 영구 Source of Truth다.
+- 각 Finding은 고유 ID와 아래 네 필드를 가진다: `Status`, `Reviewer claim`, `Reason`, `Evidence`.
+- `rejected-with-evidence`의 `Evidence`에는 코드 위치, Spec/REQ, 최신 테스트 결과 중 하나 이상의 구체적 인용이 있어야 한다.
+- Review Evidence JSON은 상세 내용을 복제하지 않고 `finding_counts`만 보존한다.
+- Review 후 `plan.md`를 포함한 diff가 바뀌면 fingerprint가 달라지므로 기존 JSON Evidence는 stale이 된다.
+
+```markdown
+## 6. Review Results
+
+### Finding `F-01`
+- **Status**: `rejected-with-evidence`
+- **Reviewer claim**: `foo()`가 `null`을 반환할 수 있음
+- **Reason**: 승인된 contract와 회귀 테스트가 non-null 동작을 보장함
+- **Evidence**:
+  - `spec.md` `REQ-04`의 non-null contract
+  - `foo.test.ts` null-path test PASS
+```
+
+### 2.4 대상 command 판정과 Hook 출력
 
 - Hook matcher는 `^Bash$` 하나만 사용한다. unified `exec_command`는 공식 Hook 경로에서 `Bash`로 관측된다.
 - command 문자열에서 다음 실행 형태를 보수적으로 감지한다.
@@ -101,8 +120,9 @@ node scripts/review-gate.js clear
 
 - [ ] **Task 1: Review Evidence core와 CLI를 TDD로 구현**
   - `scripts/review-gate.test.js`에 임시 Git 저장소 fixture와 CLI 실행 helper를 먼저 작성한다.
-  - 실패 테스트: 잘못된 인자, unresolved base, 미해결 finding, record/clear, 동일 fingerprint, committed·staged·unstaged·untracked 변경 후 stale, linked worktree별 Evidence 분리를 각각 관측한다.
-  - `scripts/review-gate.js`에 argument parser, Git command wrapper, per-checkout evidence path, fingerprint, atomic JSON write, clear를 최소 구현한다.
+  - 실패 테스트: 잘못된 인자, unresolved base, 저장소 밖 Plan, 누락된 Review Results 필드, 근거 없는 기각, 미해결 finding, record/clear, 동일 fingerprint, committed·staged·unstaged·untracked 변경 후 stale, linked worktree별 Evidence 분리를 각각 관측한다.
+  - `scripts/review-gate.js`에 argument parser, 구조화된 Review Results parser, Git command wrapper, per-checkout evidence path, fingerprint, atomic JSON write, clear를 최소 구현한다.
+  - CLI count 입력은 제공하지 않고 Plan의 Finding 항목에서 count를 계산한다.
   - `record`가 저장한 JSON을 다시 읽어 Spec `REQ-08` 필드와 값 범위를 검증한다.
 
 - [ ] **Task 2: 좁은 PreToolUse Gate를 TDD로 연결**
@@ -112,10 +132,10 @@ node scripts/review-gate.js clear
   - Hook의 `agent` handler, `Stop`, `PostToolUse`, network/Secret 권한은 추가하지 않는다.
 
 - [ ] **Task 3: Build Review Loop와 Human Gate 계약 연결**
-  - `review-governance.md`에 Review Packet 3종, finding 3-state, targeted re-review, Review Evidence 기록, `Push + PR / Keep`, Merge·Deploy·Cleanup 별도 승인 규칙을 작성한다.
+  - `review-governance.md`에 Review Packet 3종, finding 3-state, `plan.md` Review Results 형식, targeted re-review, Review Evidence 기록, `Push + PR / Keep`, Merge·Deploy·Cleanup 별도 승인 규칙을 작성한다.
   - `build/SKILL.md`에는 `verify`의 필수 AC PASS 후 해당 Reference를 읽고 기존 reviewer를 호출한다는 짧은 단계만 추가한다.
   - `UNOBSERVED` override는 누락 Evidence·확보 불가 사유·수용 위험을 제시하고 사용자에게 반드시 질문하도록 명시한다.
-  - `docs/specs/README.md`의 기존 Fresh Evidence Checklist에 Review 결과, diff fingerprint, finding summary를 기록하는 항목만 추가한다.
+  - `docs/specs/README.md`의 기존 Fresh Evidence Checklist에 Finding별 Status·Reviewer claim·Reason·Evidence를 보존하는 `Review Results` 항목과 diff fingerprint·finding summary 항목만 추가한다.
 
 - [ ] **Task 4: ADR·결정·로드맵 동기화**
   - ADR-0010에 Reviewer/Verifier 책임 분리, 로컬 Hook 선택 이유, Codex Action/API 비용 배제, deterministic CI와 로컬 Runtime 분리, Human Gate를 기록한다.
@@ -136,7 +156,7 @@ node scripts/review-gate.js clear
 |---|---|---|---|
 | `AC-01` | 정적 흐름 감사 + verifier | `build`와 Reference의 순서 | `verify/verifier → reviewer → Human Gate` 명시 |
 | `AC-02` | 정적 계약 검사 | Review Packet 항목 | 필수 Context 포함, 전체 대화 제외 |
-| `AC-03` | 정적 계약 + targeted test | finding 상태와 re-review 분기 | 3-state와 제한 조건 모두 관측 |
+| `AC-03` | 정적 계약 + parser test | plan Finding 상세와 re-review 분기 | 3-state, 기각 Reason·Evidence, 제한 조건 모두 관측 |
 | `AC-04` | `node:test` Git fixture | fingerprint 동일/변경 결과 | 동일 시 유효, 변경 시 stale |
 | `AC-05` | `node:test` + Hook dry-run | 일반 command/외부 command 결과 | 일반 응답 무개입, 대상만 검사 |
 | `AC-06` | 정적 계약 검사 | Human Gate 문구 | Push+PR/Merge/Deploy/Cleanup 분리 |
@@ -157,7 +177,7 @@ node scripts/review-gate.js clear
   - Green: 동일 명령 exit code `0`, 실패 `0`
   - JSON: `node -e "JSON.parse(require('fs').readFileSync('.codex/hooks.json','utf8'))"` exit code `0`
 - [ ] **Task 3 Evidence**
-  - `rg`로 Review Packet, 3-state, targeted re-review, Human Gate, `UNOBSERVED` override 계약 존재 확인
+  - `rg`로 Review Packet, 3-state, `Review Results`, 기각 Reason·Evidence, targeted re-review, Human Gate, `UNOBSERVED` override 계약 존재 확인
 - [ ] **Task 4 Evidence**
   - ADR-0010·decisions·roadmap의 #146 추적성과 확정/보류 상태 대조
 - [ ] **회귀 검증 게이트**
@@ -175,6 +195,7 @@ node scripts/review-gate.js clear
 - [ ] **독립 Reviewer Gate**
   - Review Packet: 승인된 Spec/Plan, `origin/main...HEAD` 및 working tree, Fresh Evidence·관련 baseline, known constraints
   - 모든 Finding의 `accepted / rejected-with-evidence / needs-human` 판정과 해결 기록
+  - `rejected-with-evidence`마다 Reviewer claim·Reason·구체적 Evidence가 `plan.md`에 보존됐는지 확인
 
 ## 6. 중단 조건
 
