@@ -46,6 +46,12 @@ OwnHands는 `grill-spec` 도우미를 **"Thin Orchestration Layer"**로 정의�
 - Wayfinder를 일반 기능의 코드 검색 도구로 오용하지 않는다.
 - 한 세션으로 감당하기 어려운 거대하고 불명확한 다중 세션 과제(`ROUTE-C`)에 한해서만 사전 decision-ticket map 분할 용도로 안내한다.
 
+### F. Decision-bearing Section Review 추가 — 2026-09-20 ([#142](https://github.com/taejung3852/OwnHands/issues/142))
+- Fact나 사용자가 이미 명확히 확정한 Decision은 다시 묻지 않고, 선택에 따라 Goal 경계·요구사항·인터페이스·실패 정책·수용 기준이 달라지는 Decision만 Artifact 초안 전에 Review한다.
+- 사용자의 반응은 의미에 따라 `맞다`(확정), `아니다`(Goal을 유지하는 대안 2~3개와 트레이드오프), `무슨 소리인지 모르겠다`(쉬운 설명과 예시)의 3-way로 처리한다.
+- 사용자에게는 한 번에 하나의 불릿형 Decision Card(`결정할 것 → 핵심 불릿 → 추천 → 선택`)만 보여준다. 핵심 불릿은 최대 3개·각 1줄이며, Section Review는 기존 Artifact Checkpoint를 대체하지 않는다.
+- 상세 프로토콜은 기존 `references/interview-guide.md`에 두고 새 Agent·Runner·Hook·기록 Artifact는 만들지 않는다.
+
 ---
 
 ## 3. Alternatives Considered (고려했던 대안들)

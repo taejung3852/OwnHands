@@ -194,8 +194,8 @@
           "docs/specs/grill-spec/intent.md"
         ],
         "file_assertions": [
-          { "file": ".agents/skills/grill-spec/SKILL.md", "contains": ["name: grill-spec", "Checkpoint 1", "Checkpoint 2"] },
-          { "file": ".agents/skills/grill-spec/references/interview-guide.md", "contains": ["MIT License", "ROUTE-B", "ROUTE-C", "Fact"] },
+          { "file": ".agents/skills/grill-spec/SKILL.md", "contains": ["name: grill-spec", "Checkpoint 1", "Checkpoint 2", "Decision-bearing section", "Spec Fact & Decision Review"] },
+          { "file": ".agents/skills/grill-spec/references/interview-guide.md", "contains": ["MIT License", "ROUTE-B", "ROUTE-C", "Fact", "Decision-bearing Section Review Loop", "3-way 응답 계약", "Open Question", "Decision Card", "intent-only", "spec-from-intent", "full-flow"] },
           { "file": "docs/specs/grill-spec/spec.md", "contains": ["기반 Intent:"] },
           { "file": "docs/specs/grill-spec/intent.md", "contains": ["Non-goals", "Constraints"] }
         ]
