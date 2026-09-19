@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OwnHands build Skill — 설계에서 검증까지 잇는 얇은 현장 반장</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #1c1917;
+      --muted: #78716c;
+      --paper: #fbf8f2;
+      --card: #ffffff;
+      --line: #e7e5e4;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --green: #15803d;
+      --green-soft: #f0fdf4;
+      --amber: #b45309;
+      --amber-soft: #fffbeb;
+      --red: #b91c1c;
+      --red-soft: #fef2f2;
+      --shadow: 0 10px 32px rgba(28, 25, 23, 0.06);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(253, 230, 138, 0.24), transparent 32%),
+        radial-gradient(circle at 90% 8%, rgba(147, 197, 253, 0.20), transparent 30%),
+        var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+      padding: 44px 18px 80px;
+    }
+    .container { width: min(760px, 100%); margin: 0 auto; }
+    header { text-align: center; margin-bottom: 30px; }
+    .eyebrow {
+      display: inline-flex;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 13px;
+    }
+    h1 {
+      font-size: clamp(27px, 5vw, 40px);
+      line-height: 1.18;
+      letter-spacing: -.04em;
+      margin-bottom: 10px;
+    }
+    .subtitle { color: var(--muted); font-size: 15px; font-weight: 600; }
+    .analogy {
+      margin: 18px auto 0;
+      width: fit-content;
+      max-width: 100%;
+      padding: 10px 16px;
+      border: 1px solid #fed7aa;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .78);
+      color: #7c2d12;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(120, 113, 108, .14);
+      border-radius: 24px;
+      padding: 27px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow);
+    }
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .num {
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--ink);
+      color: #fff;
+      font-weight: 900;
+      font-size: 13px;
+    }
+    .card h2 { font-size: 20px; letter-spacing: -.025em; }
+    .card-desc { color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .contract-flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1.15fr;
+      align-items: center;
+      gap: 9px;
+    }
+    .doc {
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      text-align: center;
+      background: #fafaf9;
+    }
+    .doc strong { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+    .doc span { color: var(--muted); font-size: 11px; margin-top: 5px; }
+    .doc.controller {
+      background: var(--blue-soft);
+      border-color: #93c5fd;
+      box-shadow: inset 0 0 0 1px #bfdbfe;
+    }
+    .doc.controller strong { color: #1d4ed8; }
+    .arrow { color: #a8a29e; font-weight: 900; }
+    .checkline {
+      margin-top: 14px;
+      padding: 10px 13px;
+      border-radius: 12px;
+      background: var(--red-soft);
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 750;
+      text-align: center;
+    }
+    .route-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .route {
+      padding: 15px 13px;
+      border-radius: 16px;
+      text-align: center;
+      border: 1px solid var(--line);
+      background: #fafaf9;
+    }
+    .route .icon { font-size: 24px; margin-bottom: 7px; }
+    .route strong { display: block; font-size: 13px; }
+    .route span { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .route.default { background: var(--green-soft); border-color: #86efac; }
+    .route.tdd { background: var(--amber-soft); border-color: #fde68a; }
+    .route.delegate { background: #f5f3ff; border-color: #c4b5fd; }
+    .default-note {
+      margin-top: 13px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 750;
+      color: var(--green);
+    }
+    .loop {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: 7px;
+    }
+    .loop-node {
+      min-height: 78px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 10px 7px;
+      border-radius: 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .loop-node.evidence { background: var(--amber-soft); border-color: #fde68a; color: var(--amber); }
+    .loop-node.verify { background: var(--green-soft); border-color: #86efac; color: var(--green); }
+    .verdicts {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      padding: 5px 10px;
+      border-radius: 999px;
+      font: 800 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .pass { color: var(--green); background: var(--green-soft); }
+    .fail { color: var(--red); background: var(--red-soft); }
+    .unknown { color: var(--amber); background: var(--amber-soft); }
+    .result-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+      margin: 4px 0 20px;
+    }
+    .result {
+      padding: 13px 10px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.74);
+      border: 1px solid var(--line);
+      text-align: center;
+    }
+    .result strong { display: block; font-size: 17px; }
+    .result span { color: var(--muted); font-size: 10px; }
+    .quiz {
+      background: #fffdf8;
+      border: 1px solid #e7e5e4;
+      border-radius: 22px;
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+    .quiz h2 { font-size: 17px; margin-bottom: 12px; }
+    .quiz-item { border-top: 1px solid var(--line); }
+    .quiz-item:first-of-type { border-top: 0; }
+    .quiz-item summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 13px 0;
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .quiz-item summary::-webkit-details-marker { display: none; }
+    .quiz-item summary::after {
+      content: "정답 확인";
+      flex: 0 0 auto;
+      color: var(--blue);
+      background: var(--blue-soft);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 10px;
+    }
+    .quiz-item[open] summary::after { content: "닫기"; }
+    .answer {
+      color: #475569;
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 11px 13px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .tech {
+      background: rgba(255,255,255,.72);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 0 20px;
+    }
+    .tech > summary {
+      cursor: pointer;
+      padding: 17px 0;
+      font-size: 13px;
+      font-weight: 850;
+    }
+    .tech-body { padding: 0 0 18px; color: #57534e; font-size: 12px; }
+    .tech-body h3 { color: var(--ink); font-size: 13px; margin: 13px 0 5px; }
+    .tech-body ul { padding-left: 18px; }
+    .tech-body a { color: var(--blue); text-decoration: none; }
+    .tech-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    footer { text-align: center; color: #a8a29e; font-size: 10px; margin-top: 18px; }
+    @media (max-width: 650px) {
+      body { padding-top: 28px; }
+      .card { padding: 22px 17px; }
+      .contract-flow { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); text-align: center; }
+      .route-grid, .result-strip { grid-template-columns: 1fr; }
+      .loop { grid-template-columns: 1fr; }
+      .loop .arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <div class="eyebrow">OwnHands · V2-M3</div>
+      <h1>build Skill은 어떻게<br />설계와 구현을 연결하나?</h1>
+      <p class="subtitle">새 실행 엔진이 아니라, 승인된 계약을 한 Task씩 실행시키는 Thin Harness</p>
+      <div class="analogy">비유: 직접 공사하는 로봇이 아니라, 도면·작업표·검수를 잇는 현장 반장</div>
+    </header>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="num">1</div>
+        <div>
+          <h2>먼저 계약부터 확인한다</h2>
+          <p class="card-desc">승인된 설계와 실행 계획이 없으면 코드를 건드리지 않는다.</p>
+        </div>
+      </div>
+      <div class="contract-flow">
+        <div class="doc"><strong>spec.md</strong><span>무엇을 만족해야 하나?</span></div>
+        <div class="arrow">→</div>
+        <div class="doc"><strong>plan.md</strong><span>어떤 순서와 증거로 하나?</span></div>
+        <div class="arrow">→</div>
+        <div class="doc controller"><strong>build Skill</strong><span>다음 미완료 Task 하나 선택</span></div>
+      </div>
+      <div class="checkline">누락·미승인·Target Files 이탈 → 구현 중단, Checkpoint로 복귀</div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="num">2</div>
+        <div>
+          <h2>Task 성격에 맞는 방식만 고른다</h2>
+          <p class="card-desc">TDD와 Subagent를 모든 작업에 강제하지 않는다.</p>
+        </div>
+      </div>
+      <div class="route-grid">
+        <div class="route default">
+          <div class="icon">🛠️</div>
+          <strong>Builder 직접 수행</strong>
+          <span>기본값 · 작고 결합된 Task</span>
+        </div>
+        <div class="route tdd">
+          <div class="icon">🔁</div>
+          <strong>조건부 TDD</strong>
+          <span>로직/API + plan이 지정한 경우</span>
+        </div>
+        <div class="route delegate">
+          <div class="icon">↗️</div>
+          <strong>조건부 위임</strong>
+          <span>분리 이점이 비용보다 클 때만</span>
+        </div>
+      </div>
+      <div class="default-note">이번 구현 실측에서도 Builder 직접 수행을 선택했다.</div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="num">3</div>
+        <div>
+          <h2>증거를 남겨야 다음 Task로 간다</h2>
+          <p class="card-desc">완료 판단은 느낌이 아니라 Fresh Evidence와 기존 verify가 맡는다.</p>
+        </div>
+      </div>
+      <div class="loop">
+        <div class="loop-node">Task<br />구현</div>
+        <div class="arrow">→</div>
+        <div class="loop-node evidence">Fresh<br />Evidence</div>
+        <div class="arrow">→</div>
+        <div class="loop-node">다음<br />Task</div>
+        <div class="arrow">→</div>
+        <div class="loop-node verify">verify<br />독립 감사</div>
+      </div>
+      <div class="verdicts">
+        <span class="pill pass">PASS → 완료</span>
+        <span class="pill fail">FAIL → 수정</span>
+        <span class="pill unknown">UNOBSERVED → 미입증</span>
+      </div>
+    </section>
+
+    <section class="result-strip" aria-label="검증 결과">
+      <div class="result"><strong>0</strong><span>Static regression</span></div>
+      <div class="result"><strong>0</strong><span>Runtime mutation</span></div>
+      <div class="result"><strong>9 / 9</strong><span>Verifier AC PASS</span></div>
+    </section>
+
+    <section class="quiz">
+      <h2>3초 자가 점검</h2>
+      <details class="quiz-item">
+        <summary>문서 수정 Task에도 TDD를 무조건 적용할까?</summary>
+        <div class="answer">아니다. 실행 가능한 로직이고 plan이 TDD를 지정한 경우에만 tdd-loop를 읽는다.</div>
+      </details>
+      <details class="quiz-item">
+        <summary>검증을 실행하지 못했는데 완료라고 해도 될까?</summary>
+        <div class="answer">안 된다. UNOBSERVED로 기록하며, 필수 AC가 모두 PASS일 때만 완료한다.</div>
+      </details>
+    </section>
+
+    <details class="tech">
+      <summary>접힌 기술 세부 사항 · 예외 · 근거 보기</summary>
+      <div class="tech-body">
+        <h3>쉽게 그리느라 생략한 조건</h3>
+        <ul>
+          <li><code>AGENTS.md</code>의 한 문장이 승인된 Build 문맥을 <code>build</code> Skill로 연결한다.</li>
+          <li><code>tdd-loop.md</code>와 <code>subagent-routing.md</code>는 조건이 맞을 때만 읽는 Progressive Disclosure 구조다.</li>
+          <li>Spec 충돌이나 새 제약이 발견되면 <code>spec 수정 → 사람 승인 → plan 재정렬</code>로 돌아간다.</li>
+        </ul>
+
+        <h3>예외 및 미확인 사실</h3>
+        <ul>
+          <li>Skill은 Runner나 Hook이 아니라 Codex가 읽는 실행 지침이다.</li>
+          <li>제공된 <code>quick_validate.py</code>는 환경의 PyYAML 부재로 UNOBSERVED였다. 필수 계약은 직접 정적 검사했다.</li>
+          <li>현재 결과는 <code>codex/140-thin-build-skill</code> 브랜치의 미커밋 변경이다.</li>
+        </ul>
+
+        <h3>근거 아티팩트</h3>
+        <ul>
+          <li><a href="../.agents/skills/build/SKILL.md">build/SKILL.md</a></li>
+          <li><a href="specs/build-feedback-loop/spec.md">승인된 spec.md</a></li>
+          <li><a href="specs/build-feedback-loop/plan.md">실행·증거 plan.md</a></li>
+          <li><a href="https://github.com/taejung3852/OwnHands/issues/140">GitHub Issue #140</a></li>
+        </ul>
+        <p style="margin-top:12px;">생성: 2026-09-20 · 근거 범위: 현재 작업트리의 Skill, Spec, Plan, Git diff</p>
+      </div>
+    </details>
+
+    <footer>OwnHands · Thin Harness · GORE anchored</footer>
+  </main>
+</body>
+</html>
