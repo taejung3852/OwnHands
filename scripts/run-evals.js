@@ -197,7 +197,7 @@ function verifyStaticContract(task) {
 function executeCodexSession(prompt, options = {}) {
   const {
     sandboxMode = 'read-only',
-    timeoutMs = 60000,
+    timeoutMs = 120000,
     cwd = REPO_ROOT
   } = options;
 
@@ -211,8 +211,21 @@ function executeCodexSession(prompt, options = {}) {
   } else if (sandboxMode === 'isolated-write') {
     // 공식 codex exec 기본값(read-only)을 해제하고 명시적 workspace-write 활성화
     cmdArgs.push('--sandbox', 'workspace-write');
+    cmdArgs.push('--skip-git-repo-check');
     try {
       isolatedTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ownhands-eval-isolated-'));
+      // 격리 workspace 안에 필수 OwnHands 컨텍스트 준비 (심볼릭 링크 바인딩)
+      const contextItems = ['.codex', '.agents', 'AGENTS.md', 'docs'];
+      for (const item of contextItems) {
+        const src = path.join(REPO_ROOT, item);
+        const dest = path.join(isolatedTempDir, item);
+        if (fs.existsSync(src) && !fs.existsSync(dest)) {
+          try {
+            const isDir = fs.statSync(src).isDirectory();
+            fs.symlinkSync(src, dest, isDir ? 'dir' : 'file');
+          } catch {}
+        }
+      }
       sessionCwd = isolatedTempDir;
     } catch {
       sessionCwd = cwd;
@@ -227,6 +240,7 @@ function executeCodexSession(prompt, options = {}) {
       cwd: sessionCwd,
       timeout: timeoutMs,
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, CI: 'true' }
     });
   } catch (err) {
@@ -325,11 +339,17 @@ function executeCodexSession(prompt, options = {}) {
         commandExecutions.push(ev.command);
       }
 
-      // 3. 공식 file_change 파일 변경 수집 (item.type === 'file_change')
+      // 3. 공식 file_change 파일 변경 수집 (item.changes 배열 순회 및 path/file fallback)
       if (ev.item && (ev.item.type === 'file_change' || ev.item.type === 'file_mutation')) {
-        const f = ev.item.path || ev.item.file || '';
-        if (f && !fileMutations.includes(f)) {
-          fileMutations.push(f);
+        for (const change of ev.item.changes ?? []) {
+          const p = change.path || change.file || (typeof change === 'string' ? change : '');
+          if (p && !fileMutations.includes(p)) {
+            fileMutations.push(p);
+          }
+        }
+        const directPath = ev.item.path || ev.item.file || '';
+        if (directPath && !fileMutations.includes(directPath)) {
+          fileMutations.push(directPath);
         }
       }
 
@@ -344,12 +364,25 @@ function executeCodexSession(prompt, options = {}) {
     }
   }
 
+  // 임시 디렉터리 내에 신규 생성된 파일 검출 (isolated-write 추적)
+  if (isolatedTempDir && fs.existsSync(isolatedTempDir)) {
+    try {
+      const generatedFiles = fs.readdirSync(isolatedTempDir);
+      for (const gf of generatedFiles) {
+        if (!['.codex', '.agents', 'AGENTS.md', 'docs'].includes(gf)) {
+          fileMutations.push(path.join(isolatedTempDir, gf));
+        }
+      }
+    } catch {}
+  }
+
   if (res.status !== 0 && res.status !== null) {
+    const errDetail = res.stderr ? ` (${res.stderr.trim()})` : '';
     return {
       started: true,
       failureType: 'EXEC_ERROR',
       exitCode: res.status,
-      errorDetails: `세션 비정상 종료 (exit code: ${res.status})`,
+      errorDetails: `세션 비정상 종료 (exit code: ${res.status})${errDetail}`,
       events,
       outputText: combinedText,
       commandExecutions,
@@ -389,7 +422,8 @@ function judgeRuntimeContract(task) {
 
     for (const sc of contract.scenarios) {
       const session = executeCodexSession(sc.prompt, {
-        sandboxMode: task.sandbox_mode || 'read-only'
+        sandboxMode: task.sandbox_mode || 'read-only',
+        timeoutMs: task.timeout_ms || 120000
       });
 
       // 1. 실행 자체를 시작하지 못함 ➔ UNOBSERVED
@@ -440,9 +474,15 @@ function judgeRuntimeContract(task) {
   }
 
   // ─── CASE B: 단일 프롬프트/감사관/스키마 기반 (EVAL-0002, 0003, 0005 등) ───
-  const prompt = contract.prompt || (contract.spec_file ? `${contract.spec_file} 감사 수행` : '');
+  let prompt = contract.prompt || (contract.spec_file ? `${contract.spec_file} 감사 수행` : '');
+  // contract.agent 선언 시 대상 서브에이전트(.codex/agents/*.toml) 명시적 위임 주입
+  if (contract.agent) {
+    prompt = `Use the ${contract.agent} subagent (.codex/agents/${contract.agent}.toml) to: ${prompt}`;
+  }
+
   const session = executeCodexSession(prompt, {
-    sandboxMode: task.sandbox_mode || 'read-only'
+    sandboxMode: task.sandbox_mode || 'read-only',
+    timeoutMs: task.timeout_ms || 180000
   });
 
   // 1. 실행 자체를 시작하지 못함 ➔ UNOBSERVED
@@ -701,8 +741,12 @@ function main() {
       delta = 'REGRESSION (PASS ➔ FAIL)';
       regressionsCount++;
     } else if (prevStatus === 'PASS' && currStatus === 'UNOBSERVED') {
-      delta = 'REGRESSION (PASS ➔ UNOBSERVED)';
-      regressionsCount++;
+      if (isStaticOnly) {
+        delta = 'SKIPPED (--static-only)';
+      } else {
+        delta = 'REGRESSION (PASS ➔ UNOBSERVED)';
+        regressionsCount++;
+      }
     } else if (prevStatus === 'UNOBSERVED' && currStatus === 'FAIL') {
       delta = 'REGRESSION (UNOBSERVED ➔ FAIL)';
       regressionsCount++;
