@@ -21,6 +21,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
 
@@ -185,14 +186,13 @@ function verifyStaticContract(task) {
 /**
  * codex exec --json 비대화형 세션 실행기
  * 
- * 반환값:
- *   - started: boolean (비대화형 CLI 실행 시작 여부)
- *   - failureType: 'CLI_NOT_FOUND' | 'TIMEOUT' | 'EXEC_ERROR' | null
- *   - events: Array<Object> (JSONL 이벤트 정규화 배열)
- *   - outputText: string (관측된 모델의 누적 출력 텍스트)
- *   - commandExecutions: Array<string> (관측된 실행 커맨드 목록)
- *   - fileMutations: Array<string> (관측된 파일 변경 목록)
- *   - errorDetails: string | null
+ * 공식 OpenAI Codex 비대화형 이벤트 구조 수용:
+ *   - event.type: 'item.started' | 'item.completed' | 'thread.started' | 'turn.completed' | 'turn.failed' | 'error'
+ *   - event.item.type: 'agent_message' (text), 'command_execution' (command), 'file_change' (path)
+ * 
+ * 샌드박스 격리 모드:
+ *   - 'read-only'      ➔ --sandbox read-only (기본 격리)
+ *   - 'isolated-write' ➔ --sandbox workspace-write (임시 격리 작업공간 바인딩 및 allowlist 관리)
  */
 function executeCodexSession(prompt, options = {}) {
   const {
@@ -201,21 +201,38 @@ function executeCodexSession(prompt, options = {}) {
     cwd = REPO_ROOT
   } = options;
 
+  let sessionCwd = cwd;
+  let isolatedTempDir = null;
+
   const cmdArgs = ['exec', '--json'];
+
   if (sandboxMode === 'read-only') {
     cmdArgs.push('--sandbox', 'read-only');
+  } else if (sandboxMode === 'isolated-write') {
+    // 공식 codex exec 기본값(read-only)을 해제하고 명시적 workspace-write 활성화
+    cmdArgs.push('--sandbox', 'workspace-write');
+    try {
+      isolatedTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ownhands-eval-isolated-'));
+      sessionCwd = isolatedTempDir;
+    } catch {
+      sessionCwd = cwd;
+    }
   }
+
   cmdArgs.push(prompt);
 
   let res;
   try {
     res = spawnSync('codex', cmdArgs, {
-      cwd,
+      cwd: sessionCwd,
       timeout: timeoutMs,
       encoding: 'utf8',
       env: { ...process.env, CI: 'true' }
     });
   } catch (err) {
+    if (isolatedTempDir && fs.existsSync(isolatedTempDir)) {
+      try { fs.rmSync(isolatedTempDir, { recursive: true, force: true }); } catch {}
+    }
     return {
       started: false,
       failureType: 'CLI_NOT_FOUND',
@@ -223,12 +240,16 @@ function executeCodexSession(prompt, options = {}) {
       events: [],
       outputText: '',
       commandExecutions: [],
-      fileMutations: []
+      fileMutations: [],
+      isolatedTempDir
     };
   }
 
-  // 프로세스 실행 개시 불가 (바이너리 부재 등)
+  // 프로세스 시작 불가 (바이너리 미존재 등)
   if (res.error) {
+    if (isolatedTempDir && fs.existsSync(isolatedTempDir)) {
+      try { fs.rmSync(isolatedTempDir, { recursive: true, force: true }); } catch {}
+    }
     if (res.error.code === 'ENOENT') {
       return {
         started: false,
@@ -237,7 +258,8 @@ function executeCodexSession(prompt, options = {}) {
         events: [],
         outputText: '',
         commandExecutions: [],
-        fileMutations: []
+        fileMutations: [],
+        isolatedTempDir
       };
     }
     if (res.error.code === 'ETIMEDOUT') {
@@ -248,7 +270,8 @@ function executeCodexSession(prompt, options = {}) {
         events: [],
         outputText: '',
         commandExecutions: [],
-        fileMutations: []
+        fileMutations: [],
+        isolatedTempDir
       };
     }
     return {
@@ -258,11 +281,12 @@ function executeCodexSession(prompt, options = {}) {
       events: [],
       outputText: '',
       commandExecutions: [],
-      fileMutations: []
+      fileMutations: [],
+      isolatedTempDir
     };
   }
 
-  // 비대화형 JSONL 이벤트 스트림 정규화 파싱
+  // ─── 공식 Codex JSONL 이벤트 스트림 정규화 파싱 ─────────────────────────────
   const events = [];
   const commandExecutions = [];
   const fileMutations = [];
@@ -275,29 +299,44 @@ function executeCodexSession(prompt, options = {}) {
       const ev = JSON.parse(line);
       events.push(ev);
 
-      // 에이전트 생성 텍스트 추출
-      if (ev.type === 'item.created' && ev.item?.text) {
-        combinedText += ev.item.text + '\n';
-      } else if (ev.item?.content) {
-        const c = typeof ev.item.content === 'string' ? ev.item.content : JSON.stringify(ev.item.content);
-        combinedText += c + '\n';
+      // 1. 공식 agent_message 텍스트 수집 (item.started 또는 item.completed)
+      if (ev.item && ev.item.type === 'agent_message') {
+        const text = ev.item.text || '';
+        if (text && !combinedText.includes(text)) {
+          combinedText += text + '\n';
+        }
+      } else if (ev.type === 'item.completed' && ev.item?.text) {
+        if (!combinedText.includes(ev.item.text)) {
+          combinedText += ev.item.text + '\n';
+        }
       } else if (ev.message?.content) {
         const c = typeof ev.message.content === 'string' ? ev.message.content : JSON.stringify(ev.message.content);
-        combinedText += c + '\n';
-      } else if (ev.text) {
-        combinedText += ev.text + '\n';
+        if (!combinedText.includes(c)) {
+          combinedText += c + '\n';
+        }
       }
 
-      // 커맨드 실행 이벤트 추출
-      if (ev.type === 'command.executed' || ev.command) {
-        const cmd = ev.command || ev.item?.command || '';
-        if (cmd) commandExecutions.push(cmd);
+      // 2. 공식 command_execution 커맨드 수집 (item.type === 'command_execution')
+      if (ev.item && ev.item.type === 'command_execution' && ev.item.command) {
+        if (!commandExecutions.includes(ev.item.command)) {
+          commandExecutions.push(ev.item.command);
+        }
+      } else if (ev.command && !commandExecutions.includes(ev.command)) {
+        commandExecutions.push(ev.command);
       }
 
-      // 파일 변경 이벤트 추출
-      if (ev.type === 'file.modified' || ev.type === 'file.created' || ev.type === 'file.deleted') {
-        const f = ev.file || ev.path || ev.item?.path || '';
-        if (f) fileMutations.push(f);
+      // 3. 공식 file_change 파일 변경 수집 (item.type === 'file_change')
+      if (ev.item && (ev.item.type === 'file_change' || ev.item.type === 'file_mutation')) {
+        const f = ev.item.path || ev.item.file || '';
+        if (f && !fileMutations.includes(f)) {
+          fileMutations.push(f);
+        }
+      }
+
+      // 4. turn.failed 또는 error 이벤트 캡처
+      if (ev.type === 'error' || ev.type === 'turn.failed') {
+        const errMsg = ev.error?.message || ev.message || JSON.stringify(ev);
+        combinedText += `\n[ERROR_EVENT: ${errMsg}]\n`;
       }
     } catch {
       // 일반 stdout 텍스트 보존
@@ -314,7 +353,8 @@ function executeCodexSession(prompt, options = {}) {
       events,
       outputText: combinedText,
       commandExecutions,
-      fileMutations
+      fileMutations,
+      isolatedTempDir
     };
   }
 
@@ -326,7 +366,8 @@ function executeCodexSession(prompt, options = {}) {
     events,
     outputText: combinedText,
     commandExecutions,
-    fileMutations
+    fileMutations,
+    isolatedTempDir
   };
 }
 
@@ -426,10 +467,24 @@ function judgeRuntimeContract(task) {
   const details = [];
   let pass = true;
 
-  // 3. 레포지토리 무단 변경 검사
-  if (policy.allow_repo_mutation === false && session.fileMutations.length > 0) {
-    pass = false;
-    details.push(`❌ 부작용 위반: 무단 파일 변경 발생 (${session.fileMutations.join(', ')})`);
+  // 3. 레포지토리 파일 변경 검사 (부작용 격리 정책 및 allow_artifact_output allowlist)
+  if (session.fileMutations.length > 0 && policy.allow_repo_mutation === false) {
+    if (policy.allow_artifact_output === true) {
+      // 아티팩트 생성 허용: docs/research/ 또는 임시 디렉터리 내 파일만 허용
+      const disallowed = session.fileMutations.filter(f => {
+        const isAllowed = f.startsWith('docs/research/') || f.includes('ownhands-eval-isolated-') || f.startsWith('/tmp/');
+        return !isAllowed;
+      });
+      if (disallowed.length > 0) {
+        pass = false;
+        details.push(`❌ 부작용 위반: 비허가 파일 변경 발생 (${disallowed.join(', ')})`);
+      } else {
+        details.push(`✅ 격리된 아티팩트 파일 생성 허용 확인 (${session.fileMutations.join(', ')})`);
+      }
+    } else {
+      pass = false;
+      details.push(`❌ 부작용 위반: 무단 파일 변경 발생 (${session.fileMutations.join(', ')})`);
+    }
   }
 
   // 4. required_judgments 검사 (EVAL-0002 등)
