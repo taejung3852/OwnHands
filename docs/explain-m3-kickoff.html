@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V2-M3 킥오프: Plan - Design 다음은 왜 Build & Feedback Loop인가?</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #fbf9f5;
+      color: #1c1917;
+      line-height: 1.5;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #1c1917;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    p.subtitle {
+      font-size: 15px;
+      color: #78716c;
+      font-weight: 500;
+    }
+
+    /* 카드 공통 */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 30px 26px;
+      margin-bottom: 22px;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+    .step-badge {
+      width: 32px;
+      height: 32px;
+      background-color: #1c1917;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: #78716c;
+      margin-bottom: 20px;
+    }
+
+    /* 카드 1 시각 요소: SDLC 7단계 & M3 위치 */
+    .sdlc-flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .sdlc-step {
+      flex: 1 1 calc(25% - 8px);
+      min-width: 130px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+    }
+    .sdlc-step.completed {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+    .sdlc-step.active {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    .step-tag {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .sdlc-step.completed .step-tag { color: #16a34a; }
+    .sdlc-step.active .step-tag { color: #2563eb; }
+    .sdlc-step:not(.completed):not(.active) .step-tag { color: #94a3b8; }
+    .step-name {
+      font-size: 14px;
+      font-weight: 800;
+      color: #1e293b;
+    }
+    .step-artifact {
+      font-size: 11px;
+      color: #64748b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    /* 문서 3총사 연결 맵 */
+    .artifact-chain {
+      background: #fdfbf7;
+      border: 1px dashed #d6d3d1;
+      border-radius: 16px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .artifact-node {
+      text-align: center;
+      flex: 1;
+    }
+    .artifact-node .name {
+      font-size: 13px;
+      font-weight: 800;
+      color: #1c1917;
+      font-family: monospace;
+    }
+    .artifact-node .question {
+      font-size: 11px;
+      color: #78716c;
+    }
+    .artifact-arrow {
+      color: #a8a29e;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    /* 카드 2 시각 요소: 3대 장애와 해결 */
+    .obstacle-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .obstacle-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: 1fr 24px 1fr;
+      align-items: center;
+      gap: 12px;
+    }
+    .side-box {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .side-box.bad {
+      color: #991b1b;
+    }
+    .side-box.good {
+      color: #166534;
+    }
+    .side-label {
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .side-text {
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .item-arrow {
+      text-align: center;
+      color: #94a3b8;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    /* 카드 3 시각 요소: 4단계 관문 */
+    .gate-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .gate-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 12px 16px;
+    }
+    .gate-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .gate-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gate-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: #1e293b;
+    }
+    .gate-target {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .gate-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #e2e8f0;
+      color: #475569;
+    }
+
+    /* 퀴즈 공통 */
+    .quiz-card {
+      background: #fdfbf7;
+      border: 1px solid #e7e5e4;
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 22px;
+    }
+    .quiz-header {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .quiz-item {
+      background: #ffffff;
+      border: 1px solid #e7e5e4;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .quiz-item summary {
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1c1917;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      list-style: none;
+    }
+    .quiz-item summary::-webkit-details-marker { display: none; }
+    .quiz-btn {
+      font-size: 11px;
+      font-weight: 700;
+      color: #b45309;
+      background: #fef3c7;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .quiz-answer {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #e7e5e4;
+      font-size: 13px;
+      color: #15803d;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    /* 접힌 기술 디테일 */
+    details.tech-details {
+      background: #ffffff;
+      border-radius: 16px;
+      border: 1px solid #e7e5e4;
+      padding: 16px 20px;
+      font-size: 13px;
+      color: #57534e;
+    }
+    details.tech-details summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: #1c1917;
+      margin-bottom: 8px;
+    }
+    details.tech-details ul {
+      margin-left: 18px;
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Plan - Design 다음은 왜 Build & Feedback Loop인가?</h1>
+      <p class="subtitle">설계(spec.md)를 코드로 옮길 때 에이전트의 탈선과 자가합리화를 막는 GORE 기반 구현 루프</p>
+    </header>
+
+    <!-- 카드 1 -->
+    <div class="card">
+      <div class="step-badge">1</div>
+      <div class="card-title">SDLC 7단계 지도 속 M3의 위치</div>
+      <div class="card-desc">Plan(의도)과 Design(명세)이 단단히 닻을 내렸다면, 이제 실제 코드로 직조할 차례입니다.</div>
+
+      <div class="sdlc-flow">
+        <div class="sdlc-step completed">
+          <span class="step-tag">M2 완료</span>
+          <span class="step-name">1. Plan</span>
+          <span class="step-artifact">intent.md</span>
+        </div>
+        <div class="sdlc-step completed">
+          <span class="step-tag">M2 완료</span>
+          <span class="step-name">2. Design</span>
+          <span class="step-artifact">spec.md</span>
+        </div>
+        <div class="sdlc-step active">
+          <span class="step-tag">M3 진행</span>
+          <span class="step-name">3. Build & Loop</span>
+          <span class="step-artifact">plan.md + Code</span>
+        </div>
+        <div class="sdlc-step">
+          <span class="step-tag">M4 예정</span>
+          <span class="step-name">4. Test</span>
+          <span class="step-artifact">Assurance</span>
+        </div>
+        <div class="sdlc-step">
+          <span class="step-tag">M5 예정</span>
+          <span class="step-name">5. Evals</span>
+          <span class="step-artifact">Continuous Evals</span>
+        </div>
+        <div class="sdlc-step">
+          <span class="step-tag">M6 예정</span>
+          <span class="step-name">6. Deploy</span>
+          <span class="step-artifact">Governance</span>
+        </div>
+        <div class="sdlc-step">
+          <span class="step-tag">M7 예정</span>
+          <span class="step-name">7. Maintain</span>
+          <span class="step-artifact">Closed Loop</span>
+        </div>
+      </div>
+
+      <div class="artifact-chain">
+        <div class="artifact-node">
+          <div class="name">intent.md</div>
+          <div class="question">"왜, 무엇을?"</div>
+        </div>
+        <div class="artifact-arrow">➔</div>
+        <div class="artifact-node">
+          <div class="name">spec.md</div>
+          <div class="question">"어떤 설계로?"</div>
+        </div>
+        <div class="artifact-arrow">➔</div>
+        <div class="artifact-node" style="color: #2563eb;">
+          <div class="name" style="color: #2563eb;">plan.md</div>
+          <div class="question" style="color: #2563eb; font-weight: 700;">"어떻게 구현할까?"</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 2 -->
+    <div class="card">
+      <div class="step-badge">2</div>
+      <div class="card-title">M3가 풀려는 3대 장애와 핵심 해결책</div>
+      <div class="card-desc">머릿속 계획의 휘발, 에이전트의 자가합리화, 플랫폼 기능 중복 개발을 원천 차단합니다.</div>
+
+      <div class="obstacle-grid">
+        <div class="obstacle-item">
+          <div class="side-box bad">
+            <span class="side-label">❌ 머릿속 세션 계획</span>
+            <span class="side-text">작업 근거 유실 및 엉뚱한 탈선</span>
+          </div>
+          <div class="item-arrow">➔</div>
+          <div class="side-box good">
+            <span class="side-label">✅ 영구 plan.md 아티팩트</span>
+            <span class="side-text">단계별 파일 수정 및 검증 계획 고정</span>
+          </div>
+        </div>
+
+        <div class="obstacle-item">
+          <div class="side-box bad">
+            <span class="side-label">❌ 자가합리화 (환각)</span>
+            <span class="side-text">혼자 코드 치고 "다 됐다" 선언</span>
+          </div>
+          <div class="item-arrow">➔</div>
+          <div class="side-box good">
+            <span class="side-label">✅ TDD + 독립 Verifier</span>
+            <span class="side-text">실패 먼저 확인 ➔ 객관적 수용 검증</span>
+          </div>
+        </div>
+
+        <div class="obstacle-item">
+          <div class="side-box bad">
+            <span class="side-label">❌ 바퀴의 재발명 (과설계)</span>
+            <span class="side-text">플랫폼이 주는 빌드 툴을 직접 개발</span>
+          </div>
+          <div class="item-arrow">➔</div>
+          <div class="side-box good">
+            <span class="side-label">✅ Codex 네이티브 Thin Harness</span>
+            <span class="side-text">Plan Mode 조사 후 최소 연결만 구현</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 3 -->
+    <div class="card">
+      <div class="step-badge">3</div>
+      <div class="card-title">M3 추진 4단계 (M2 성공 공식 계승)</div>
+      <div class="card-desc">조사 ➔ 규격 ➔ 경계 ➔ 실측의 4관문으로 과설계 없이 단단하게 전진합니다.</div>
+
+      <div class="gate-list">
+        <div class="gate-row">
+          <div class="gate-info">
+            <div class="gate-num">1</div>
+            <div>
+              <div class="gate-name">Step ① Research Gate (조사)</div>
+              <div class="gate-target">Codex Plan mode & Anthropic Build 공식 조사</div>
+            </div>
+          </div>
+          <span class="gate-badge" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;">착수 대상</span>
+        </div>
+
+        <div class="gate-row">
+          <div class="gate-info">
+            <div class="gate-num">2</div>
+            <div>
+              <div class="gate-name">Step ② 산출물 규격 (Contract)</div>
+              <div class="gate-target">docs/specs/ 아래 plan.md 규약 및 ADR 제정</div>
+            </div>
+          </div>
+          <span class="gate-badge">대기</span>
+        </div>
+
+        <div class="gate-row">
+          <div class="gate-info">
+            <div class="gate-num">3</div>
+            <div>
+              <div class="gate-name">Step ③ 피드백 루프 경계 (Boundary)</div>
+              <div class="gate-target">TDD 원칙 및 Verifier/Reviewer 협업 타이밍 확립</div>
+            </div>
+          </div>
+          <span class="gate-badge">대기</span>
+        </div>
+
+        <div class="gate-row">
+          <div class="gate-info">
+            <div class="gate-num">4</div>
+            <div>
+              <div class="gate-name">Step ④ 관통 실측 (Pass-through Eval)</div>
+              <div class="gate-target">실제 1건 구현 파이프라인 관통 실측 (Eval 0005)</div>
+            </div>
+          </div>
+          <span class="gate-badge">대기</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3초 퀴즈 -->
+    <div class="quiz-card">
+      <div class="quiz-header">💡 스스로 풀어보는 3초 퀴즈</div>
+      
+      <details class="quiz-item">
+        <summary>
+          <span>Q1. spec.md가 이미 있는데 왜 plan.md가 별도로 필요한가요?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          👉 spec.md는 "기술적 무엇(What)"을 정의하고, plan.md는 현재 코드베이스에서 "어떤 파일들을 어떤 순서로 수정할지(How)" 구체적인 실행 단계와 검증 계획을 고정하기 때문입니다.
+        </div>
+      </details>
+
+      <details class="quiz-item">
+        <summary>
+          <span>Q2. 에이전트가 혼자 코드를 짜고 스스로 "다 됐다"고 착각하는 것을 막는 M3의 장치는?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          👉 코드를 작성하기 전 테스트 실패를 먼저 확인하는 TDD 루프와, 구현자 맥락과 격리된 독립 검증자(verifier, read-only)의 객관적 대조 검증입니다.
+        </div>
+      </details>
+    </div>
+
+    <!-- 접힌 기술 세부 사항 -->
+    <details class="tech-details">
+      <summary>🛠️ 엔지니어링 세부 사항 및 원문 근거 (Detailed Context)</summary>
+      <ul>
+        <li><strong>생략한 조건</strong>: Codex의 Plan mode나 비대화형 실행 인터페이스는 공식 조사(Step ①)를 통해 정확한 지원 여부와 작성 가이드를 확인한 뒤 연계 범위를 좁힙니다.</li>
+        <li><strong>주의할 예외</strong>: 특정 IDE/호스트의 내장 Plan Mode를 썼다고 해서 저장소의 <code>plan.md</code> 저장과 사람 검토가 자동으로 끝나는 것은 아니며, 별도의 Git 아티팩트로 보존되어야 합니다.</li>
+        <li><strong>근거 자료</strong>: <a href="roadmap.md">V2 로드맵</a> · <a href="overview.md">V2 개요</a> · <a href="https://github.com/taejung3852/OwnHands/milestone/16">Milestone 16 (V2-M3)</a></li>
+      </ul>
+    </details>
+  </div>
+</body>
+</html>

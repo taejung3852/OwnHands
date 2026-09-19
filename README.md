@@ -6,7 +6,7 @@
 > V1은 주요 검증·Dashboard 흐름을 실제 구현하고 병합했지만 **최종 수용 검증까지 가기 전에** V2로 전환했다.
 > V2는 방향을 확정했고, 첫 실행 자산으로 **Skill 2개**(`write-issue-pr`·`explain`)를 만들었다.
 > 그 외 제품 기능은 아직 구현하지 않았다.
-> 무엇이 확정이고 무엇이 아닌지는 [결정 상태표](docs/v2/decisions.md)를 본다.
+> 무엇이 확정이고 무엇이 아닌지는 [결정 상태표](docs/decisions.md)를 본다.
 
 ---
 
@@ -71,7 +71,7 @@ flowchart LR
 
 Explain은 특정 단계의 기능이 아니라 **모든 단계에서 쓰는 공통 기능**이다.
 
-→ 자세히: [V2 개요](docs/v2/overview.md)
+→ 자세히: [V2 개요](docs/overview.md)
 
 ---
 
@@ -110,7 +110,7 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 
 ⚠️ 마일스톤이 등록됐다는 것과 그 안의 설계가 확정됐다는 것은 다르다. 각 단계의 남겨둔 결정은 열려 있다.
 
-→ 자세히: [로드맵](docs/v2/roadmap.md)
+→ 자세히: [로드맵](docs/roadmap.md)
 
 ---
 
@@ -124,7 +124,7 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 | 초기 작은 Eval + M5 확장 | 다른 vendor 지원 방식 |
 | 개인 전용으로 제한하지 않음 | Eval 지표·비용·gate |
 
-→ **전체 목록: [결정 상태표](docs/v2/decisions.md)**
+→ **전체 목록: [결정 상태표](docs/decisions.md)**
 
 ---
 
@@ -133,10 +133,10 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 | 시작점 | 내용 |
 |---|---|
 | **[📖 문서 인덱스](docs/README.md)** | 독자별 읽기 순서 |
-| [결정 상태표](docs/v2/decisions.md) | ⭐ 확정 / 생각 / 미정 |
-| [V2 개요](docs/v2/overview.md) | 큰 구조와 책임 |
-| [로드맵](docs/v2/roadmap.md) | 실행 순서와 각 단계의 남겨둔 결정 |
-| [개발 방법](docs/v2/development-method.md) | 각 단계 진행 방식 |
+| [결정 상태표](docs/decisions.md) | ⭐ 확정 / 생각 / 미정 |
+| [V2 개요](docs/overview.md) | 큰 구조와 책임 |
+| [로드맵](docs/roadmap.md) | 실행 순서와 각 단계의 남겨둔 결정 |
+| [개발 방법](docs/development-method.md) | 각 단계 진행 방식 |
 | [V1 기록](docs/history/v1.md) | 구현 범위·마일스톤·보존 기준 |
 
 ## 작업 관리

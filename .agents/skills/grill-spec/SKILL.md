@@ -5,7 +5,7 @@ description: Sharpens development intent and technical specifications into OwnHa
 
 # grill-spec
 
-새로운 기능이나 변경 작업을 기획·설계할 때 호출한다. 사용자의 개발 의도를 **GORE(목표 지향 요구공학) 최상위 Goal**에 닻 내리고, **Fact(코드베이스 사실)**와 **Decision(사용자 의사결정)**을 엄격히 분리하여 `docs/v2/specs/<feature-name>/` 아래에 `intent.md`와 `spec.md`를 도출한다.
+새로운 기능이나 변경 작업을 기획·설계할 때 호출한다. 사용자의 개발 의도를 **GORE(목표 지향 요구공학) 최상위 Goal**에 닻 내리고, **Fact(코드베이스 사실)**와 **Decision(사용자 의사결정)**을 엄격히 분리하여 `docs/specs/<feature-name>/` 아래에 `intent.md`와 `spec.md`를 도출한다.
 
 ## 3가지 실행 모드 (Stage Modes)
 
@@ -28,11 +28,11 @@ description: Sharpens development intent and technical specifications into OwnHa
    - 질문 수에 인위적 숫자 제한을 두지 않고, 의존성이 풀린 frontier를 1 round 단위로 질문한다.
    - 비목표(Non-goals), 실패 시나리오, 엣지케이스 등 사람만이 내릴 수 있는 Decision을 묻는다.
 5. **intent.md Draft**:
-   - Why, What, Non-goals, Constraints 4대 필드를 `docs/v2/specs/<feature-name>/intent.md`로 작성한다.
+   - Why, What, Non-goals, Constraints 4대 필드를 `docs/specs/<feature-name>/intent.md`로 작성한다.
 6. **Human Checkpoint 1 (Default Barrier)**:
    - 사용자 확인을 기다리며, 승인되지 않은 Intent를 확정된 근거로 취급해 Spec 작성을 직행하지 않는다.
 7. **spec.md Draft**:
-   - 승인된 Intent와 수집된 팩트를 기반으로 Requirements, Architecture, Edge cases, Acceptance criteria를 `docs/v2/specs/<feature-name>/spec.md`로 작성한다. 상단에 `- 기반 Intent: intent.md` 헤더를 반드시 유지한다.
+   - 승인된 Intent와 수집된 팩트를 기반으로 Requirements, Architecture, Edge cases, Acceptance criteria를 `docs/specs/<feature-name>/spec.md`로 작성한다. 상단에 `- 기반 Intent: intent.md` 헤더를 반드시 유지한다.
 8. **Human Checkpoint 2**:
    - 작성된 `spec.md`에 대해 사용자의 엔지니어링 검토 및 승인을 받는다.
 
