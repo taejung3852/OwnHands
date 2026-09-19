@@ -160,7 +160,7 @@ test('scenario mutation policy rejects repository changes', () => {
     runtime_contract: {
       scenarios: [{
         id: 'P3',
-        prompt: 'create only an isolated artifact',
+        prompt: 'attempt a repository file change',
         side_effect_policy: {
           allow_repo_mutation: false
         }
