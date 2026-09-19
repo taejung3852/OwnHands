@@ -34,18 +34,18 @@
 
 ## 2. Decision (결정)
 
-OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아키텍처 결정**을 채택한다.
+OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아키텍처 결정을 제안한다 (사용자 검토 및 승인 시 다음과 같이 확정).**
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│                     V2-M5 Continuous Evals 체계                        │
+│                     V2-M5 Continuous Evals 체계 (제안)                 │
 ├────────────────────────────────────────────────────────────────────────┤
-│ 1. 단일 선언형 Task Set 표준 스키마                                    │
-│    docs/evals/task-set.yaml 에 5대 축적 과제 및 계약 통합 버전 관리     │
+│ 1. 단일 선언형 Task Set 표준 스키마 (execution_mode 구분)               │
+│    docs/evals/task-set.yaml 에 5대 축적 과제를 static/runtime 으로 분리 보존│
 │                                                                        │
-│ 2. 1차 경량 비대화형 러너 & 자체 Dry-run 환경                          │
-│    scripts/run-evals.js 로 지침·스킬 정적/계약 검증 (0.5초, 비용 0원)  │
-│    (정밀 추론 검증은 codex exec --sandbox read-only 온디맨드 연동)    │
+│ 2. Eval Orchestrator (Static Preflight + Codex 런타임 연계 러너)        │
+│    scripts/run-evals.js 로 빠른 정적 사전 검사(Preflight) 우선 실행 후, │
+│    실제 행동 평가는 codex exec --sandbox read-only 비대화형 실행 연동   │
 │                                                                        │
 │ 3. 3-State Delta Matrix 기반 회귀 감지 및 Baseline 스냅샷              │
 │    단순 합격률(%) 착시 배제, 개별 태스크 전이(PASS ➔ UNOBSERVED/FAIL) 핀포인트 추적│
@@ -61,58 +61,71 @@ OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아�
 - 과제별로 수십 개의 YAML/JSON 파일을 쪼개면 디렉터리 오버헤드가 발생한다.
 - 현재 축적된 과제가 5-10개 내외이므로, 하나의 선언형 `task-set.yaml` 파일로 전체 평가 셋을 조망하고 Git diff를 추적하는 것이 가장 가볍고 직관적이다. (향후 과제가 30개 이상으로 비대해질 때 분할 검토)
 
-#### 2) Task Set 표준 스키마
+#### 2) "지침 존재 ≠ 실제 동작 관측" 원칙을 보장하는 Task Set 표준 스키마
+기존 Eval 0001-0005의 검증 로직을 완전하게 수용하기 위해, 정적 문서 검사와 실제 에이전트 행동 관측을 명확히 구분하는 **`execution_mode: static | runtime`** 및 **`side_effect_policy`** 필드를 필수화한다:
+
 ```yaml
 version: "1.0"
 tasks:
   - id: "EVAL-0001"
-    name: "Skill 프롬프트 라우팅 정확도"
+    name: "Skill 프롬프트 라우팅 정확도 실측"
     category: "routing"
     target_asset: ".agents/skills/"
+    execution_mode: "runtime" # 실제 프롬프트 투입 후 라우팅 행동 관측
     input:
-      prompt: "5대 일상 프롬프트 (버그 신고, 현황 요약, 코드 리뷰 등)"
+      prompt_set:
+        - "로그인 버튼을 눌렀을 때 500 에러가 발생합니다."
+        - "현재 아키텍처 진행 상황을 요약해줘."
+        - "이 PR에 대해 오버엔지니어링 관점에서 리뷰해줘."
     expected_contract:
-      route_matches:
-        - input_contains: "이슈"
-          expected_skill: "write-issue-pr"
-        - input_contains: "설명"
-          expected_skill: "explain"
-      forbidden_actions:
-        - "gh issue create"
-        - "gh pr create"
-    judgment_mode: "deterministic" # deterministic | schema | auditor
+      route_targets:
+        - expected_skill: "write-issue-pr"
+        - expected_skill: "explain"
+        - expected_skill: "ponytail-review"
+    side_effect_policy:
+      allow_mutations: false
+      allow_network_writes: false
+      forbidden_tools: ["run_command:gh issue create", "run_command:gh pr create"]
+    judgment_mode: "deterministic"
 
   - id: "EVAL-0002"
-    name: "Verifier 독립 감사관 수용성 및 불변성"
+    name: "Verifier 독립 감사관 수용성 및 불변성 실측"
     category: "subagent"
     target_asset: ".codex/agents/verifier.toml"
+    execution_mode: "runtime" # 실제 verifier 프롬프트 구동 및 판정 출력 관측
     input:
-      context_files: ["docs/adr/0001-initial-subagent-roles.md"]
+      spec_file: "docs/specs/grill-spec/spec.md"
+      evidence_context: "실측 exit 0 및 파일 존재 로그"
     expected_contract:
       sandbox_mode: "read-only"
-      required_rules:
-        - "Read-Only Integrity"
-        - "Independent Evidence Audit"
-        - "Strict 3-State Judgment Vocabulary"
-        - "Before Baseline Audit"
-        - "Output Contract"
+      output_vocabulary: ["PASS", "FAIL", "UNOBSERVED"]
+      strictly_forbidden_vocabulary: ["PARTIAL PASS"]
       zero_mutation: true
+    side_effect_policy:
+      allow_mutations: false
     judgment_mode: "schema"
 
   - id: "EVAL-0003"
-    name: "Researcher 1차 출처 인용 및 팩트/공백 분리"
+    name: "Researcher 1차 출처 인용 및 팩트/공백 분리 실측"
     category: "subagent"
     target_asset: ".codex/agents/researcher.toml"
+    execution_mode: "runtime" # 실제 조사 보고서 생성 산출물 검증
+    input:
+      query: "V2-M2 Research Gate 1차 자료 조사"
+      primary_sources: ["docs/references/anthropic-playbook.md", "docs/references/codex-official.md"]
     expected_contract:
       require_primary_source_url: true
       require_gap_separation: true
       zero_mutation: true
+    side_effect_policy:
+      allow_mutations: false
     judgment_mode: "schema"
 
   - id: "EVAL-0004"
     name: "grill-spec GORE 닻 및 단계 분리 적합성"
     category: "skill"
     target_asset: ".agents/skills/grill-spec/"
+    execution_mode: "static" # 스킬 정의, references, 라이선스 정적 계약 검증
     expected_contract:
       frontmatter_name: "grill-spec"
       mit_license: true
@@ -120,9 +133,10 @@ tasks:
     judgment_mode: "schema"
 
   - id: "EVAL-0005"
-    name: "verify 스킬 분할 및 Verifier 런타임 감사 프로토콜"
+    name: "verify 스킬 분할 및 Verifier 감사 프로토콜 검증"
     category: "verification"
     target_asset: ".agents/skills/verify/"
+    execution_mode: "static" # 스킬 경량화(29행) 및 온디맨드 references 분할 검증
     expected_contract:
       references_split: ["before-after-baseline.md", "regression-defense.md", "evidence-guide.md"]
       flexible_traceability: "1:N / N:1"
@@ -133,15 +147,21 @@ tasks:
 
 ---
 
-### 2.2 결정 2: 1차 경량 비대화형 러너 (`scripts/run-evals.js`)
+### 2.2 결정 2: 1차 러너 아키텍처 (`scripts/run-evals.js` + Codex Headless)
 
-#### 1) 1차 러너 구현 스택: 정적/계약 초고속 러너
-- 에이전트 지침이나 스킬 변경의 80% 이상은 **설정 파일 포맷 결함, 필수 규칙 누락, 금지 어휘 침범, 파일 삭제/경로 오류**에서 비롯된다.
-- 따라서 외부 LLM API 비용이나 네트워크 지연 없이, 저장소 내 파일을 직접 파싱하여 0.5초 만에 계약 위반을 잡아내는 **Node.js 기반 경량 스크립트(`scripts/run-evals.js`)**를 1차 러너로 도입한다.
+#### 1) 러너의 역할: Eval Orchestrator + Static Preflight
+- 러너 스크립트(`scripts/run-evals.js`)를 단순 정적 파일 파서로 축소하지 않고, **전체 평가 세트를 조율하는 Orchestrator**로 제안한다.
+- **2단계 실행 파이프라인**:
+  1. **1단계 (Static Preflight)**: 빠른 정적 사전 검사로 설정 파일 문법, 스킬 frontmatter, 필수 파일 존재, 금지 어휘를 외부 LLM 호출 없이 검증.
+  2. **2단계 (Runtime Execution)**: `execution_mode: runtime` 과제에 대해 Codex headless(`codex exec --sandbox read-only`)를 비대화형으로 구동하여 실제 에이전트의 행동과 출력을 수집.
+  3. **3단계 (Judge & Delta Matrix)**: 수집된 실제 결과를 기대 계약과 대조하여 `PASS / FAIL / UNOBSERVED`를 판정하고 기준선(Baseline)과의 차이를 리포트.
 
-#### 2) 자체 Dry-run 평가 환경과 Codex headless 연계
-- **공식 read-only 샌드박스**: 실제 런타임 추론이 필요할 때는 `codex exec --sandbox read-only`를 온디맨드로 결합한다.
-- **자체 Dry-run 격리**: 외부 부작용(실제 GitHub 이슈/PR 무단 생성)을 원천 차단하기 위해, 러너 실행 중에는 Mocking 및 안전 샌드박스 환경을 유지한다.
+#### 2) 자체 Dry-run 평가 환경과 Codex Headless 연계
+- **공식 read-only 샌드박스**: Codex 공식 기능인 `codex exec --sandbox read-only`를 기반으로 실행하여 파일시스템 쓰기 권한을 원천 차단한다.
+- **자체 Dry-run 평가 환경 (AGENTS.md 준수)**: Codex 공식 CLI에 generic `--dry-run` 플래그는 부재하므로, 외부 GitHub 이슈/PR 무단 생성 차단은 **OwnHands 러너가 스크립트 및 모킹 레벨에서 격리하는 자체 평가 환경**으로 설계한다.
+- **실행 시간 목표 (후보 지표)**:
+  - 정적 Preflight 목표: 1초 미만 (실제 시간은 Step ③ 러너 구현 시 실측하여 기록).
+  - 런타임 실행: 비대화형 백그라운드 구동.
 
 ---
 
@@ -179,9 +199,9 @@ tasks:
 ## 3. Status & Consequences (상태 및 결과)
 
 ### 3.1 긍정적 효과
-1. **1초 회귀 방어선**: 지침이나 스킬을 수정한 개발자가 커밋 전 `node scripts/run-evals.js` 한 줄로 5대 핵심 계약의 파괴 여부를 즉시 검증할 수 있다.
+1. **빠른 사전 회귀 감지**: 지침이나 스킬을 수정한 개발자가 커밋 전 정적 사전 검사(Preflight)로 핵심 계약 파괴 여부를 빠르게 1차 감지할 수 있다.
 2. **합격률 착시 차단**: 3-State Delta Matrix를 통해 어느 지침이 어떻게 깨졌는지 핀포인트로 드러난다.
-3. **Zero-Cost / Thin Harness**: 별도의 유료 인프라나 복잡한 외부 의존성 없이 표준 Node.js만으로 완결된다.
+3. **경량 하네스 (Thin Harness)**: 별도의 복잡한 외부 평가 플랫폼 없이 저장소 내 표준 Node.js 러너와 Codex CLI 연동만으로 완결된다.
 
 ### 3.2 트레이드오프 및 주의사항
 1. **정적 검증과 생성 추론의 경계**:

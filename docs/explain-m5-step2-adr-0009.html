@@ -302,42 +302,42 @@
     <header>
       <div class="badge-status">ADR-0009 Proposed · 사용자 검토 대기</div>
       <h1>Continuous Evals Task Set과 경량 러너는 어떻게 회귀를 막는가?</h1>
-      <p class="subtitle">단일 YAML 선언형 스키마와 3-State Delta Matrix 기반의 Zero-Cost 회귀 감지 아키텍처</p>
+      <p class="subtitle">정적/런타임 2계층 스키마와 3-State Delta Matrix 기반의 경량 회귀 감지 아키텍처 제안</p>
     </header>
 
     <!-- 카드 1: 단일 Task Set YAML -->
     <div class="card">
       <div class="card-header">
         <div class="step-badge">1</div>
-        <div class="card-title">단일 선언형 Task Set 규격: docs/evals/task-set.yaml</div>
+        <div class="card-title">선언형 Task Set 규격: execution_mode (static / runtime) 이원화</div>
       </div>
-      <div class="card-desc">과제 분할 오버헤드 없이 5대 축적 과제와 수용 계약을 한 파일에서 버전 관리합니다.</div>
+      <div class="card-desc">정적 파일 점검과 실제 에이전트 행동 관측을 명확히 분리하여 5대 축적 과제를 보존합니다.</div>
       
       <div class="schema-box">
         <div class="schema-header">
           <span>docs/evals/task-set.yaml</span>
-          <span class="schema-tag">단일 통합 관리</span>
+          <span class="schema-tag">execution_mode 이원화</span>
         </div>
         <div class="schema-chips">
           <div class="schema-chip">
-            <strong>EVAL-0001</strong>
-            <span>라우팅 정확도</span>
+            <strong style="color: #0284c7;">EVAL-0001 (runtime)</strong>
+            <span>실제 스킬 라우팅</span>
           </div>
           <div class="schema-chip">
-            <strong>EVAL-0002</strong>
-            <span>감사관 불변성</span>
+            <strong style="color: #0284c7;">EVAL-0002 (runtime)</strong>
+            <span>감사관 불변성 실측</span>
           </div>
           <div class="schema-chip">
-            <strong>EVAL-0003</strong>
-            <span>1차 출처 팩트</span>
+            <strong style="color: #0284c7;">EVAL-0003 (runtime)</strong>
+            <span>1차 출처 보고서 실측</span>
           </div>
           <div class="schema-chip">
-            <strong>EVAL-0004</strong>
-            <span>grill-spec 닻</span>
+            <strong style="color: #15803d;">EVAL-0004 (static)</strong>
+            <span>grill-spec 정적 계약</span>
           </div>
           <div class="schema-chip">
-            <strong>EVAL-0005</strong>
-            <span>verify 프로토콜</span>
+            <strong style="color: #15803d;">EVAL-0005 (static)</strong>
+            <span>verify 분할 정적 계약</span>
           </div>
           <div class="schema-chip" style="border-style: dashed; background: #fafaf9;">
             <strong style="color: #94a3b8;">+ New Task</strong>
@@ -347,25 +347,25 @@
       </div>
     </div>
 
-    <!-- 카드 2: 1차 경량 러너 & 자체 Dry-run 환경 -->
+    <!-- 카드 2: Eval Orchestrator & Static Preflight + Codex Headless -->
     <div class="card">
       <div class="card-header">
         <div class="step-badge">2</div>
-        <div class="card-title">1차 경량 정적 러너 + 자체 Dry-run 평가 환경 (Thin Harness)</div>
+        <div class="card-title">Eval Orchestrator: 빠른 정적 Preflight + Codex 런타임 연계</div>
       </div>
-      <div class="card-desc">0.5초 만에 설정·계약 결함을 전수 검사하고, 부작용 없는 모킹 샌드박스를 보장합니다.</div>
+      <div class="card-desc">외부 LLM 호출 없는 빠른 사전 검사를 선행하고, 행동 과제는 Codex 비대화형 실행으로 관측합니다.</div>
 
       <div class="runner-pipeline">
         <div class="runner-card">
-          <div class="runner-tier">1차 기본 러너</div>
+          <div class="runner-tier">1단계: Static Preflight</div>
           <div class="runner-name">scripts/run-evals.js</div>
-          <div class="runner-desc">파일·지침 정적 계약 검증<br>0.5초 실행 · 비용 0원</div>
+          <div class="runner-desc">파일·설정 정적 계약 검증<br>외부 LLM 호출 없이 사전 실행</div>
         </div>
         <div class="runner-arrow">➔</div>
         <div class="runner-card">
-          <div class="runner-tier">온디맨드 연계</div>
+          <div class="runner-tier">2단계: Runtime Execution</div>
           <div class="runner-name">codex exec headless</div>
-          <div class="runner-desc">공식 read-only 샌드박스<br>실제 런타임 추론 검증</div>
+          <div class="runner-desc">공식 read-only sandbox 연계<br>자체 격리 환경에서 행동 실측</div>
         </div>
       </div>
     </div>
@@ -406,7 +406,7 @@
           <span class="quiz-btn">정답 확인</span>
         </summary>
         <div class="quiz-answer">
-          💡 <strong>아닙니다!</strong> 만약 실패한 1건이 핵심 안전장치(read-only 불변성 등)라면 통과율 80%는 위험을 가리는 착시가 됩니다. ADR-0009는 개별 과제의 상태 전이를 핀포인트로 감지하는 3-State Delta Matrix를 채택합니다.
+          💡 <strong>아닙니다!</strong> 만약 실패한 1건이 핵심 안전장치(read-only 불변성 등)라면 통과율 80%는 위험을 가리는 착시가 됩니다. ADR-0009는 개별 과제의 상태 전이를 핀포인트로 감지하는 3-State Delta Matrix를 제안합니다.
         </div>
       </details>
 
@@ -425,11 +425,11 @@
     <details class="details-box">
       <summary>🛠️ ADR-0009 엔지니어링 투명성 및 결정 의제</summary>
       <div class="details-content">
-        <p><strong>3대 핵심 결정 요약:</strong></p>
+        <p><strong>3대 핵심 제안 요약:</strong></p>
         <ul>
-          <li><strong>Task Set 규격</strong>: <code>docs/evals/task-set.yaml</code> 단일 선언형 파일에 M1-M4 5대 축적 과제 스키마 통합 관리.</li>
-          <li><strong>1차 러너 구현</strong>: 외부 API 비용 없는 경량 정적/계약 스크립트(<code>scripts/run-evals.js</code>)를 1차 탑재하고, 정밀 추론은 Codex headless를 온디맨드로 결합.</li>
-          <li><strong>회귀 지표</strong>: 단순 합격률 환치를 거부하고 <code>docs/evals/baselines/current.json</code> 기준선과 대조하는 3-State Delta Matrix 채택.</li>
+          <li><strong>Task Set 규격</strong>: <code>docs/evals/task-set.yaml</code> 단일 선언형 파일에 M1-M4 5대 과제를 <code>execution_mode: static | runtime</code>으로 분리 정의.</li>
+          <li><strong>러너 아키텍처</strong>: <code>scripts/run-evals.js</code>를 Eval Orchestrator로 삼아 빠른 정적 사전 검사(Preflight)와 Codex headless 런타임 실행을 2단계로 연계.</li>
+          <li><strong>회귀 지표</strong>: 단순 합격률 환치를 거부하고 <code>docs/evals/baselines/current.json</code> 기준선과 대조하는 3-State Delta Matrix 제안 (승인 시 확정).</li>
         </ul>
         <p style="margin-top: 10px;"><strong>근거 아티팩트:</strong></p>
         <ul>
