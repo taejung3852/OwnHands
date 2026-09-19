@@ -309,35 +309,35 @@
     <div class="card">
       <div class="card-header">
         <div class="step-badge">1</div>
-        <div class="card-title">선언형 Task Set 규격: execution_mode (static / runtime) 이원화</div>
+        <div class="card-title">선언형 Task Set 규격: static / runtime / composite 완전 수용</div>
       </div>
-      <div class="card-desc">정적 파일 점검과 실제 에이전트 행동 관측을 명확히 분리하여 5대 축적 과제를 보존합니다.</div>
+      <div class="card-desc">정적 파일 점검과 실제 에이전트 행동 관측 및 부작용 격리를 명확히 분리합니다.</div>
       
       <div class="schema-box">
         <div class="schema-header">
           <span>docs/evals/task-set.yaml</span>
-          <span class="schema-tag">execution_mode 이원화</span>
+          <span class="schema-tag">static / runtime / composite</span>
         </div>
         <div class="schema-chips">
           <div class="schema-chip">
             <strong style="color: #0284c7;">EVAL-0001 (runtime)</strong>
-            <span>실제 스킬 라우팅</span>
+            <span>P1-P5 라우팅 실측</span>
           </div>
           <div class="schema-chip">
             <strong style="color: #0284c7;">EVAL-0002 (runtime)</strong>
             <span>감사관 불변성 실측</span>
           </div>
           <div class="schema-chip">
-            <strong style="color: #0284c7;">EVAL-0003 (runtime)</strong>
+            <strong style="color: #d97706;">EVAL-0003 (isolated-write)</strong>
             <span>1차 출처 보고서 실측</span>
           </div>
           <div class="schema-chip">
             <strong style="color: #15803d;">EVAL-0004 (static)</strong>
-            <span>grill-spec 정적 계약</span>
+            <span>grill-spec 7대 적합성</span>
           </div>
           <div class="schema-chip">
-            <strong style="color: #15803d;">EVAL-0005 (static)</strong>
-            <span>verify 분할 정적 계약</span>
+            <strong style="color: #7c3aed;">EVAL-0005 (composite)</strong>
+            <span>분할 + 런타임 감사</span>
           </div>
           <div class="schema-chip" style="border-style: dashed; background: #fafaf9;">
             <strong style="color: #94a3b8;">+ New Task</strong>
@@ -427,7 +427,7 @@
       <div class="details-content">
         <p><strong>3대 핵심 제안 요약:</strong></p>
         <ul>
-          <li><strong>Task Set 규격</strong>: <code>docs/evals/task-set.yaml</code> 단일 선언형 파일에 M1-M4 5대 과제를 <code>execution_mode: static | runtime</code>으로 분리 정의.</li>
+          <li><strong>Task Set 규격</strong>: <code>docs/evals/task-set.yaml</code> 단일 파일에 M1-M4 5대 과제를 <code>execution_mode(static/runtime/composite)</code> 및 <code>sandbox_mode(read-only/isolated-write)</code>로 완전 수용.</li>
           <li><strong>러너 아키텍처</strong>: <code>scripts/run-evals.js</code>를 Eval Orchestrator로 삼아 빠른 정적 사전 검사(Preflight)와 Codex headless 런타임 실행을 2단계로 연계.</li>
           <li><strong>회귀 지표</strong>: 단순 합격률 환치를 거부하고 <code>docs/evals/baselines/current.json</code> 기준선과 대조하는 3-State Delta Matrix 제안 (승인 시 확정).</li>
         </ul>

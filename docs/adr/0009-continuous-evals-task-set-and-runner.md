@@ -40,12 +40,12 @@ OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아�
 ┌────────────────────────────────────────────────────────────────────────┐
 │                     V2-M5 Continuous Evals 체계 (제안)                 │
 ├────────────────────────────────────────────────────────────────────────┤
-│ 1. 단일 선언형 Task Set 표준 스키마 (execution_mode 구분)               │
-│    docs/evals/task-set.yaml 에 5대 축적 과제를 static/runtime 으로 분리 보존│
+│ 1. 단일 선언형 Task Set 표준 스키마 (execution_mode & sandbox_mode 구분)│
+│    docs/evals/task-set.yaml 에 5대 축적 과제를 정적/런타임/복합으로 완전 수용│
 │                                                                        │
-│ 2. Eval Orchestrator (Static Preflight + Codex 런타임 연계 러너)        │
-│    scripts/run-evals.js 로 빠른 정적 사전 검사(Preflight) 우선 실행 후, │
-│    실제 행동 평가는 codex exec --sandbox read-only 비대화형 실행 연동   │
+│ 2. Eval Orchestrator (Static Preflight + Runtime Execution 러너)       │
+│    scripts/run-evals.js 로 빠른 정적 Preflight 우선 실행 후,            │
+│    실제 행동 평가는 sandbox_mode(read-only / isolated-write) 격리 구동  │
 │                                                                        │
 │ 3. 3-State Delta Matrix 기반 회귀 감지 및 Baseline 스냅샷              │
 │    단순 합격률(%) 착시 배제, 개별 태스크 전이(PASS ➔ UNOBSERVED/FAIL) 핀포인트 추적│
@@ -62,30 +62,49 @@ OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아�
 - 현재 축적된 과제가 5-10개 내외이므로, 하나의 선언형 `task-set.yaml` 파일로 전체 평가 셋을 조망하고 Git diff를 추적하는 것이 가장 가볍고 직관적이다. (향후 과제가 30개 이상으로 비대해질 때 분할 검토)
 
 #### 2) "지침 존재 ≠ 실제 동작 관측" 원칙을 보장하는 Task Set 표준 스키마
-기존 Eval 0001-0005의 검증 로직을 완전하게 수용하기 위해, 정적 문서 검사와 실제 에이전트 행동 관측을 명확히 구분하는 **`execution_mode: static | runtime`** 및 **`side_effect_policy`** 필드를 필수화한다:
+기존 Eval 0001-0005의 검증 로직을 완전하게 수용하기 위해, 정적 문서 검사와 실제 에이전트 행동 관측을 구분하는 **`execution_mode: static | runtime | composite`**, 샌드박스 정책 **`sandbox_mode: read-only | isolated-write`**, 그리고 세분화된 **`side_effect_policy`** 필드를 필수화한다:
 
 ```yaml
 version: "1.0"
 tasks:
   - id: "EVAL-0001"
-    name: "Skill 프롬프트 라우팅 정확도 실측"
+    name: "Daily Prompt Skill 라우팅 정확도 실측"
     category: "routing"
     target_asset: ".agents/skills/"
-    execution_mode: "runtime" # 실제 프롬프트 투입 후 라우팅 행동 관측
-    input:
-      prompt_set:
-        - "로그인 버튼을 눌렀을 때 500 에러가 발생합니다."
-        - "현재 아키텍처 진행 상황을 요약해줘."
-        - "이 PR에 대해 오버엔지니어링 관점에서 리뷰해줘."
-    expected_contract:
-      route_targets:
-        - expected_skill: "write-issue-pr"
-        - expected_skill: "explain"
-        - expected_skill: "ponytail-review"
+    execution_mode: "runtime" # 실제 일상 프롬프트 투입 후 라우팅 행동 관측
+    sandbox_mode: "read-only"
     side_effect_policy:
-      allow_mutations: false
+      allow_repo_mutation: false
+      allow_artifact_output: false # 세션 인라인 초안(Draft)만 허용
       allow_network_writes: false
-      forbidden_tools: ["run_command:gh issue create", "run_command:gh pr create"]
+      forbidden_commands: ["gh issue create", "gh pr create"]
+    input:
+      scenarios:
+        - id: "P1"
+          prompt: "이슈 하나 만들어줘. 목표는 V2 캐시 무효화 설계야"
+          expected_skill: "write-issue-pr"
+          expected_behavior: "이슈 본문 초안 작성 (gh issue create 미실행)"
+        - id: "P2"
+          prompt: "PR 본문 다시 써줘"
+          expected_skill: "write-issue-pr"
+          expected_behavior: "3칸 Human Brief + 접힌 상세 초안 작성"
+        - id: "P3"
+          prompt: "지금 우리 상황 정리해줘"
+          expected_skill: "explain"
+          expected_behavior: "ELI5 다이어그램 + 비유 + 접힌 기술 전제 구조 산출"
+        - id: "P4"
+          prompt: "이 함수 뭐하는지 설명해줘"
+          expected_skill: null # 스킬 미호출 (인라인 일반 설명으로 False Positive 방지)
+          expected_behavior: "일반 코드 인라인 설명 제공"
+        - id: "P5"
+          prompt: "이 에러 왜 나는지 봐줘"
+          expected_skill: null # 스킬 미호출 (인라인 일반 디버깅으로 False Positive 방지)
+          expected_behavior: "일반 디버깅 및 원인 분석 제공"
+    expected_contract:
+      route_accuracy: "5/5 (100%)"
+      false_positive_count: 0
+      false_negative_count: 0
+      side_effect_violation: 0
     judgment_mode: "deterministic"
 
   - id: "EVAL-0002"
@@ -93,55 +112,129 @@ tasks:
     category: "subagent"
     target_asset: ".codex/agents/verifier.toml"
     execution_mode: "runtime" # 실제 verifier 프롬프트 구동 및 판정 출력 관측
-    input:
-      spec_file: "docs/specs/grill-spec/spec.md"
-      evidence_context: "실측 exit 0 및 파일 존재 로그"
-    expected_contract:
-      sandbox_mode: "read-only"
-      output_vocabulary: ["PASS", "FAIL", "UNOBSERVED"]
-      strictly_forbidden_vocabulary: ["PARTIAL PASS"]
-      zero_mutation: true
+    sandbox_mode: "read-only"
     side_effect_policy:
-      allow_mutations: false
-    judgment_mode: "schema"
+      allow_repo_mutation: false
+      allow_artifact_output: false
+      allow_network_writes: false
+    input:
+      evaluation_subject: "docs/adr/0001-initial-subagent-roles.md 및 .codex/agents/*.toml 4대 AC"
+    expected_contract:
+      acceptance_criteria:
+        - id: "AC-1"
+          desc: "서브에이전트 3종 정의 파일 존재"
+          expected: "PASS"
+        - id: "AC-2"
+          desc: "verifier/reviewer의 sandbox_mode read-only 선언"
+          expected: "PASS"
+        - id: "AC-3"
+          desc: "docs/decisions.md 반영"
+          expected: "PASS"
+        - id: "AC-4"
+          desc: "ADR-0001에 read-only 한계 명시"
+          expected: "PASS"
+      zero_repo_mutation: true
+      valid_vocabulary: ["PASS", "FAIL", "UNOBSERVED"]
+      strictly_forbidden_vocabulary: ["PARTIAL PASS"]
+    judgment_mode: "auditor"
 
   - id: "EVAL-0003"
     name: "Researcher 1차 출처 인용 및 팩트/공백 분리 실측"
     category: "subagent"
     target_asset: ".codex/agents/researcher.toml"
     execution_mode: "runtime" # 실제 조사 보고서 생성 산출물 검증
+    sandbox_mode: "isolated-write" # 지정된 조사 보고서 1건 생성 허용, 기존 파일 수정 금지
+    side_effect_policy:
+      allow_repo_mutation: false # 기존 소스 코드 및 문서 임의 수정 0건
+      allow_artifact_output: true # docs/research/... 지정 조사 보고서 1건 신규 생성 허용
+      allow_network_writes: false
     input:
       query: "V2-M2 Research Gate 1차 자료 조사"
-      primary_sources: ["docs/references/anthropic-playbook.md", "docs/references/codex-official.md"]
+      primary_sources:
+        - "docs/references/anthropic-playbook.md"
+        - "docs/references/codex-official.md"
+      target_output_file: "docs/research/0002-m2-intent-spec-gate.md"
     expected_contract:
       require_primary_source_url: true
       require_gap_separation: true
-      zero_mutation: true
-    side_effect_policy:
-      allow_mutations: false
+      existing_files_mutated: 0
+      created_files_count: 1
     judgment_mode: "schema"
 
   - id: "EVAL-0004"
-    name: "grill-spec GORE 닻 및 단계 분리 적합성"
+    name: "grill-spec GORE 닻 및 정적 적합성 (Static Conformance)"
     category: "skill"
     target_asset: ".agents/skills/grill-spec/"
     execution_mode: "static" # 스킬 정의, references, 라이선스 정적 계약 검증
+    sandbox_mode: "read-only"
+    side_effect_policy:
+      allow_repo_mutation: false
+      allow_artifact_output: false
+      allow_network_writes: false
     expected_contract:
-      frontmatter_name: "grill-spec"
-      mit_license: true
-      checkpoints: ["Checkpoint 1", "Checkpoint 2"]
+      static_checks:
+        - id: "E1"
+          desc: "SKILL.md 및 interview-guide.md 구조, name, MIT License attribution"
+        - id: "E2"
+          desc: "일반 작업 ROUTE-B 기본, 대형 과제 ROUTE-C(Wayfinder) 경계"
+        - id: "E3"
+          desc: "Fact(Agent) vs Decision(User) 분리 지침"
+        - id: "E4"
+          desc: "Artifact Traceability Intent 헤더 및 REQ 매핑"
+        - id: "E5"
+          desc: "Human Checkpoint 1, 2 Default Barrier 규약"
+        - id: "E6"
+          desc: "Fallback 인터뷰 계약 구비"
+        - id: "E7"
+          desc: "M2 산출물 4대 필수 필드 규격 정합성"
     judgment_mode: "schema"
 
   - id: "EVAL-0005"
-    name: "verify 스킬 분할 및 Verifier 감사 프로토콜 검증"
-    category: "verification"
+    name: "verify 스킬 분할 및 Verifier 독립 감사 프로토콜 실측"
+    category: "composite" # 정적 분할 구조 점검 + 런타임 독립 감사 2단계 복합 과제
+    execution_mode: "composite"
     target_asset: ".agents/skills/verify/"
-    execution_mode: "static" # 스킬 경량화(29행) 및 온디맨드 references 분할 검증
-    expected_contract:
-      references_split: ["before-after-baseline.md", "regression-defense.md", "evidence-guide.md"]
-      flexible_traceability: "1:N / N:1"
-      strictly_forbidden_vocabulary: ["PARTIAL PASS"]
-      valid_vocabulary: ["PASS", "FAIL", "UNOBSERVED"]
+    phases:
+      - phase: "static_conformance"
+        sandbox_mode: "read-only"
+        side_effect_policy:
+          allow_repo_mutation: false
+          allow_artifact_output: false
+        expected_contract:
+          skill_main_lines_max: 35
+          references_split: ["before-after-baseline.md", "regression-defense.md", "evidence-guide.md"]
+          verifier_instructions_rules: 5 # Read-only, Evidence Audit, 3-State, Before Baseline, Output Contract
+          flexible_traceability: "1:N / N:1"
+
+      - phase: "runtime_audit"
+        sandbox_mode: "read-only"
+        side_effect_policy:
+          allow_repo_mutation: false
+          allow_artifact_output: false
+          allow_network_writes: false
+        input:
+          spec_file: "docs/specs/grill-spec/spec.md" # Section 4 (AC 7개)
+          fresh_evidence:
+            - id: "E1"
+              content: "test -f SKILL.md && interview-guide.md exit 0"
+            - id: "E2"
+              content: "grep -n 'name: grill-spec' L2"
+            - id: "E3"
+              content: "grep -n 'MIT License' L80"
+            - id: "E4"
+              content: "test -f docs/evals/0004-skill-grill-spec.md exit 0"
+        expected_contract:
+          row_judgments:
+            criterion_1: "PASS" # E1 + E2 + E3 복합 입증 (1:N 유연 추적성)
+            criterion_2: "UNOBSERVED" # 런타임 대화 로그 미제출
+            criterion_3: "UNOBSERVED" # 지침 존재 != 동작 관측
+            criterion_4: "UNOBSERVED" # 개별 REQ 매핑 증거 미제출
+            criterion_5: "UNOBSERVED" # 승인 상호작용 로그 미제출
+            criterion_6: "UNOBSERVED" # fallback 관측 미제출
+            criterion_7: "PASS" # E4 exit 0 실측
+          overall_verdict: "UNOBSERVED"
+          strictly_forbidden_vocabulary: ["PARTIAL PASS"]
+          zero_repo_mutation: true
     judgment_mode: "auditor"
 ```
 
@@ -149,11 +242,13 @@ tasks:
 
 ### 2.2 결정 2: 1차 러너 아키텍처 (`scripts/run-evals.js` + Codex Headless)
 
-#### 1) 러너의 역할: Eval Orchestrator + Static Preflight
+#### 1) 러너의 역할: Eval Orchestrator + Static Preflight + Runtime Execution
 - 러너 스크립트(`scripts/run-evals.js`)를 단순 정적 파일 파서로 축소하지 않고, **전체 평가 세트를 조율하는 Orchestrator**로 제안한다.
-- **2단계 실행 파이프라인**:
-  1. **1단계 (Static Preflight)**: 빠른 정적 사전 검사로 설정 파일 문법, 스킬 frontmatter, 필수 파일 존재, 금지 어휘를 외부 LLM 호출 없이 검증.
-  2. **2단계 (Runtime Execution)**: `execution_mode: runtime` 과제에 대해 Codex headless(`codex exec --sandbox read-only`)를 비대화형으로 구동하여 실제 에이전트의 행동과 출력을 수집.
+- **다단계 실행 파이프라인**:
+  1. **1단계 (Static Preflight)**: 빠른 정적 사전 검사로 설정 파일 문법, 스킬 frontmatter, 필수 파일 존재, 금지 어휘를 외부 LLM 호출 없이 검증. (`execution_mode: static` 및 `composite`의 정적 단계)
+  2. **2단계 (Runtime Execution)**:
+     - `sandbox_mode: read-only` 과제: `codex exec --sandbox read-only` 비대화형 구동으로 파일 쓰기 권한 원천 차단.
+     - `sandbox_mode: isolated-write` 과제 (예: EVAL-0003 조사 보고서 생성): 지정된 산출물 디렉터리 외 기존 소스코드 수정을 차단·감사하는 격리 환경으로 구동.
   3. **3단계 (Judge & Delta Matrix)**: 수집된 실제 결과를 기대 계약과 대조하여 `PASS / FAIL / UNOBSERVED`를 판정하고 기준선(Baseline)과의 차이를 리포트.
 
 #### 2) 자체 Dry-run 평가 환경과 Codex Headless 연계
