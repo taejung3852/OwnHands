@@ -316,7 +316,7 @@
     <header>
       <div class="badge-status">V2-M4 Test & Assurance · Eval 0005 실측 완료</div>
       <h1>verify 스킬과 Verifier 독립 감사는 어떻게 편향을 뚫었는가?</h1>
-      <p class="subtitle">테스트 통과 수의 착시를 거부하고, AC 1:1 대조와 3대 판정 어휘로 실측된 독립 감사 프로토콜</p>
+      <p class="subtitle">테스트 통과 수의 착시를 거부하고, AC별 역추적(1:N / N:1 유연한 추적성)과 3대 판정 어휘로 실측된 독립 감사 프로토콜</p>
     </header>
 
     <!-- 카드 1: 스킬 경량화 및 온디맨드 분할 -->
@@ -353,13 +353,13 @@
       </div>
     </div>
 
-    <!-- 카드 2: AC 1:1 역추적과 3대 판정 어휘 -->
+    <!-- 카드 2: AC별 역추적과 유연한 추적성 (1:N / N:1) -->
     <div class="card">
       <div class="card-header">
         <div class="step-badge">2</div>
-        <div class="card-title">AC 1:1 역추적과 엄격한 3-State 판정 어휘 (편향 원천 차단)</div>
+        <div class="card-title">AC별 역추적 대조(1:N / N:1 유연한 추적성)와 엄격한 3-State 어휘</div>
       </div>
-      <div class="card-desc">구현자의 주관적 추측을 거부하고 수용 기준과 신선한 증거를 1:1로 직접 대조합니다.</div>
+      <div class="card-desc">구현자의 주관적 추측을 거부하고 수용 기준과 증거를 1:N / N:1로 유연하게 역추적 대조합니다.</div>
 
       <div class="judgment-grid">
         <div class="judgment-card judgment-pass">
@@ -407,7 +407,7 @@
           <tr>
             <td><strong>신규 기능 (feature)</strong></td>
             <td><span class="pill pill-na">N/A (사전 없음)</span></td>
-            <td>AC 1:1 입증 증거 (테스트, UI 렌더링 관측, 린트 무에러)</td>
+            <td>AC 입증 증거 (테스트, UI 렌더링 관측, 린트 무에러 등 유연한 매핑)</td>
           </tr>
           <tr>
             <td><strong>리팩토링 (refactor)</strong></td>
@@ -436,11 +436,11 @@
 
       <details class="quiz-item">
         <summary class="quiz-summary">
-          <span>Q2. Fresh Evidence는 오직 CLI 터미널 텍스트 로그만 인정되는가?</span>
+          <span>Q2. AC와 검증 증거는 반드시 1:1로만 매핑되어야 하는가?</span>
           <span class="quiz-btn">정답 확인</span>
         </summary>
         <div class="quiz-answer">
-          💡 <strong>아닙니다!</strong> UI/레이아웃 스크린샷, DOM 관측, 린트/타입 무에러, 벤치마크 등 작업 성격에 부합하는 모든 '적용 가능한 신선한 증거(applicable Fresh Evidence)'가 인정됩니다.
+          💡 <strong>아닙니다!</strong> ADR-0007/0008 확정 규칙에 따라 1:N(1개 AC에 복수 증거) 및 N:1(1개 종합 증거가 복수 AC 입증) 유연한 추적성(Flexible Traceability)이 허용됩니다. Verifier는 AC별로 판정 행을 하나씩 출력할 뿐입니다.
         </div>
       </details>
     </div>
@@ -449,10 +449,10 @@
     <details class="details-box">
       <summary>🛠️ 엔지니어링 투명성 및 실측 세부 사항 (M5 연계)</summary>
       <div class="details-content">
-        <p><strong>쉽게 그리느라 생략한 기술적 전제:</strong></p>
+        <p><strong>실제 런타임 감사 세션 실측 완료:</strong></p>
         <ul>
-          <li>Verifier는 read-only 샌드박스에서 구동되므로, 무거운 테스트 러너를 직접 재실행하여 쓰기 권한 충돌을 내기보다 구현자가 수집한 Fresh Evidence의 진위와 AC 대조를 수행하는 독립 감사관(Auditor) 모델을 채택합니다.</li>
-          <li>Git 커밋 해시는 검증 증거의 provenance(출처 추적) 역할을 수행하지만, uncommitted 작업 트리 상태에서도 유효한 Fresh Evidence가 관측되면 판정을 진행할 수 있도록 완화되었습니다.</li>
+          <li>실제 저장소 자산인 <code>docs/specs/grill-spec/spec.md</code>의 7대 AC와 실측 명령어를 Verifier 독립 감사 프로토콜로 직접 가동하여 런타임 실측을 1회 완결했습니다.</li>
+          <li>대화 세션 증거가 없는 2개 항목을 정직하게 <strong>UNOBSERVED</strong>로 판정하고, 기준 1에서 3개 증거가 결합된 <strong>1:N 매핑</strong>을 실증했습니다 (코드 변조 0건 불변성 유지).</li>
         </ul>
         <p style="margin-top: 10px;"><strong>V2-M5 (Continuous Evals) 확장 시사점:</strong></p>
         <ul>

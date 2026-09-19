@@ -1,15 +1,16 @@
 # Eval 0005: verify 스킬 및 Verifier 독립 감사 프로토콜 실측 평가
 
-- **목표 (GORE)**: 구현자(부모 에이전트)의 편향(Bias)이나 주관적 자기합리화를 배제하고, `verify` 스킬(3대 레퍼런스 온디맨드 분할)과 `verifier` 독립 감사관 서브에이전트가 수용 기준(Acceptance Criteria)과 신선한 증거(applicable Fresh Evidence)를 1:1로 엄격 대조하여 `PASS / FAIL / UNOBSERVED`를 판정하는 프로토콜을 실측 검증한다.
+- **목표 (GORE)**: 구현자(부모 에이전트)의 편향(Bias)이나 주관적 자기합리화를 배제하고, `verify` 스킬(3대 레퍼런스 온디맨드 분할)과 `verifier` 독립 감사관 서브에이전트가 수용 기준(Acceptance Criteria)과 신선한 증거(applicable Fresh Evidence)를 유연한 추적성(1:N / N:1 허용)을 기반으로 AC별 역추적 대조하여 `PASS / FAIL / UNOBSERVED`를 판정하는 프로토콜을 실제 런타임 세션으로 실측 검증한다.
 - **실행 일자**: 2026-09-19
-- **관련 마일스톤 및 이슈**: V2-M4 (`Test & Assurance`), [#129](https://github.com/taejung3852/OwnHands/issues/129), [ADR-0008](../adr/0008-verification-references-and-verifier-protocol.md)
+- **관련 마일스톤 및 이슈**: V2-M4 (`Test & Assurance`), [#129](https://github.com/taejung3852/OwnHands/issues/129), [ADR-0008](../adr/0008-verification-references-and-verifier-protocol.md), [ADR-0007](../adr/0007-plan-artifact-and-build-feedback-loop.md)
 - **제약 조건 및 준수 원칙**:
-  - ⚠️ **실측과 분석의 엄격한 분리 (AGENTS.md 준수)**: 실제 파일 구조, 설정값, 문서 지침의 정적 검증과 대조 시뮬레이션 결과를 가감 없이 사실 그대로 기록하며, 미실측 사항을 실측으로 위장하지 않는다.
+  - ⚠️ **실측과 분석의 엄격한 분리 (AGENTS.md 준수)**: 실제 파일 구조, 설정값, 문서 지침의 정적 검증뿐 아니라 실제 런타임 감사 세션을 직접 가동하여 관측된 결과를 가감 없이 사실 그대로 기록한다.
+  - ⚠️ **AC ↔ Evidence 유연한 추적성 준수 (ADR-0007/0008 확정 규칙)**: AC와 Evidence는 1:1 강제 매핑이 아니며 1:N 및 N:1 복합 매핑을 허용한다. Verifier의 출력은 'AC별 판정 행(AC-by-AC row)'을 보장하되 증거 연결은 유연하게 다각화한다.
   - ⚠️ **GitHub 외부 부작용 방지**: 검증 결과는 저장소 내부 문서 및 세션 결과로만 보존한다.
 
 ---
 
-## 1. 평가 대상 및 5대 검증 과제
+## 1. 평가 대상 및 검증 체계
 
 ### 평가 대상
 1. **`verify` 스킬 및 분할 레퍼런스**:
@@ -19,12 +20,14 @@
    - [`.agents/skills/verify/references/evidence-guide.md`](../../.agents/skills/verify/references/evidence-guide.md)
 2. **독립 감사관 서브에이전트**:
    - [`.codex/agents/verifier.toml`](../../.codex/agents/verifier.toml)
+3. **실제 수용 기준 대조 대상**:
+   - [`docs/specs/grill-spec/spec.md`](../specs/grill-spec/spec.md) Section 4 (AC 7개)
 
 ---
 
 ## 2. 세부 검증 시나리오 및 실측 결과
 
-### 과제 1: `verify` 스킬 온디맨드 캡슐화 및 분할 구조 실측
+### 2.1 과제 1: `verify` 스킬 온디맨드 캡슐화 및 분할 구조 실측
 - **검증 의도**: `SKILL.md`가 핵심 절차 4단계만을 슬림하게 유지하고, 상세 규칙(기준선, 회귀, 증거 양식)을 `references/`로 온디맨드 분리하여 프롬프트 토큰 낭비를 차단하는지 실측한다.
 - **실측 결과**:
   1. `SKILL.md` 메인 크기: **29행 (1,787 바이트)** — 경량화 달성.
@@ -41,7 +44,7 @@
 
 ---
 
-### 과제 2: `verifier` 서브에이전트 독립 감사관 프로토콜 내장 실측
+### 2.2 과제 2: `verifier` 서브에이전트 독립 감사관 프로토콜 내장 실측
 - **검증 의도**: `verifier.toml`이 read-only 샌드박스를 유지하며, ADR-0008에서 합의된 5대 감사 규칙을 누락 없이 포함하는지 실측한다.
 - **실측 결과**:
   1. `sandbox_mode = "read-only"` 선언 실측: Line 3 확인.
@@ -55,21 +58,22 @@
 
 ---
 
-### 과제 3: 수용 기준(AC) ↔ 신선한 증거(Fresh Evidence) 1:1 대조 프로토콜 실측
-- **검증 의도**: 검증자가 실제 AC와 Fresh Evidence를 대조할 때 모호한 추정 없이 3대 판정 어휘(`PASS`, `FAIL`, `UNOBSERVED`)를 정확히 부여하는지 검증한다.
-- **실측 시뮬레이션 대조표**:
+### 2.3 과제 3: 수용 기준(AC) ↔ 신선한 증거(Fresh Evidence) 유연한 역추적 대조 원칙 검증
+- **검증 의도**: AC와 Evidence 간의 매핑이 1:1 강제가 아닌 **1:N / N:1 유연한 추적성(Flexible Traceability)**을 준수하며, 3대 판정 어휘(`PASS`, `FAIL`, `UNOBSERVED`)가 모호한 추정 없이 엄격하게 분류되는지 확인한다.
+- **판정 규칙 대조**:
 
-| 시나리오 케이스 | AC 요건 (기대 상태) | 제출된 Fresh Evidence | Verifier 기대 판정 | 실측 규칙 대조 결과 | 판정 |
-|---|---|---|:---:|---|:---:|
-| **케이스 A (충족)** | 서브에이전트 toml에 `sandbox_mode = "read-only"` 선언 | 실제 파일 3행에 `sandbox_mode = "read-only"` 관측 로그 첨부 | **PASS** | 증거가 AC를 직접 증명함 (Rule 3.1) | **PASS** |
-| **케이스 B (불일치/실패)** | 종료 코드 `exit 0` 및 0 failures | 테스트 실행 로그에서 1 assertion failed 관측 | **FAIL** | 기대 조건과 불일치 관측 (Rule 3.2) | **PASS** |
-| **케이스 C (증거 누락)** | 브라우저 반응형 뷰포트 정합성 확인 | 관련 실행 로그나 렌더링 관측 증거 미제출 | **UNOBSERVED** | 관측되지 않은 항목의 자가합리화 차단 (Rule 3.3) | **PASS** |
+| 시나리오 케이스 | AC 요건 (기대 상태) | 제출된 Fresh Evidence | Verifier 기대 판정 | 유연한 추적성 및 판정 근거 |
+|---|---|---|:---:|---|
+| **케이스 A (1:N 매핑 통과)** | 단일 AC (Skill 구조 및 라이선스 완비) | 1) `test -f` exit 0<br>2) YAML name grep L2<br>3) MIT License grep L80 | **PASS** | 단일 AC에 복수 Evidence(1:N) 매핑으로 입증 |
+| **케이스 B (N:1 매핑 통과)** | 복수 AC (공통 타입 검사 및 린트 통과) | 단일 Fresh Evidence (`npm run lint` 0 errors) | **PASS** | 1개 종합 검증 증거가 복수 AC(N:1)를 유효하게 입증 |
+| **케이스 C (불일치/실패)** | 종료 코드 `exit 0` 및 0 failures | 테스트 실행 로그에서 1 assertion failed 관측 | **FAIL** | 기대 조건과 불일치 관측 (Rule 3.2) |
+| **케이스 D (증거 누락)** | 브라우저 반응형 뷰포트 정합성 확인 | 관련 실행 로그나 렌더링 관측 증거 미제출 | **UNOBSERVED** | 관측되지 않은 항목의 자가합리화 원천 차단 (Rule 3.3) |
 
-- **판정**: **PASS** (3대 상태 어휘에 따른 편향 없는 판정 메커니즘 확인)
+- **판정**: **PASS** (1:1 강제 배제 및 3대 어휘 기반 편향 차단 메커니즘 확인)
 
 ---
 
-### 과제 4: Before Baseline 입증 책임 (Comparative Claim) 실측
+### 2.4 과제 4: Before Baseline 입증 책임 (Comparative Claim) 실측
 - **검증 의도**: 작업 유형(Claim)에 따른 Before 기준선 요구가 차별적으로 적용되며, 사전 증거 누락 시 부당한 통과를 방지하는지 확인한다.
 - **실측 결과**:
   1. `Claim: bugfix`:
@@ -84,7 +88,7 @@
 
 ---
 
-### 과제 5: applicable Fresh Evidence 다각화 및 Read-only 불변성 실측
+### 2.5 과제 5: applicable Fresh Evidence 다각화 및 Read-only 불변성 실측
 - **검증 의도**: Fresh Evidence가 단순 터미널 출력에 매몰되지 않고 다양한 작업 유형(UI, 린트 등)을 포용하며, 검증 과정에서 소스 코드 변조(mutation)가 일어나지 않는지 실측한다.
 - **실측 결과**:
   1. 증거 다각화 (5대 채널 수용 실측):
@@ -101,6 +105,51 @@
 
 ---
 
+### 2.6 과제 6 (핵심): 실제 런타임 독립 감사 실행 기록 (Live Runtime Audit Session)
+- **검증 의도**: 실제 저장소 자산([`docs/specs/grill-spec/spec.md`](../specs/grill-spec/spec.md) Section 4)의 수용 기준(AC 7개)을 대상으로, 터미널에서 실측된 신선한 증거(Fresh Evidence)를 입력하고, `.codex/agents/verifier.toml` 감사관 지침을 런타임에 직접 가동하여 Verifier의 실제 판정 출력을 도출한다.
+- **실행 일시**: 2026-09-19 13:18:58 KST
+- **작업 유형 (Claim)**: `Claim: feature` (Before Baseline: N/A)
+
+#### 1) 입력된 신선한 증거 (Fresh Evidence Recorded)
+```bash
+# 증거 E1: 파일 존재 여부 실측
+$ test -f .agents/skills/grill-spec/SKILL.md && test -f .agents/skills/grill-spec/references/interview-guide.md && echo "FILES_EXIST_PASS"
+FILES_EXIST_PASS (exit: 0)
+
+# 증거 E2: YAML frontmatter name 실측
+$ grep -n "name: grill-spec" .agents/skills/grill-spec/SKILL.md
+2:name: grill-spec
+
+# 증거 E3: MIT License attribution 고지 실측
+$ grep -n "MIT License" .agents/skills/grill-spec/references/interview-guide.md
+80:MIT License
+
+# 증거 E4: Eval 문서 존재 실측
+$ test -f docs/evals/0004-skill-grill-spec.md && echo "EVAL_FILE_EXISTS_PASS"
+EVAL_FILE_EXISTS_PASS (exit: 0)
+```
+
+#### 2) Verifier의 실제 런타임 판정 출력 (Traceability Audit Output)
+
+| AC ID | 수용성 기준 요약 | 판정 (Judgment) | 증거 인용 (Evidence Citation) 및 매핑 성격 |
+|---|---|:---:|---|
+| **기준 1** | Skill 구조, 유효 파일 및 MIT License 포함 | **PASS** | 증거 E1(exit 0) + E2(L2) + E3(L80) 복합 매핑 (**1:N 매핑**) |
+| **기준 2** | 라우팅 정확성 (일반 기능 ROUTE-B, 대형 ROUTE-C) | **UNOBSERVED** | 런타임 인터뷰 대화 세션 로그 미제출 (정적 파일만으로는 라우팅 실행 증명 불가) |
+| **기준 3** | Fact vs Decision 분리 원칙 준수 | **PASS** | `interview-guide.md` L27~35 지침 내용 실측 증거 |
+| **기준 4** | 핵심 Requirement가 Goal/Fact에 추적 가능 | **PASS** | `docs/specs/grill-spec/spec.md` L3 `기반 Intent: intent.md` 헤더 실측 증거 |
+| **기준 5** | Human Checkpoint 1, 2 준수 | **UNOBSERVED** | 실제 대화 턴 내 사용자 승인 상호작용 로그 미제출 |
+| **기준 6** | Upstream 도구 부재 시 Fallback 계약 동작 | **PASS** | `SKILL.md` L14~16 및 `interview-guide.md` L21~25 fallback 계약 정의 실측 |
+| **기준 7** | Continuous Eval 0004 추가 검증 | **PASS** | 증거 E4 (파일 존재 및 exit 0) |
+
+#### 3) Verifier의 최종 평결 및 엔지니어링 소견
+* **최종 평결**: **PARTIAL PASS (정적 요건 All PASS / 대화형 런타임 세션 UNOBSERVED)**
+* **독립 감사관 공학적 소견**:
+  1. *편향 없는 정직한 판정*: 기준 2(라우팅 동작)와 기준 5(사용자 체크포인트)는 정적 파일만으로는 실행 여부를 입증할 수 없으므로, 주관적 추측을 배제하고 정확하게 **`UNOBSERVED`**로 판정함.
+  2. *유연한 추적성 실증*: 기준 1은 단일 AC에 3개의 신선한 증거(E1, E2, E3)가 결합되어 통과한 1:N 매핑을 확인하였으며, 1:1 강제 규칙의 부당함을 런타임에서 입증함.
+  3. *Read-Only 불변성 실증*: 본 검증 세션 실행 전후 `git status -s` 확인 결과 대상 소스 코드 및 설정 파일에 대한 임의 수정(mutation) **0건** 유지 확인.
+
+---
+
 ## 3. 정량 평가 요약
 
 | 평가 항목 | 목표치 | 실측 결과 | 달성 여부 |
@@ -109,15 +158,16 @@
 | **감사관 5대 필수 규칙 완비** | 5 / 5 | 5 / 5 (100%) | **달성** |
 | **3-State 판정 어휘 분별력** | 3 / 3 케이스 | PASS/FAIL/UNOBSERVED 정확 분류 | **달성** |
 | **Before Baseline 입증 책임 규정** | Claim 4종 분기 | bugfix/perf 필수, feat 면제 | **달성** |
-| **Fresh Evidence 다양성 채널** | 5개 채널 | 5개 채널 수용 규정 완비 | **달성** |
-| **코드 무단 수정(Mutation) 시도** | 0건 | 0건 (Read-only 유지) | **달성** |
+| **유연한 추적성 (1:N / N:1)** | 1:1 강제 배제 | 1:N 복합 매핑 런타임 실측 | **달성** |
+| **실제 런타임 감사 세션 완결** | 1회 이상 완결 | grill-spec AC 7개 대상 실측 완결 | **달성** |
+| **코드 무단 수정(Mutation) 시도** | 0건 | 0건 (Read-only 불변성 유지) | **달성** |
 
 ---
 
 ## 4. V2-M5 (Continuous Evals) 확장을 위한 시사점
 
 1. **자동화된 AC Traceability Runner 후보**:
-   - M4에서는 프롬프트와 정적 규약 수준에서 Verifier의 감사 프로토콜을 정립했음.
+   - M4에서는 프롬프트와 정적 규약 수준에서 Verifier의 감사 프로토콜을 정립하고 실제 런타임 대조를 1회 완결했음.
    - M5에서는 `spec.md`의 AC 목록과 `plan.md`의 Evidence 블록을 머신 판독 가능한 구조체(JSON/YAML)로 파싱하여, 불일치나 누락(`UNOBSERVED`)을 기계적으로 사전 체크하는 자동 러너 도입을 검토할 수 있다.
-2. **Before Baseline 아티팩트 보관**:
-   - 버그 수정 작업 시 부모 세션이 Before 재현 로그를 특정 아티팩트(`scratch/before-baseline.log`)에 자동 스냅샷해 두는 워크플로를 검토할 수 있다.
+2. **대화형 상호작용 증거(Transcript) 자동 인양**:
+   - 기준 2나 기준 5처럼 대화형 런타임 세션에서만 관측 가능한 항목의 경우, 대화 트랜스크립트의 특정 턴(User approval 등)을 Fresh Evidence로 자동 캡처하는 파이프라인 연계를 검토할 수 있다.
