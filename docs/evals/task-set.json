@@ -194,8 +194,8 @@
           "docs/specs/grill-spec/intent.md"
         ],
         "file_assertions": [
-          { "file": ".agents/skills/grill-spec/SKILL.md", "contains": ["name: grill-spec", "Checkpoint 1", "Checkpoint 2", "Decision-bearing section", "Decision Card", "Spec Fact & Decision Review", "Fact나 사용자가 이미 명확히 확정한 Decision은 다시 묻지 않는다", "Review와 쉬운 재설명은 한 Decision Card 안에", "기존 Artifact Checkpoint를 대체하지 않는다"] },
-          { "file": ".agents/skills/grill-spec/references/interview-guide.md", "contains": ["MIT License", "ROUTE-B", "ROUTE-C", "Fact", "Decision-bearing Section Review Loop", "2~3개와 각 트레이드오프", "같은 Decision Card의 핵심 불릿 안에서", "같은 Decision을 다시 묻습니다", "Open Question", "한 Decision Card에는 하나의 Decision", "카드 밖의 별도 서문이나 목록으로 만들지 않고", "최대 3개", "intent-only", "spec-from-intent", "full-flow", "결정할 것", "핵심 불릿", "추천", "선택"] },
+          { "file": ".agents/skills/grill-spec/SKILL.md", "contains": ["name: grill-spec", "Checkpoint 1", "Checkpoint 2", "Decision-bearing section", "Spec Fact & Decision Review"] },
+          { "file": ".agents/skills/grill-spec/references/interview-guide.md", "contains": ["MIT License", "ROUTE-B", "ROUTE-C", "Fact", "Decision-bearing Section Review Loop", "3-way 응답 계약", "Open Question", "Decision Card", "intent-only", "spec-from-intent", "full-flow"] },
           { "file": "docs/specs/grill-spec/spec.md", "contains": ["기반 Intent:"] },
           { "file": "docs/specs/grill-spec/intent.md", "contains": ["Non-goals", "Constraints"] }
         ]
