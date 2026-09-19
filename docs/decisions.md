@@ -164,7 +164,7 @@
 
 | 주제 | 결정할 내용 | 연결 |
 |---|---|---|
-| **M5 Continuous Evals 확장 구조 (ADR-0009 후보)** | 1) Task Set 포맷: 단일 `task-set.yaml` vs 분할 vs MD Frontmatter<br>2) 러너 실행 방식: 경량 정적/계약 스크립트 vs Codex headless<br>3) 회귀 지표: 3-State Delta Matrix vs 단순 합격률 | [#131](https://github.com/taejung3852/OwnHands/issues/131), [리서치 문서](research/0004-m5-continuous-evals.md) |
+| **M5 Continuous Evals 체계 및 Task Set 규격 (ADR-0009)** | 1) `docs/evals/task-set.yaml` 단일 선언형 스키마 채택<br>2) `scripts/run-evals.js` 1차 정적/계약 초고속 러너 도입<br>3) 3-State Delta Matrix 기반 회귀 감지 및 Baseline 스냅샷 관리 | Proposed — 검토 대기 ([ADR-0009](adr/0009-continuous-evals-task-set-and-runner.md), [#134](https://github.com/taejung3852/OwnHands/issues/134)) |
 
 > ⚠️ `write-issue-pr`과 `explain`은 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
 > 그 밖에 문서에 보이는 `intent`, `design` 같은 표현은
