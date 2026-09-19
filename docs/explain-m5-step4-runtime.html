@@ -237,11 +237,11 @@
         </div>
         <div class="flow-step">
           <span class="tag tag-amber">Events</span>
-          <span>thread.started ➔ item.created ➔ turn.completed</span>
+          <span>thread.started ➔ item.started/completed ➔ turn.completed</span>
         </div>
         <div class="flow-step">
           <span class="tag tag-emerald">Detect</span>
-          <span>파일 수정 감지 / 커맨드 실행 감지 / 에이전트 출력 누적</span>
+          <span>item.changes(파일변경) / item.command(커맨드) / item.text(출력)</span>
         </div>
       </div>
     </section>
