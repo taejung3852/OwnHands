@@ -95,13 +95,15 @@
 
 ---
 
-### 후보 3. Before-After Baseline 프로토콜
+### 후보 3. Before-After Baseline 프로토콜 (비교 주장 증명 전략)
 
-- **규칙 정의**:
-  1. 작업 성격이 `bugfix` 또는 `performance`인 경우:
-  2. 코드를 수정하기 전, **현재 브랜치에서 실패하는 테스트 로그 또는 현재 벤치마크 수치**를 `plan.md`의 `Before Baseline` 섹션에 먼저 기록한다.
-  3. Before 로그가 없는 PR은 Verifier가 `FAIL (Baseline Missing)`으로 판정한다.
-  4. 구현 완료 후, 동일한 조건에서 실행한 `After Evidence`를 대조하여 결함 해결 또는 성능 개선을 입증한다.
+- **배경**: Before/After는 모든 작업에 기계적으로 강제하는 의식이 아니라, **"비교 주장(Claim)"을 객관적으로 입증하기 위한 검증 전략(Verification Strategy)**으로 배치한다.
+- **주장(Claim)별 후보 형태**:
+  - `Claim: "버그를 고쳤다"` ➔ Before: 결함 재현 로그, After: 동일 조건에서 미재현 ➔ **강한 결함 해결 증거**
+  - `Claim: "성능이 향상되었다"` ➔ Before: 최신 benchmark 수치, After: 동일 benchmark 수치 ➔ **강한 성능 개선 증거**
+  - `Claim: "신규 기능을 추가했다"` ➔ Before: 불필요, After: spec.md의 AC 역추적 검증 ➔ **일반 기능 증거**
+  - `Before 확보 불가능 시`: `[UNOBSERVED]`로 명시하여 과장된 완료 주장을 금지 (무조건 FAIL 처리하지 않고 미관측으로 정직하게 기록).
+- ⚠️ 구체적인 판정 기준 및 Baseline 기록 스키마는 Step ②(ADR-0008)에서 사용자와 확정한다.
 
 ---
 

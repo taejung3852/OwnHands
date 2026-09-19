@@ -246,18 +246,18 @@
           <span class="vs-tag">안전한 안 (채택)</span>
           <div class="vs-subject">신선한 증거 역추적 감사</div>
           <div class="vs-desc">
-            • Builder가 실행한 실제 터미널 출력(로그/Exit Code)을 Verifier가 read-only로 수용기준(AC)과 1:1 대조<br>
+            • Builder가 실행한 실제 터미널 출력(로그/Exit Code)을 Verifier가 read-only로 수용기준(AC)과 역추적 대조<br>
             • 거짓 완료 및 편향을 독립적으로 대조 판정
           </div>
         </div>
       </div>
     </section>
 
-    <!-- 카드 3: 가짜 개선 차단: Before 기준선 프로토콜 -->
+    <!-- 카드 3: 비교 주장을 증명하는 Before-After Baseline 후보 -->
     <section class="card">
       <div class="card-header">
         <div class="step-badge">3</div>
-        <h2 class="card-title">Before 없는 버그 수정은 무효로 판정한다</h2>
+        <h2 class="card-title">비교 주장을 증명하는 Before-After Baseline 후보</h2>
       </div>
 
       <div class="vs-grid">
@@ -271,11 +271,11 @@
         </div>
 
         <div class="vs-box allow">
-          <span class="vs-tag">M4 확정 규칙</span>
-          <div class="vs-subject">Before Baseline 필수</div>
+          <span class="vs-tag">설계 후보</span>
+          <div class="vs-subject">bugfix/performance의 Baseline 후보</div>
           <div class="vs-desc">
-            • 코드 건드리기 전 "실패 로그"부터 커밋/기록<br>
-            • Before 증거가 없으면 Verifier가 즉시 FAIL
+            • 버그/성능 비교 주장 시 재현 로그·수치 확보<br>
+            • Before 확보 불가능 시 <code>UNOBSERVED</code> 명시 (판정 방식은 ADR-0008에서 확정)
           </div>
         </div>
       </div>
