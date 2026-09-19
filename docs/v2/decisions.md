@@ -154,7 +154,7 @@
 
 | 주제 | 결정할 내용 | 연결 |
 |---|---|---|
-| *(현재 모두 1차 합의되어 열린 공동 결정 항목 없음)* | 후속 세부 위임 실측 및 규칙 튜닝은 #110·#106에서 진행 | — |
+| **검증 Reference 구조 및 Verifier 감사 프로토콜** | 상황별 검증 Reference(`docs/v2/references/`) 온디맨드 로드 규격, Verifier 독립 감사관 모델(`PASS / FAIL / UNOBSERVED`), 비교 주장(Claim)별 Before-After Baseline 프로토콜 합의. | 💬 [ADR-0008 (Proposed)](adr/0008-verification-references-and-verifier-protocol.md) ([#127](https://github.com/taejung3852/OwnHands/issues/127), PR #128 대기) |
 
 > ⚠️ `write-issue-pr`과 `explain`은 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
 > 그 밖에 문서에 보이는 `intent`, `design` 같은 표현은

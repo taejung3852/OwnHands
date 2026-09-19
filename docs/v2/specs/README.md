@@ -155,6 +155,14 @@ npm test / pytest / gh 명령어 등
   - `[MODIFY]` `경로/파일명`: 수정 범위 및 기존 동작 보존 경계
   - ⚠️ 위 목록에 없는 파일의 무단 수정은 결함(Blast Radius Violation)으로 간주합니다.
 
+### 1.1 비교 주장 및 Before 기준선 (Claim & Before Baseline — ADR-0008)
+- **주장 유형 (Claim)**: `버그 수정 (bugfix)` / `성능 개선 (performance)` / `신규 기능 (feature)` / `리팩토링 (refactor)`
+- **Before 기준선 증거 (Before Baseline Evidence)**:
+  - `bugfix`: 코드 수정 전 결함 재현 로그 (실패 터미널 출력)
+  - `performance`: 코드 수정 전 기준 벤치마크 수치
+  - `feature`: `[N/A — 신규 기능 구현]`
+  - ⚠️ *버그/성능 작업에서 Before 증거 미확보 시*: `[UNOBSERVED]` 선언 (미입증 개선 주장 차단)
+
 ## 2. 작업 단위 분해 (Task Breakdown)
 > ⚠️ **원자적 단위(Atomic Unit)**: 한 번에 모든 것을 고치지 않고, "작은 변경 단위 ➔ 해당 Task에 적합한 Verification 수행 ➔ Evidence 확인 ➔ 다음 Task" 순서로 진행합니다. (TDD 전략이 지정된 Task에 한해 Red ➔ Green ➔ Refactor 적용)
 - [ ] **Task 1: [단위 작업명]**
@@ -165,12 +173,12 @@ npm test / pytest / gh 명령어 등
   - 예상 변경 파일: `...`
 
 ## 3. AC별 검증 전략 매핑 (Verification Strategy Mapping)
-> ⚠️ **양방향 추적성 & 테스트 설계 기법**: spec.md의 모든 AC는 최소 1개 이상의 전략과 관측 가능한 증거에 유연하게 매핑되어야 합니다 (1:1 강제 금지). 테스트 케이스 설계 시 ISTQB 동등 분할(EP) 및 경계값 분석(BVA) 기법을 활용하여 누락 없이 케이스를 도출합니다.
-| AC ID | 검증 전략 (Strategy) | 관측 증거 (Evidence) | 통과 기준 (Pass Criteria) |
-|---|---|---|---|
-| `AC-01` | 단위 테스트 (TDD) | 최신 테스트 실행 로그 | 테스트 패스 (0 exit code) |
-| `AC-02` | 정적 분석 / 린트 | `npm run lint` 등 정적 검사 | 에러/경고 0건 |
-| `AC-03` | 수동 / 브라우저 점검 | 렌더링 스크린샷 또는 관측 기록 | 기대 레이아웃/동작 일치 |
+> ⚠️ **양방향 추적성 & 온디맨드 Reference 로드**: spec.md의 모든 AC는 최소 1개 이상의 전략과 관측 가능한 증거에 유연하게 매핑되어야 합니다 (1:1 강제 금지). 필요 시 `docs/v2/references/`의 가이드(회귀 방어 `regression-defense.md`, 기준선 `before-after-baseline.md` 등)를 핀포인트로 열람합니다.
+| AC ID | 검증 전략 (Strategy) | 테스트 설계 기법 / 참조 가이드 | 관측 증거 (Evidence) | 통과 기준 (Pass Criteria) |
+|---|---|---|---|---|
+| `AC-01` | 단위 테스트 (TDD) | 경계값 분석 / `regression-defense.md` | 최신 테스트 실행 로그 | 테스트 패스 (0 exit code) |
+| `AC-02` | 정적 분석 / 린트 | 정적 검사 | `npm run lint` 등 정적 검사 | 에러/경고 0건 |
+| `AC-03` | 수동 / 브라우저 점검 | 상태 전이 관측 | 렌더링 스크린샷 또는 관측 기록 | 기대 레이아웃/동작 일치 |
 
 ## 4. 실행 및 신선한 검증 증거 (Execution & Fresh Evidence Checklist)
 > ⚠️ **The Iron Law**: "신선한 관측 증거(Fresh Evidence) 없는 완료 주장 금지"
@@ -184,7 +192,8 @@ npm test / pytest / gh 명령어 등
   - 실행 명령어: `npm test` / `pytest` / native build check 등
   - 결과: 실행된 회귀 스위트 범위 내 실패 미관측(No failures observed) 증거 확보
   - *(기존 테스트 부재 시)*: `[NO_EXISTING_REGRESSION_SUITE]` 선언, 프로젝트에 존재하는 applicable native checks를 실행하고 존재하지 않는 검사는 `[UNOBSERVED]`로 기록
-- [ ] **최종 Acceptance Criteria 역추적 대조 (Verifier Subagent Gate)**:
+- [ ] **최종 Acceptance Criteria 역추적 대조 (Verifier Subagent Gate — ADR-0008)**:
+  - 감사 방식: read-only 환경에서 `spec.md` AC ↔ `plan.md` Fresh Evidence 역추적 대조
   - Verifier 판정: `PASS / FAIL / UNOBSERVED`
 ```
 
@@ -196,5 +205,6 @@ npm test / pytest / gh 명령어 등
 - [ ] **Checkpoint 2 (Design)**: `spec.md`에 타입, 인터페이스, 엣지 케이스가 구체적으로 기술되어 있는가?
 - [ ] **Checkpoint 3 (Build Plan)**: `plan.md`의 대상 파일 범위(Blast Radius)가 통제되고, 모든 AC가 적절한 검증 전략에 양방향 추적 가능하게 매핑되어 있는가?
 - [ ] **The Iron Law**: 모든 완료 주장에 대해 실제 실행 및 관측을 통한 신선한 증거(Fresh Evidence)가 확보되었는가?
-- [ ] **회귀 방어선 & 기준선 테스트 보존**: 기존 테스트는 시스템 동작의 기준선(Baseline)이며, 단순 실패 은폐를 위한 임의 수정/삭제/완화가 없었는가? (스펙 변경에 따른 수정 시 합법적 사유 명시 여부)
-- [ ] **단일 진실 원칙 & 기준선 버전 관리**: 코드가 `spec.md`를 임의로 왜곡하거나 스펙 기준을 낮추지 않고, 모순 발생 시 사람 승인을 거쳐 갱신했는가?
+- [ ] **Before Baseline (ADR-0008)**: 버그 수정이나 성능 개선 주장 시 코드 수정 전 실패/측정 기록이 확보되었는가? (미확보 시 UNOBSERVED)
+- [ ] **회귀 방어선 & 기준선 테스트 보존**: 기존 테스트는 시스템 동작의 기준선(Baseline)이며, 단순 실패 은폐를 위한 임의 수정/삭제/완화가 없었는가?
+- [ ] **독립 Verifier 판정 (ADR-0008)**: 독립 감사관(Verifier)이 Fresh Evidence와 AC를 대조하여 `PASS` 판정을 내렸는가?
