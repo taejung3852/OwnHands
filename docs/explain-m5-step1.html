@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V2-M5 Step ①: Continuous Evals 체계 확장 및 Task Set 설계</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #f7f6f2;
+      color: #1c1917;
+      line-height: 1.4;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .badge-status {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      background: #f3e8ff;
+      color: #6b21a8;
+      margin-bottom: 12px;
+      border: 1px solid #d8b4fe;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 900;
+      color: #0c0a09;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    p.subtitle {
+      font-size: 14px;
+      color: #78716c;
+      font-weight: 600;
+    }
+
+    /* 카드 공통 */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 24px 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .step-badge {
+      width: 28px;
+      height: 28px;
+      background: #7c3aed;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #1c1917;
+      letter-spacing: -0.3px;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: #57534e;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    /* 시각 컴포넌트 1: 5대 축적 Eval 자산 */
+    .asset-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .asset-box {
+      background: #fafaf9;
+      border: 1px solid #e7e5e4;
+      border-radius: 12px;
+      padding: 10px 6px;
+      text-align: center;
+    }
+    .asset-id {
+      font-size: 10px;
+      font-weight: 800;
+      color: #7c3aed;
+      margin-bottom: 2px;
+    }
+    .asset-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: #292524;
+      line-height: 1.2;
+    }
+
+    /* 시각 컴포넌트 2: 확장 대비 (Before vs After) */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .compare-box {
+      border-radius: 14px;
+      padding: 14px 12px;
+      border: 1px solid transparent;
+    }
+    .box-current {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+    .box-future {
+      background: #faf5ff;
+      border-color: #e9d5ff;
+    }
+    .compare-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 6px;
+      margin-bottom: 6px;
+    }
+    .box-current .compare-tag { background: #e2e8f0; color: #475569; }
+    .box-future .compare-tag { background: #ede9fe; color: #6d28d9; }
+    .compare-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #1e293b;
+      margin-bottom: 4px;
+    }
+    .compare-desc {
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* 시각 컴포넌트 3: Baseline 비교 루프 */
+    .loop-pipeline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fafaf9;
+      border: 1px solid #e7e5e4;
+      border-radius: 14px;
+      padding: 14px 16px;
+      gap: 8px;
+    }
+    .pipe-node {
+      text-align: center;
+      flex: 1;
+    }
+    .pipe-node-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+    }
+    .pipe-node-sub {
+      font-size: 10px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .pipe-arrow {
+      font-size: 14px;
+      color: #cbd5e1;
+      font-weight: 900;
+    }
+
+    /* 퀴즈 섹션 */
+    .quiz-section {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 24px 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .quiz-header {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .quiz-item {
+      background: #fafaf9;
+      border-radius: 14px;
+      border: 1px solid #e7e5e4;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .quiz-item:last-child {
+      margin-bottom: 0;
+    }
+    .quiz-summary {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      color: #292524;
+      list-style: none;
+      user-select: none;
+    }
+    .quiz-summary::-webkit-details-marker {
+      display: none;
+    }
+    .quiz-btn {
+      font-size: 11px;
+      background: #e7e5e4;
+      color: #44403c;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .quiz-answer {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #d6d3d1;
+      color: #7c3aed;
+      font-size: 12px;
+      line-height: 1.5;
+      font-weight: 600;
+    }
+
+    /* 하단 디테일 */
+    .details-box {
+      background: #ffffff;
+      border-radius: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      padding: 18px 20px;
+      font-size: 13px;
+      color: #57534e;
+    }
+    .details-box summary {
+      cursor: pointer;
+      font-weight: 800;
+      color: #1c1917;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    .details-content ul {
+      padding-left: 20px;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+    .details-content li {
+      margin-bottom: 4px;
+    }
+    .artifact-link {
+      color: #7c3aed;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .artifact-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-status">V2-M5 Continuous Evals · Step ① 착수 (이슈 #131)</div>
+      <h1>M1~M4에서 모은 5개의 작은 Eval, 어떻게 체계로 키울 것인가?</h1>
+      <p class="subtitle">개별 마크다운 기록에서 버전 관리되는 Task Set과 자동 회귀 감지 체계로의 도약</p>
+    </header>
+
+    <!-- 카드 1: 출발선 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-badge">1</div>
+        <div class="card-title">출발선 확인: M1~M4 동안 축적된 5대 초기 Eval 자산</div>
+      </div>
+      <div class="card-desc">가상 시나리오가 아닌 실제 일상 협업에서 실측한 5개의 고유 과제를 발판으로 삼습니다.</div>
+      
+      <div class="asset-grid">
+        <div class="asset-box">
+          <div class="asset-id">Eval 0001</div>
+          <div class="asset-name">스킬 라우팅<br>정확도</div>
+        </div>
+        <div class="asset-box">
+          <div class="asset-id">Eval 0002</div>
+          <div class="asset-name">감사관 역할<br>수용성</div>
+        </div>
+        <div class="asset-box">
+          <div class="asset-id">Eval 0003</div>
+          <div class="asset-name">1차 자료 조사<br>팩트/갭 분리</div>
+        </div>
+        <div class="asset-box">
+          <div class="asset-id">Eval 0004</div>
+          <div class="asset-name">grill-spec<br>기획 체계</div>
+        </div>
+        <div class="asset-box">
+          <div class="asset-id">Eval 0005</div>
+          <div class="asset-name">verify 감사<br>런타임 실측</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 2: 체계화 도약 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-badge">2</div>
+        <div class="card-title">도약의 핵심: 수동 페어 관측 ➔ 머신 판독 Task Set & 비대화형 러너</div>
+      </div>
+      <div class="card-desc">마크다운 줄글 문서를 JSON/YAML 표준 과제로 구조화하고 자동 실행 후보를 탐색합니다.</div>
+
+      <div class="compare-grid">
+        <div class="compare-box box-current">
+          <span class="compare-tag">현재 (M1~M4)</span>
+          <div class="compare-title">개별 마크다운 문서 실측</div>
+          <div class="compare-desc">대화 세션 내에서 페어로 수동 실행하고 결과를 0001~0005.md에 직접 보존</div>
+        </div>
+        <div class="compare-box box-future">
+          <span class="compare-tag">M5 확장 목표</span>
+          <div class="compare-title">규격화된 Task Set & 러너</div>
+          <div class="compare-desc">버전 관리되는 입력/기대값 데이터셋과 비대화형 Dry-run 샌드박스 러너 설계</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 3: 회귀 방어 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-badge">3</div>
+        <div class="card-title">회귀 방어선: 기준선(Baseline) 비교와 편향·캐시 왜곡 차단</div>
+      </div>
+      <div class="card-desc">에이전트 지침 변경 시 이전 기준선과 1:1 비교하여 품질 저하를 조기에 차단합니다.</div>
+
+      <div class="loop-pipeline">
+        <div class="pipe-node">
+          <div class="pipe-node-title">지침/스킬 변경</div>
+          <div class="pipe-node-sub">PR or 프롬프트 수정</div>
+        </div>
+        <div class="pipe-arrow">➔</div>
+        <div class="pipe-node">
+          <div class="pipe-node-title">Task Set 재생</div>
+          <div class="pipe-node-sub">동일 과제 비대화형 실행</div>
+        </div>
+        <div class="pipe-arrow">➔</div>
+        <div class="pipe-node">
+          <div class="pipe-node-title">Baseline 비교</div>
+          <div class="pipe-node-sub">통과율 & 불변성 채점</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 스스로 풀어보는 3초 퀴즈 -->
+    <div class="quiz-section">
+      <div class="quiz-header">
+        <span>⚡ 스스로 풀어보는 3초 퀴즈</span>
+      </div>
+
+      <details class="quiz-item">
+        <summary class="quiz-summary">
+          <span>Q1. V2-M5는 평가를 아예 처음부터 새롭게 만드는 마일스톤인가?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          💡 <strong>아닙니다!</strong> 평가는 이미 M1부터 작게 시작하여 5건을 축적해 두었습니다. M5는 이를 바탕으로 '체계화(Task Set 규격화 및 자동 러너 설계)'로 도약하는 확장점입니다.
+        </div>
+      </details>
+
+      <details class="quiz-item">
+        <summary class="quiz-summary">
+          <span>Q2. 에이전트 평가 시 이전 캐시 조회를 새로운 통과 표본으로 셀 수 있는가?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          💡 <strong>절대 불가합니다!</strong> 동일 캐시 조회를 독립 생성 평가로 부풀려 계산하는 것은 AGENTS.md와 로드맵 규칙에서 엄격히 금지된 자기기만입니다.
+        </div>
+      </details>
+    </div>
+
+    <!-- 하단 접힌 엔지니어링 세부 사항 -->
+    <details class="details-box">
+      <summary>🛠️ Step ① 조사 질문 및 엔지니어링 경계</summary>
+      <div class="details-content">
+        <p><strong>이슈 #131에서 해결할 핵심 질문:</strong></p>
+        <ul>
+          <li>5대 마크다운 Eval 사례를 어떤 머신 판독 가능(JSON/YAML) 스키마로 표준화할 것인가?</li>
+          <li>Codex CLI 또는 독립 스크립트를 통해 외부 부작용(이슈 무단 생성) 없이 비대화형 Dry-run을 돌리는 구조는 무엇인가?</li>
+          <li>지침 변경 시 회귀를 감지하는 사전 측정치(Baseline)의 기록과 비교 판정 알고리즘은 무엇인가?</li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>의도적으로 제외한 항목 (Non-goals):</strong></p>
+        <ul>
+          <li>대규모 벤치마크나 여러 외부 모델 간의 비교 (범위 초과)</li>
+          <li>PR 머지를 무조건 차단하는 고정 게이트 규칙 (조기 결정 안티패턴 배제)</li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>근거 문서:</strong></p>
+        <ul>
+          <li>관련 이슈: <a class="artifact-link" href="https://github.com/taejung3852/OwnHands/issues/131">#131 (V2-M5 Step ①)</a></li>
+          <li>선행 가이드: <a class="artifact-link" href="evals/README.md">docs/evals/README.md (§2 M5 확장 기준)</a></li>
+          <li>로드맵: <a class="artifact-link" href="roadmap.md">docs/roadmap.md (§V2-M5)</a></li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</body>
+</html>

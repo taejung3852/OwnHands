@@ -164,7 +164,7 @@
 
 | 주제 | 결정할 내용 | 연결 |
 |---|---|---|
-| *(현재 모두 1차 합의되어 열린 공동 결정 항목 없음)* | 후속 세부 위임 실측 및 규칙 튜닝은 #110·#106에서 진행 | — |
+| **M5 Continuous Evals 확장 구조 (ADR-0009 후보)** | 1) Task Set 포맷: 단일 `task-set.yaml` vs 분할 vs MD Frontmatter<br>2) 러너 실행 방식: 경량 정적/계약 스크립트 vs Codex headless<br>3) 회귀 지표: 3-State Delta Matrix vs 단순 합격률 | [#131](https://github.com/taejung3852/OwnHands/issues/131), [리서치 문서](research/0004-m5-continuous-evals.md) |
 
 > ⚠️ `write-issue-pr`과 `explain`은 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
 > 그 밖에 문서에 보이는 `intent`, `design` 같은 표현은
@@ -179,7 +179,7 @@
 | **다른 Vendor 지원** | adapter로 할지, 같은 저장소로 할지, 별도 저장소로 할지 **미정**. | ⏳ |
 | **공통 추상화** | 두 번째 플랫폼의 **실제 필요를 확인하기 전에** 범용 adapter나 공통 실행 엔진을 확정하지 않는다. | ⏳ |
 | **Artifact 형식** | `intent.md`·`spec.md`·`plan.md` 저장 경로와 필수 규격 확정(✅ [ADR-0004](adr/0004-intent-spec-specification.md), ✅ [ADR-0007](adr/0007-plan-artifact-and-build-feedback-loop.md)). 메타데이터 및 자동화 규칙은 ⏳ 후속 결정. | ✅ / ⏳ |
-| **Eval 상세** | 초기 작은 Eval 4종(`0001`~`0004`) 및 가이드(`evals/README.md`) 수립 완료. 자동화 지표·러너 확장은 M5 연계. | [#106](https://github.com/taejung3852/OwnHands/issues/106) |
+| **Eval 상세** | 초기 작은 Eval 5종(`0001`~`0005`) 수립 완료. V2-M5 Step ① 조사([0004-m5-continuous-evals.md](research/0004-m5-continuous-evals.md)) 완료, Task Set 및 러너 설계 진행 중. | [#131](https://github.com/taejung3852/OwnHands/issues/131) |
 | **Hooks 상세** | 적용 역할은 논의했으나 구체 이벤트·규칙·권한·구현은 후속 설계. | [#102](https://github.com/taejung3852/OwnHands/issues/102) |
 | **마일스톤 내부 설계** | 이름·수·순서는 승인·등록됐다. 각 단계의 **내부 설계와 경계 조정**은 해당 이슈에서 정한다. | [#101](https://github.com/taejung3852/OwnHands/issues/101) |
 | **개발 속도** | 공식 기능을 활용하면 더 빨라질 것으로 **기대**한다. 이미 시간을 절감했다고 쓰지 않는다. | — |
