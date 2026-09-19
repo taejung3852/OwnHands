@@ -121,7 +121,7 @@
 
 
 
-### grill-spec 인터뷰 도우미 설계 — 2026-09-18 확정 ([#119](https://github.com/taejung3852/OwnHands/issues/119), [ADR-0006](adr/0006-grill-spec-orchestration-tradeoffs.md))
+### grill-spec 인터뷰 도우미 설계 — 2026-09-18 확정, 2026-09-20 보강 ([#119](https://github.com/taejung3852/OwnHands/issues/119), [#142](https://github.com/taejung3852/OwnHands/issues/142), [ADR-0006](adr/0006-grill-spec-orchestration-tradeoffs.md))
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
@@ -129,6 +129,8 @@
 | **Skill 구성** | 인위적으로 2개 분할하지 않고 **단일 `grill-spec`**에 3대 Stage Mode(`intent-only`, `spec-from-intent`, `full-flow`)를 지원한다. | ✅ `SKILL.md` |
 | **단계 분리 장치** | 무조건 턴 종료(Hard Barrier) 대신 **기본 대기선(Default Barrier)**을 두어 미승인 Intent의 Spec 오염을 차단한다. | ✅ `SKILL.md` |
 | **책임 분리** | 코드베이스 팩트는 에이전트가 직접 조사하고, 비목표·정책 결정은 사용자에게 질문한다. | ✅ `interview-guide.md` |
+| **Section Review** | 결과가 달라지는 Decision만 Artifact 초안 전에 확인한다. `맞다`는 확정, `아니다`는 대안 2~3개 비교, `모르겠다`는 쉬운 설명 후 재질문한다. 기존 Checkpoint는 전체 Artifact 승인으로 유지한다. | ✅ `SKILL.md`·`interview-guide.md` |
+| **Decision Card 가독성** | 한 번에 하나의 Decision을 `결정할 것 → 핵심 불릿 → 추천 → 선택`으로 보여주며, 핵심 불릿은 최대 3개·각 1줄로 제한한다. | ✅ `interview-guide.md` |
 | **Wayfinder 경계** | 일반 기능에 쓰지 않고, 단일 세션을 초과하는 대형 다중 세션 과제에만 후보로 안내한다. | ✅ `interview-guide.md` |
 
 

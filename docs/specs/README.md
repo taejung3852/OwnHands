@@ -25,6 +25,8 @@
        ↓
  [🛡️ Checkpoint 3 (필수)] ➔  신선한 검증 증거(Fresh Evidence) & Verifier Subagent Gate
  ```
+
+Stage 1·2에서 사용자 선택에 따라 결과가 달라지는 주요 Decision은 Artifact 초안에 반영하기 전에 `grill-spec`의 Section Review로 확인합니다. 코드베이스 Fact는 승인 대상으로 만들지 않으며, Section Review는 완성된 Artifact 전체를 검토하는 Checkpoint 1·2를 대체하지 않습니다.
  
  > ⚠️ **적용 범위 안내**: 오타 수정, 단순 버그 픽스 등 사소한 작업까지 intent/spec/plan 아티팩트 작성을 의무 강제하지 않습니다.  
  > 개발 시스템이 무거워지지 않도록 "어떤 작업에 이 흐름을 적용할 것인가"의 세부 기준은 후속으로 정립합니다.
