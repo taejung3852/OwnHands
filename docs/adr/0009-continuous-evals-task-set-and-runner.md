@@ -1,6 +1,6 @@
 # ADR-0009 — Continuous Evals Task Set 규격 및 경량 러너 아키텍처
 
-- **상태:** Proposed — 검토 대기
+- **상태:** Accepted — 2026-09-19 사용자 승인
 - **일자:** 2026-09-19
 - **관련 Issue:** [#134](https://github.com/taejung3852/OwnHands/issues/134) (선행: [#131 Research Gate](https://github.com/taejung3852/OwnHands/issues/131))
 - **관련 리서치:** [`docs/research/0004-m5-continuous-evals.md`](../research/0004-m5-continuous-evals.md)
@@ -34,11 +34,11 @@
 
 ## 2. Decision (결정)
 
-OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아키텍처 결정을 제안한다 (사용자 검토 및 승인 시 다음과 같이 확정).**
+OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아키텍처 결정을 채택한다.**
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│                     V2-M5 Continuous Evals 체계 (제안)                 │
+│                     V2-M5 Continuous Evals 체계 (확정)                 │
 ├────────────────────────────────────────────────────────────────────────┤
 │ 1. 단일 선언형 Task Set 표준 스키마 (execution_mode & sandbox_mode 구분)│
 │    docs/evals/task-set.yaml 에 5대 축적 과제를 정적/런타임/복합으로 완전 수용│

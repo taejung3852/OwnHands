@@ -300,9 +300,9 @@
 <body>
   <div class="container">
     <header>
-      <div class="badge-status">ADR-0009 Proposed · 사용자 검토 대기</div>
+      <div class="badge-status" style="background: #ecfdf5; color: #065f46; border-color: #a7f3d0;">ADR-0009 Accepted · 2026-09-19 확정</div>
       <h1>Continuous Evals Task Set과 경량 러너는 어떻게 회귀를 막는가?</h1>
-      <p class="subtitle">정적/런타임 2계층 스키마와 3-State Delta Matrix 기반의 경량 회귀 감지 아키텍처 제안</p>
+      <p class="subtitle">정적/런타임 2계층 스키마와 3-State Delta Matrix 기반의 경량 회귀 감지 아키텍처</p>
     </header>
 
     <!-- 카드 1: 단일 Task Set YAML -->
@@ -406,7 +406,7 @@
           <span class="quiz-btn">정답 확인</span>
         </summary>
         <div class="quiz-answer">
-          💡 <strong>아닙니다!</strong> 만약 실패한 1건이 핵심 안전장치(read-only 불변성 등)라면 통과율 80%는 위험을 가리는 착시가 됩니다. ADR-0009는 개별 과제의 상태 전이를 핀포인트로 감지하는 3-State Delta Matrix를 제안합니다.
+          💡 <strong>아닙니다!</strong> 만약 실패한 1건이 핵심 안전장치(read-only 불변성 등)라면 통과율 80%는 위험을 가리는 착시가 됩니다. ADR-0009는 개별 과제의 상태 전이를 핀포인트로 감지하는 3-State Delta Matrix를 채택합니다.
         </div>
       </details>
 
@@ -425,11 +425,11 @@
     <details class="details-box">
       <summary>🛠️ ADR-0009 엔지니어링 투명성 및 결정 의제</summary>
       <div class="details-content">
-        <p><strong>3대 핵심 제안 요약:</strong></p>
+        <p><strong>3대 핵심 결정 요약:</strong></p>
         <ul>
           <li><strong>Task Set 규격</strong>: <code>docs/evals/task-set.yaml</code> 단일 파일에 M1-M4 5대 과제를 <code>execution_mode(static/runtime/composite)</code> 및 <code>sandbox_mode(read-only/isolated-write)</code>로 완전 수용.</li>
           <li><strong>러너 아키텍처</strong>: <code>scripts/run-evals.js</code>를 Eval Orchestrator로 삼아 빠른 정적 사전 검사(Preflight)와 Codex headless 런타임 실행을 2단계로 연계.</li>
-          <li><strong>회귀 지표</strong>: 단순 합격률 환치를 거부하고 <code>docs/evals/baselines/current.json</code> 기준선과 대조하는 3-State Delta Matrix 제안 (승인 시 확정).</li>
+          <li><strong>회귀 지표</strong>: 단순 합격률 환치를 거부하고 <code>docs/evals/baselines/current.json</code> 기준선과 대조하는 3-State Delta Matrix 채택.</li>
         </ul>
         <p style="margin-top: 10px;"><strong>근거 아티팩트:</strong></p>
         <ul>
