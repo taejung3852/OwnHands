@@ -21,7 +21,7 @@
 | 🚧 미구현 | V2에서 아직 만들지 않았다. |
 | 📦 V1 구현 기록 있음 | V1에 구현·검증 기록이 있으나 **V2로 자동 승계되지 않는다.** |
 
-> **2026-09-18 기준 V2에 존재하는 실행 자산은 Skill 3개(`write-issue-pr`·`explain`·`grill-spec`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
+> **2026-09-19 기준 V2에 존재하는 실행 자산은 Skill 4개(`write-issue-pr`·`explain`·`grill-spec`·`verify`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
 > 그 외 제품 기능은 🚧 미구현이다. 이 문서는 방향 문서이지 완료 보고가 아니다.
 
 ---
@@ -49,10 +49,10 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **이름과 개수** | `write-issue-pr`, `explain`, `grill-spec` **3개**. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
+| **이름과 개수** | `write-issue-pr`, `explain`, `grill-spec`, `verify` **4개**. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
 | **배치** | `.agents/skills/` — Codex REPO scope 탐색 경로다. V1의 `skills/`는 이 경로가 아니었다. | ✅ |
 | **판단 축** (공식) | 공식이 제시하는 축은 셋이다 — *"Split workflows when they have different **triggers, inputs, or success criteria**."* **`or`다.** 셋 중 **하나만 달라도** 공식 기준으로는 분할 근거가 된다. | — |
-| **분할 게이트** (OwnHands) | **공식보다 엄격하게 쓴다.** 세 축이 **모두** 뚜렷하게 다를 때만 새 Skill 후보로 본다. 근거는 10,000 토큰 천장과 description 상호 모순 위험이며, **공식이 요구하는 것이 아니라 우리가 과분할을 막으려고 좁힌 것이다.** | — |
+| **분할 게이트** (OwnHands) | **공식보다 엄격하게 쓴다.** 세 축이 **모두** 뚜렷하게 다를 때만 새 Skill 후보로 본다. (`verify`는 Trigger: 구현 후 검증, Input: Spec/Plan/Evidence, Success: PASS/FAIL/UNOBSERVED 판정으로 3축 모두 상이하여 분할 충족). 근거는 10,000 토큰 천장과 description 상호 모순 위험이며, **공식이 요구하는 것이 아니라 우리가 과분할을 막으려고 좁힌 것이다.** | — |
 | **분할 게이트의 비용** | ⚠️ **과소분할을 감수하는 선택이다.** 트리거는 같은데 재료·판정이 다른 2/3 사례에서 공식은 나누라 하고 이 게이트는 말린다. 그런 사례가 실제로 오면 게이트를 재검토한다. | — |
 | **추가 근거** | ① 위 게이트를 통과하거나, ② Eval에서 관측한 뒤 **description → 본문** 순으로 고쳐도 안 잡힐 때. **빈도는 근거가 아니다.** | — |
 | **삭제·병합** | 두 Skill이 서로의 영역에서 오발하면 합치고, 쓰이지 않으면 지운다. 늘리는 규칙만 두지 않는다. | — |
@@ -98,6 +98,16 @@
 | **기준선 테스트 보존** | `Existing tests are baseline, not immutable`. 실패 회피를 위한 무단 수정/삭제 금지, 승인된 스펙 변경 시 정상 수정 허용. | ✅ `ADR-0007` |
 | **2단계 검증 게이트** | 구현자 자체 피드백 루프 ➔ 완료 직전 독립된 read-only `verifier` Subagent의 `PASS / FAIL / UNOBSERVED` 판정. | ✅ `ADR-0007` |
 | **기준선 버전 관리** | 구현 중 스펙 충돌/새 제약 발견 시 자의적 수정 금지, `spec.md` 수정 ➔ 사람 승인 ➔ `plan.md` 재정렬 절차 준수. | ✅ `ADR-0007` |
+
+### 검증 가이드라인 및 Verifier 감사 프로토콜 — 2026-09-19 확정 ([#127](https://github.com/taejung3852/OwnHands/issues/127), [ADR-0008](adr/0008-verification-references-and-verifier-protocol.md))
+
+| 주제 | 결정 내용 | 구현 |
+|---|---|---|
+| **가이드라인 캡슐화** | 사람이 읽는 `docs/` 공간을 어지럽히지 않고, 검증 지침을 `.agents/skills/verify/references/`에 온디맨드로 캡슐화한다. | ✅ `.agents/skills/verify/` |
+| **Verifier 지침 내장** | Verifier의 감사 프로토콜을 외부 문서 참조에 의존하지 않고 `.codex/agents/verifier.toml`의 `developer_instructions`에 직접 내장한다. | ✅ `verifier.toml` |
+| **독립 감사관 모델** | Verifier는 테스트 러너가 아니라 Builder가 제출한 applicable Fresh Evidence(테스트, UI 스크린샷, 벤치마크, 린트)를 AC와 역추적 대조하는 독립 감사관이다. | ✅ `ADR-0008` |
+| **3대 상태 어휘** | Verifier 판정은 `PASS / FAIL / UNOBSERVED` 3종으로만 엄격하게 규정한다. | ✅ `ADR-0008` |
+| **비교 주장 Before 기준선** | 버그 수정(`bugfix`) 및 성능 개선(`performance`) 주장 시 코드 수정 전 결함/수치 증거(Before Baseline)를 필수 확인하며, 부재 시 `[UNOBSERVED]`로 판정한다. | ✅ `ADR-0008` |
 
 
 
@@ -154,7 +164,7 @@
 
 | 주제 | 결정할 내용 | 연결 |
 |---|---|---|
-| **검증 가이드라인 및 Verifier 감사 프로토콜** | Verifier 서브에이전트 지침 내장, 검증 가이드의 Skill 캡슐화(`.agents/skills/verify/references/`), Verifier 독립 감사관 모델(`PASS / FAIL / UNOBSERVED`), 비교 주장(Claim)별 Before-After Baseline 프로토콜 합의. | 💬 [ADR-0008 (Proposed)](adr/0008-verification-references-and-verifier-protocol.md) ([#127](https://github.com/taejung3852/OwnHands/issues/127), PR #128 대기) |
+| *(현재 모두 1차 합의되어 열린 공동 결정 항목 없음)* | 후속 세부 위임 실측 및 규칙 튜닝은 #110·#106에서 진행 | — |
 
 > ⚠️ `write-issue-pr`과 `explain`은 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
 > 그 밖에 문서에 보이는 `intent`, `design` 같은 표현은

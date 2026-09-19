@@ -1,6 +1,6 @@
 # ADR-0008 — 검증 가이드라인 캡슐화 및 Verifier 감사 프로토콜
 
-- **상태:** Proposed — 검토 대기
+- **상태:** Accepted — 사용자 합의
 - **일자:** 2026-09-19
 - **관련 Issue:** [#127](https://github.com/taejung3852/OwnHands/issues/127) (선행: [#125 Research Gate](https://github.com/taejung3852/OwnHands/issues/125))
 - **관련 PR:** [#126](https://github.com/taejung3852/OwnHands/pull/126), [#128](https://github.com/taejung3852/OwnHands/pull/128)
@@ -20,7 +20,7 @@
 - V2-M3([ADR-0007](0007-plan-artifact-and-build-feedback-loop.md))를 통해 실행 계획인 `plan.md` 아티팩트와 SDD 기반 Build Feedback Loop 6대 원칙을 확정했다.
 - 그러나 ADR-0007 원칙 5에 명시했듯이:
   > *"Verifier 런타임 권한 경계: 현재 `verifier.toml`은 `sandbox_mode = "read-only"`이므로... Verifier가 테스트를 직접 재실행하는 권한/환경 확정은 런타임 실측 후 M4(`Test & Assurance`)에서 다룬다."*
-- 또한 검증 지식(회귀 방어, Before-After 측정 등)을 어디에 두어야 하는가의 문제가 남아 있었다. 초기에는 `docs/references/`에 두는 안이 검토되었으나, **사람이 읽는 프로젝트 문서(`docs/`)와 에이전트 실행 지침이 뒤섞여 정리가 안 되는 부작용**이 지적되었다.
+- 또한 검증 지식(회귀 방어, Before-After 측정 등)을 어디에 두어야 하는가의 문제가 남아 있었다. 초기에는 `docs/` 아래에 두는 안이 검토되었으나, **사람이 읽는 프로젝트 문서(`docs/`)와 에이전트 실행 지침이 뒤섞여 정리가 안 되는 부작용**이 지적되었다.
 
 ### 1.3 1차 자료 조사 결과 ([docs/research/m4-test-and-assurance.md](../research/m4-test-and-assurance.md))
 1. **Fact 1 (Codex Progressive Disclosure)**:
@@ -35,7 +35,7 @@
 
 ## 2. Decision (결정)
 
-OwnHands는 V2-M4(`Test & Assurance`)의 핵심 규약으로 다음 **3대 아키텍처 결정**을 제안한다.
+OwnHands는 V2-M4(`Test & Assurance`)의 핵심 규약으로 다음 **3대 아키텍처 결정**을 확정한다.
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -45,7 +45,7 @@ OwnHands는 V2-M4(`Test & Assurance`)의 핵심 규약으로 다음 **3대 아�
 │    docs/를 어지럽히지 않고 .agents/skills/verify/references/ 에 보관   │
 │                                                                        │
 │ 2. Verifier Subagent developer_instructions 공식 내장                  │
-│    read-only 환경에서 Fresh Evidence ↔ spec.md AC 독립 역추적 감사     │
+│    read-only 환경에서 applicable Fresh Evidence ↔ spec.md AC 독립 감사 │
 │    판정 어휘: PASS / FAIL / UNOBSERVED                                 │
 │                                                                        │
 │ 3. 비교 주장(Claim)별 Before-After Baseline 프로토콜                   │
@@ -62,10 +62,15 @@ OwnHands는 V2-M4(`Test & Assurance`)의 핵심 규약으로 다음 **3대 아�
 - **`.agents/skills/` (에이전트의 공간)**: 구현자(Builder)가 검증을 수행할 때 참고하는 가이드라인은 **`.agents/skills/verify/references/`**에 온디맨드 마크다운으로 캡슐화한다.
   - `regression-defense.md`: 회귀 방어 원칙, 변경 영향 분석(Impact Analysis), 기존 테스트 부재 시 3대 대체 방어선
   - `before-after-baseline.md`: 결함 재현 로그 및 벤치마크 기준선 수집 절차
-  - `evidence-guide.md`: 신선한 터미널 증거(Fresh Evidence) 작성 및 기록 가이드
+  - `evidence-guide.md`: 신선한 관측 증거(applicable Fresh Evidence) 작성 및 기록 가이드
 
-#### 2) 점진적 공개 (Progressive Disclosure)
+#### 2) 점진적 공개 (Progressive Disclosure) & 분할 게이트 충족
 - 검증 가이드는 Skill 목록의 10,000 토큰 천장을 먹지 않으며, `plan.md`를 작성하거나 검증 단계를 수행할 때만 해당 태스크에 맞추어 핀포인트로 열람된다.
+- **새 Skill (`verify`) 분할 게이트 충족 확인**:
+  - `Trigger`: 구현 완료 후 검증 (기획/설계인 `grill-spec`과 다름)
+  - `Input`: `spec.md`, `plan.md`, 관측 증거 (Intent 및 코드베이스 조사와 다름)
+  - `Success Criteria`: `PASS / FAIL / UNOBSERVED` 판정 (산출물 승인과 다름)
+  - ➔ 3대 축이 모두 뚜렷하게 다르므로 독립 4번째 Skill로 정당화됨.
 
 ---
 
@@ -73,20 +78,23 @@ OwnHands는 V2-M4(`Test & Assurance`)의 핵심 규약으로 다음 **3대 아�
 
 #### 1) 메커니즘: Verifier 본령에 감사 프로토콜 직접 정의
 - Verifier의 감사 절차는 외부 문서를 찾아 읽게 하는 불안정한 방식 대신, [`.codex/agents/verifier.toml`](../../.codex/agents/verifier.toml)의 **`developer_instructions`에 직접 내장**한다.
-- Verifier Subagent([ADR-0001](0001-initial-subagent-roles.md))는 **직접 무거운 테스트를 재실행하는 Runner가 아니라, Builder가 제출한 신선한 터미널 증거(Fresh Evidence)를 `spec.md`의 AC와 역추적 대조하는 독립 감사관(Auditor)**으로 작동한다.
+- Verifier Subagent([ADR-0001](0001-initial-subagent-roles.md))는 **직접 무거운 테스트를 재실행하는 Runner가 아니라, Builder가 제출한 적용 가능한 신선한 증거(applicable Fresh Evidence)를 `spec.md`의 AC와 역추적 대조하는 독립 감사관(Auditor)**으로 작동한다.
 
 #### 2) AC ↔ Evidence 역추적 대조 및 3대 판정 어휘
 - **유연한 매핑**: AC와 Evidence는 1:1 강제 매핑이 아니며, 1:N 또는 N:1 복합 매핑을 허용한다.
-- Verifier는 `plan.md`의 증거를 감사하여 다음 3대 상태 어휘로만 판정한다:
+- **다양한 증거 유형 수용 (applicable Fresh Evidence)**:
+  - Unit/API: 테스트 러너 실행 명령어, exit code 0, assertion 통과 건수
+  - UI/Layout: 브라우저 렌더링 관측 기록, 레이아웃 스크린샷, DOM 상태
+  - Lint/Static Analysis: 도구 실행 출력 (0 errors)
+  - Performance: 사전/사후 벤치마크 측정 수치
+  - Manual/Exploratory: 재현 절차에 따른 구체적 관측 기록
+  *(Git 커밋 해시는 uncommitted 작업 중일 수 있으므로 유용한 provenance로 활용하며 필수 차단 요건으로 삼지 않음)*
 
 | 판정 어휘 | 판정 조건 | 후속 조치 |
 |---|---|---|
-| **`PASS`** | 제출된 Fresh Evidence(최신 커밋, exit code 0, assertion 통과, 관측 로그)가 `spec.md`의 해당 AC를 완벽히 입증할 때 | 검증 통과 완료 |
-| **`FAIL`** | 실행 결과 에러, assertion 실패, AC 기대 동작 불일치, 또는 증거가 낡았거나 조작/자가합리화 정황이 발견될 때 | Builder에게 결함 피드백 및 재작업 |
+| **`PASS`** | 제출된 applicable Fresh Evidence(테스트 통과, UI 렌더링 스크린샷, 벤치마크 수치, 무에러 출력 등)가 `spec.md`의 해당 AC를 충분히 입증할 때 | 검증 통과 완료 |
+| **`FAIL`** | 실행 결과 에러, assertion 실패, AC 기대 동작 불일치, 또는 증거 위조/조작 정황이 발견될 때 | Builder에게 결함 피드백 및 재작업 |
 | **`UNOBSERVED`** | 해당 AC에 대한 실행 증거가 누락되었거나, 테스트 부재 등으로 실제 관측되지 않은 상태 | 거짓 통과(Silent Pass) 방지, 미관측 사실 명시 |
-
-#### 3) 위조 증거(환각) 방어 장치
-- Builder가 제시한 터미널 증거의 신선도를 감사하기 위해, Verifier는 증거 내의 **① 실행 명령어, ② 프로세스 종료 코드(exit code), ③ 테스트 케이스 통과 수치, ④ 현재 작업 브랜치의 최신 커밋 해시**의 일치 여부를 교차 검증한다.
 
 ---
 
@@ -102,7 +110,7 @@ OwnHands는 V2-M4(`Test & Assurance`)의 핵심 규약으로 다음 **3대 아�
 |---|---|---|---|
 | **버그 수정 (`bugfix`)** | 코드 수정 전 **결함 재현 로그** (실패하는 테스트 러너 출력 또는 터미널 오류 관측) | 동일한 조건에서 **결함 미재현 로그** (테스트 통과 또는 오류 소멸 증거) | 무조건 FAIL이 아닌 **`[UNOBSERVED]`**로 판정 (결함 해결 미입증) |
 | **성능 개선 (`performance`)** | 코드 수정 전 **기준 벤치마크 측정 수치** (응답 속도, 메모리, 처리량 등) | 동일한 환경/측정 도구에서의 **개선 벤치마크 수치** | **`[UNOBSERVED]`**로 판정 (성능 향상 미입증) |
-| **신규 기능 (`feature`)** | Before 불필요 (기존 동작이 없으므로 N/A) | `spec.md`의 AC에 대한 Fresh Evidence (단위 테스트 통과, 렌더링 스크린샷 등) | N/A (AC 검증 결과에 따라 PASS/FAIL) |
+| **신규 기능 (`feature`)** | Before 불필요 (기존 동작이 없으므로 N/A) | `spec.md`의 AC에 대한 applicable Fresh Evidence (단위 테스트 통과, 렌더링 스크린샷 등) | N/A (AC 검증 결과에 따라 PASS/FAIL) |
 | **리팩토링 (`refactor`)** | 코드 수정 전 **기존 회귀 테스트 통과 로그** | 동일한 회귀 테스트의 **동일 통과 로그** 및 무결성 확인 | 기존 테스트 부재 시 `[NO_EXISTING_REGRESSION_SUITE]` 선언 |
 
 #### 3) Before 증거 미확보 시의 `UNOBSERVED` 처리 원칙
@@ -119,7 +127,7 @@ OwnHands는 V2-M4(`Test & Assurance`)의 핵심 규약으로 다음 **3대 아�
 1. **Zero-Code & Clean Structure**:
    - `docs/`는 사람이 보는 시스템 설계 공간으로 깔끔하게 유지되고, 에이전트 지침은 Skill 및 Subagent toml에 명확히 캡슐화된다.
 2. **AI 자가합리화의 원천 차단**:
-   - Before 재현 증거 없는 버그픽스 주장, Fresh Evidence 없는 완료 선언을 시스템적으로 걸러낸다.
+   - Before 재현 증거 없는 버그픽스 주장, applicable Fresh Evidence 없는 완료 선언을 시스템적으로 걸러낸다.
 3. **토큰 및 속도 효율 극대화**:
    - 상황별 Reference는 필요할 때만 핀포인트로 읽히므로(Progressive Disclosure) 카탈로그 예산을 낭비하지 않는다.
    - Verifier가 중복 빌드/테스트를 돌리지 않고 감사에 집중하므로 피드백 루프 속도가 빠르다.

@@ -244,9 +244,9 @@
 <body>
   <div class="container">
     <header>
-      <div class="badge-status">Proposed — 사용자 검토 대기 • ADR-0008</div>
+      <div class="badge-status" style="background: #dcfce7; color: #166534; border-color: #bbf7d0;">Accepted — 사용자 합의 • ADR-0008</div>
       <h1>검증 지식은 어디에 두고, Verifier는 무엇을 감사하는가?</h1>
-      <p class="subtitle">온디맨드 Reference • Fresh Evidence 독립 감사관 • Before 기준선 프로토콜</p>
+      <p class="subtitle">Skill 캡슐화 • applicable Fresh Evidence 독립 감사관 • Before 기준선 프로토콜</p>
     </header>
 
     <!-- 카드 1: 검증 가이드라인 캡슐화 -->
@@ -284,18 +284,18 @@
         <div class="step-badge">2</div>
         <h2 class="card-title">Verifier의 역할: 직접 달리는 러너가 아닌 '독립 감사관'</h2>
       </div>
-      <p class="card-desc">read-only 제약과 중복 실행 비용을 피해 Builder의 실제 터미널 출력(Fresh Evidence)을 AC와 역추적 대조합니다.</p>
+      <p class="card-desc">read-only 제약과 중복 실행 비용을 피해 Builder의 신선한 증거(applicable Fresh Evidence)를 AC와 역추적 대조합니다.</p>
 
       <div class="flow-diagram">
         <div class="flow-step-row">
           <div class="flow-node">
             <div>Builder (구현)</div>
-            <div style="font-size: 9px; color: #64748b; font-weight: normal;">네이티브 러너 실행</div>
+            <div style="font-size: 9px; color: #64748b; font-weight: normal;">자체 피드백 루프</div>
           </div>
           <div class="flow-arrow">➔</div>
           <div class="flow-node highlight">
             <div>Fresh Evidence</div>
-            <div style="font-size: 9px; color: #3b82f6; font-weight: normal;">Exit 0 / 커밋 / 로그</div>
+            <div style="font-size: 9px; color: #3b82f6; font-weight: normal;">테스트 / 스크린샷 / 벤치</div>
           </div>
           <div class="flow-arrow">➔</div>
           <div class="flow-node">
@@ -352,7 +352,7 @@
           <span class="quiz-btn">정답 확인</span>
         </summary>
         <div class="quiz-answer">
-          <strong>A: <code>read-only</code> 샌드박스의 파일 쓰기 충돌을 원천 방지하고, 중복 실행 비용 없이 가벼운 감사(Thin Harness)를 완성하기 위함입니다.</strong> Builder가 plan.md에 남긴 실제 터미널 출력(명령어, exit code, assertion 결과)을 기획서의 수용 기준(AC)과 독립적으로 교차 대조합니다.
+          <strong>A: <code>read-only</code> 샌드박스의 파일 쓰기 충돌을 원천 방지하고, 중복 실행 비용 없이 가벼운 감사(Thin Harness)를 완성하기 위함입니다.</strong> Builder가 plan.md에 남긴 실제 관측 증거(테스트 로그, UI 렌더링 스크린샷, 벤치마크 수치)를 기획서의 수용 기준(AC)과 독립적으로 교차 대조합니다.
         </div>
       </details>
 
@@ -371,16 +371,16 @@
     <details class="tech-details">
       <summary>🔍 엔지니어링 세부 사항 및 근거 아티팩트</summary>
       <ul style="padding-left: 16px; margin-top: 8px; line-height: 1.6;">
-        <li><strong>ADR 원본</strong>: <code>docs/adr/0008-verification-references-and-verifier-protocol.md</code> (상태: Proposed)</li>
+        <li><strong>ADR 원본</strong>: <code>docs/adr/0008-verification-references-and-verifier-protocol.md</code> (상태: Accepted)</li>
         <li><strong>선행 조사 보고서</strong>: <code>docs/research/m4-test-and-assurance.md</code></li>
         <li><strong>관련 이슈</strong>: <a href="https://github.com/taejung3852/OwnHands/issues/127" target="_blank">#127</a> (M4 Step ② ADR-0008 제정)</li>
-        <li><strong>관련 PR</strong>: <a href="https://github.com/taejung3852/OwnHands/pull/128" target="_blank">#128</a> (검토 및 합의 대기)</li>
+        <li><strong>관련 PR</strong>: <a href="https://github.com/taejung3852/OwnHands/pull/128" target="_blank">#128</a></li>
         <li><strong>미실측 주의</strong>: <code>verifier</code> Subagent의 실제 테스트 재실행 성공/실패 여부는 아직 런타임 실측하지 않았으며, 안전성과 Thin Harness 원칙에 따라 독립 감사관 모델을 기본 채택했습니다.</li>
       </ul>
     </details>
 
     <div class="footer-link">
-      <p>OwnHands V2-M4 • ADR-0008 Proposed</p>
+      <p>OwnHands V2-M4 • ADR-0008 Accepted</p>
     </div>
   </div>
 </body>

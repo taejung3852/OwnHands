@@ -181,19 +181,19 @@ npm test / pytest / gh 명령어 등
 | `AC-03` | 수동 / 브라우저 점검 | 상태 전이 관측 | 렌더링 스크린샷 또는 관측 기록 | 기대 레이아웃/동작 일치 |
 
 ## 4. 실행 및 신선한 검증 증거 (Execution & Fresh Evidence Checklist)
-> ⚠️ **The Iron Law**: "신선한 관측 증거(Fresh Evidence) 없는 완료 주장 금지"
+> ⚠️ **The Iron Law**: "신선한 관측 증거(applicable Fresh Evidence) 없는 완료 주장 금지" (테스트 로그, 브라우저 스크린샷, 벤치마크 수치 등)
 - [ ] **Task 1 검증 증거**:
   - 실행 명령어 또는 관측 대상: `...`
-  - 실행/관측 결과 요약: `...`
+  - 실행/관측 결과 요약 (로그, 스크린샷, 수치): `...`
 - [ ] **Task 2 검증 증거**:
   - 실행 명령어 또는 관측 대상: `...`
-  - 실행/관측 결과 요약: `...`
+  - 실행/관측 결과 요약 (로그, 스크린샷, 수치): `...`
 - [ ] **회귀 테스트 (Regression Gate)**:
   - 실행 명령어: `npm test` / `pytest` / native build check 등
   - 결과: 실행된 회귀 스위트 범위 내 실패 미관측(No failures observed) 증거 확보
   - *(기존 테스트 부재 시)*: `[NO_EXISTING_REGRESSION_SUITE]` 선언, 프로젝트에 존재하는 applicable native checks를 실행하고 존재하지 않는 검사는 `[UNOBSERVED]`로 기록
 - [ ] **최종 Acceptance Criteria 역추적 대조 (Verifier Subagent Gate — ADR-0008)**:
-  - 감사 방식: read-only 환경에서 `spec.md` AC ↔ `plan.md` Fresh Evidence 역추적 대조
+  - 감사 방식: read-only 환경에서 `spec.md` AC ↔ `plan.md` applicable Fresh Evidence 역추적 대조
   - Verifier 판정: `PASS / FAIL / UNOBSERVED`
 ```
 
