@@ -56,7 +56,7 @@
           },
           {
             "id": "P3",
-            "prompt": "explain 스킬로 지금 우리 상황 정리해줘",
+            "prompt": "$explain 지금 우리 상황 정리해줘",
             "expected_skill": "explain",
             "expected_behavior": "explain 스킬을 사용한 이해하기 쉬운 상황 설명",
             "output_contains": ["현재", "핵심"]
