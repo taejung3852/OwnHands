@@ -1,0 +1,167 @@
+{
+  "version": "1.0",
+  "description": "OwnHands V2-M5 Continuous Evals 5대 핵심 Task Set (단일 선언형 표준 규격)",
+  "updated_at": "2026-09-19",
+  "tasks": [
+    {
+      "id": "EVAL-0001",
+      "name": "Daily Prompt Skill 라우팅 정확도 실측",
+      "category": "routing",
+      "target_asset": ".agents/skills/",
+      "execution_mode": "runtime",
+      "sandbox_mode": "read-only",
+      "side_effect_policy": {
+        "allow_repo_mutation": false,
+        "allow_artifact_output": false,
+        "allow_network_writes": false,
+        "forbidden_commands": ["gh issue create", "gh pr create"]
+      },
+      "static_contract": {
+        "required_skills": ["write-issue-pr", "explain", "grill-spec", "verify"],
+        "file_assertions": [
+          {
+            "file": ".agents/skills/write-issue-pr/SKILL.md",
+            "not_contains": [
+              "run_command: gh issue create",
+              "run_command: gh pr create"
+            ]
+          }
+        ]
+      },
+      "runtime_contract": {
+        "scenarios": [
+          { "id": "P1", "prompt": "이슈 하나 만들어줘. 목표는 V2 캐시 무효화 설계야", "expected_skill": "write-issue-pr" },
+          { "id": "P2", "prompt": "PR 본문 다시 써줘", "expected_skill": "write-issue-pr" },
+          { "id": "P3", "prompt": "지금 우리 상황 정리해줘", "expected_skill": "explain" },
+          { "id": "P4", "prompt": "이 함수 뭐하는지 설명해줘", "expected_skill": null },
+          { "id": "P5", "prompt": "이 에러 왜 나는지 봐줘", "expected_skill": null }
+        ]
+      },
+      "judgment_mode": "deterministic"
+    },
+    {
+      "id": "EVAL-0002",
+      "name": "Verifier 독립 감사관 수용성 및 불변성 실측",
+      "category": "subagent",
+      "target_asset": ".codex/agents/verifier.toml",
+      "execution_mode": "runtime",
+      "sandbox_mode": "read-only",
+      "side_effect_policy": {
+        "allow_repo_mutation": false,
+        "allow_artifact_output": false,
+        "allow_network_writes": false
+      },
+      "static_contract": {
+        "required_files": [
+          ".codex/agents/verifier.toml",
+          ".codex/agents/reviewer.toml",
+          ".codex/agents/researcher.toml"
+        ],
+        "file_assertions": [
+          {
+            "file": ".codex/agents/verifier.toml",
+            "contains": [
+              "sandbox_mode = \"read-only\"",
+              "Read-Only Integrity",
+              "Independent Evidence Audit",
+              "Strict 3-State Judgment Vocabulary",
+              "Before Baseline Audit",
+              "Output Contract"
+            ],
+            "not_contains": ["PARTIAL PASS"]
+          }
+        ]
+      },
+      "judgment_mode": "auditor"
+    },
+    {
+      "id": "EVAL-0003",
+      "name": "Researcher 1차 출처 인용 및 팩트/공백 분리 실측",
+      "category": "subagent",
+      "target_asset": ".codex/agents/researcher.toml",
+      "execution_mode": "runtime",
+      "sandbox_mode": "isolated-write",
+      "side_effect_policy": {
+        "allow_repo_mutation": false,
+        "allow_artifact_output": true,
+        "allow_network_writes": false
+      },
+      "static_contract": {
+        "required_files": [
+          ".codex/agents/researcher.toml",
+          "docs/research/0002-m2-intent-spec-gate.md"
+        ],
+        "file_assertions": [
+          {
+            "file": ".codex/agents/researcher.toml",
+            "contains": [
+              "primary sources",
+              "confirmed facts",
+              "gaps",
+              "Do not modify existing source code"
+            ]
+          }
+        ]
+      },
+      "judgment_mode": "schema"
+    },
+    {
+      "id": "EVAL-0004",
+      "name": "grill-spec GORE 닻 및 정적 적합성 (Static Conformance)",
+      "category": "skill",
+      "target_asset": ".agents/skills/grill-spec/",
+      "execution_mode": "static",
+      "sandbox_mode": "read-only",
+      "side_effect_policy": {
+        "allow_repo_mutation": false,
+        "allow_artifact_output": false,
+        "allow_network_writes": false
+      },
+      "static_contract": {
+        "required_files": [
+          ".agents/skills/grill-spec/SKILL.md",
+          ".agents/skills/grill-spec/references/interview-guide.md",
+          "docs/specs/grill-spec/spec.md",
+          "docs/specs/grill-spec/intent.md"
+        ],
+        "file_assertions": [
+          { "file": ".agents/skills/grill-spec/SKILL.md", "contains": ["name: grill-spec", "Checkpoint 1", "Checkpoint 2"] },
+          { "file": ".agents/skills/grill-spec/references/interview-guide.md", "contains": ["MIT License", "ROUTE-B", "ROUTE-C", "Fact"] },
+          { "file": "docs/specs/grill-spec/spec.md", "contains": ["기반 Intent:"] },
+          { "file": "docs/specs/grill-spec/intent.md", "contains": ["Non-goals", "Constraints"] }
+        ]
+      },
+      "judgment_mode": "schema"
+    },
+    {
+      "id": "EVAL-0005",
+      "name": "verify 스킬 분할 및 Verifier 독립 감사 프로토콜 실측",
+      "category": "composite",
+      "execution_mode": "composite",
+      "target_asset": ".agents/skills/verify/",
+      "phases": {
+        "static_conformance": {
+          "required_files": [
+            ".agents/skills/verify/SKILL.md",
+            ".agents/skills/verify/references/before-after-baseline.md",
+            ".agents/skills/verify/references/regression-defense.md",
+            ".agents/skills/verify/references/evidence-guide.md",
+            ".codex/agents/verifier.toml"
+          ],
+          "line_count_limits": [
+            { "file": ".agents/skills/verify/SKILL.md", "max_lines": 35 }
+          ],
+          "file_assertions": [
+            { "file": ".codex/agents/verifier.toml", "contains": ["Read-Only Integrity", "Output Contract"] }
+          ]
+        },
+        "runtime_audit": {
+          "spec_file": "docs/specs/grill-spec/spec.md",
+          "expected_overall_verdict": "UNOBSERVED",
+          "forbidden_patterns": ["| PARTIAL PASS |"]
+        }
+      },
+      "judgment_mode": "auditor"
+    }
+  ]
+}

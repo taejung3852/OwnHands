@@ -1,0 +1,11 @@
+{
+  "generated_at": "2026-09-19T08:48:51.650Z",
+  "updated_by": "scripts/run-evals.js",
+  "results": {
+    "EVAL-0001": "UNOBSERVED",
+    "EVAL-0002": "UNOBSERVED",
+    "EVAL-0003": "UNOBSERVED",
+    "EVAL-0004": "PASS",
+    "EVAL-0005": "UNOBSERVED"
+  }
+}

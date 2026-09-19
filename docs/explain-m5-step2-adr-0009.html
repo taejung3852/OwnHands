@@ -315,7 +315,7 @@
       
       <div class="schema-box">
         <div class="schema-header">
-          <span>docs/evals/task-set.yaml</span>
+          <span>docs/evals/task-set.json</span>
           <span class="schema-tag">static / runtime / composite</span>
         </div>
         <div class="schema-chips">
@@ -427,7 +427,7 @@
       <div class="details-content">
         <p><strong>3대 핵심 결정 요약:</strong></p>
         <ul>
-          <li><strong>Task Set 규격</strong>: <code>docs/evals/task-set.yaml</code> 단일 파일에 M1-M4 5대 과제를 <code>execution_mode(static/runtime/composite)</code> 및 <code>sandbox_mode(read-only/isolated-write)</code>로 완전 수용.</li>
+          <li><strong>Task Set 규격</strong>: <code>docs/evals/task-set.json</code> 단일 파일에 M1-M4 5대 과제를 <code>execution_mode(static/runtime/composite)</code> 및 <code>sandbox_mode(read-only/isolated-write)</code>로 완전 수용.</li>
           <li><strong>러너 아키텍처</strong>: <code>scripts/run-evals.js</code>를 Eval Orchestrator로 삼아 빠른 정적 사전 검사(Preflight)와 Codex headless 런타임 실행을 2단계로 연계.</li>
           <li><strong>회귀 지표</strong>: 단순 합격률 환치를 거부하고 <code>docs/evals/baselines/current.json</code> 기준선과 대조하는 3-State Delta Matrix 채택.</li>
         </ul>
