@@ -151,18 +151,28 @@ function verifyStaticContract(task) {
     }
   }
 
-  // 7. file_assertions 검사 (EVAL-0004 등)
+  // 7. file_assertions 검사 (contains 및 not_contains 명시적 검증)
   if (contract.file_assertions) {
     for (const assertion of contract.file_assertions) {
       const content = readFileSafe(assertion.file);
       if (!content) {
         staticPass = false;
         details.push(`검증 대상 파일 부재: ${assertion.file}`);
-      } else if (assertion.contains) {
-        for (const needle of assertion.contains) {
-          if (!content.includes(needle)) {
-            staticPass = false;
-            details.push(`필수 내용 누락: "${needle}" in ${assertion.file}`);
+      } else {
+        if (assertion.contains) {
+          for (const needle of assertion.contains) {
+            if (!content.includes(needle)) {
+              staticPass = false;
+              details.push(`필수 내용 누락: "${needle}" in ${assertion.file}`);
+            }
+          }
+        }
+        if (assertion.not_contains) {
+          for (const forbidden of assertion.not_contains) {
+            if (content.includes(forbidden)) {
+              staticPass = false;
+              details.push(`금지 패턴 검출: "${forbidden}" in ${assertion.file}`);
+            }
           }
         }
       }
@@ -173,7 +183,7 @@ function verifyStaticContract(task) {
 }
 
 /**
- * 단일 태스크 종합 평가기 (Static Preflight + Runtime Orchestration)
+ * 단일 태스크 종합 평가기 (Static Preflight + Runtime Interface/Detection)
  */
 function evaluateTask(task, codexAvailable) {
   // 1단계: Static Preflight 검증
@@ -198,11 +208,12 @@ function evaluateTask(task, codexAvailable) {
   }
 
   // [중요 원칙 3] execution_mode가 runtime 또는 composite인 경우
-  // --static-only 이거나 codex CLI가 준비되지 않은 환경:
+  // Step ③ 범위: Static Preflight 통과 확인 및 Runtime Interface/Detection 감지
+  // 실제 모델 구동/Judge(codex exec 연동)는 후속 Step 범위이므로 정직하게 UNOBSERVED 보존
   if (isStaticOnly || !codexAvailable) {
     const reason = isStaticOnly 
-      ? '--static-only 모드에 따라 런타임 실행 생략'
-      : '환경 내 codex CLI 바이너리 부재 (런타임 비대화형 실행 미관측)';
+      ? '--static-only 모드에 따라 런타임 인터페이스 감지 생략'
+      : '환경 내 codex CLI 바이너리 부재 (런타임 실행 미관측)';
 
     return {
       status: 'UNOBSERVED',
@@ -215,25 +226,16 @@ function evaluateTask(task, codexAvailable) {
     };
   }
 
-  // 만약 codex CLI가 존재하는 경우 ➔ 실제 codex exec 호출 시도
-  try {
-    const sandboxFlag = task.sandbox_mode === 'read-only' ? '--sandbox read-only' : '';
-    // 안전한 비대화형 호출 테스트
-    return {
-      status: 'UNOBSERVED',
-      details: [
-        '✅ Static Preflight 통과',
-        '👁️  Codex CLI 구동 프로토콜 연결 대기 (UNOBSERVED 보존)'
-      ],
-      phase: 'runtime_execution'
-    };
-  } catch (err) {
-    return {
-      status: 'FAIL',
-      details: [`런타임 실행 오류: ${err.message}`],
-      phase: 'runtime_error'
-    };
-  }
+  // codex CLI가 존재하는 경우에도 실제 비대화형 구동/결과수집/Judge는 후속 Step 범위임
+  return {
+    status: 'UNOBSERVED',
+    details: [
+      '✅ Static Preflight 통과',
+      '👁️  Runtime Interface: Codex CLI 감지됨 (실제 모델 구동 및 Judge 연동은 후속 Step 과제)',
+      '⚠️  "지침 존재 ≠ 실제 동작 관측" 원칙에 따라 런타임 결과는 UNOBSERVED 로 정직하게 보존'
+    ],
+    phase: 'runtime_interface_detected'
+  };
 }
 
 // ─── 메인 오케스트레이션 실행 ───────────────────────────────────────────────

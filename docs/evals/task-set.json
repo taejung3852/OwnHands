@@ -18,7 +18,15 @@
       },
       "static_contract": {
         "required_skills": ["write-issue-pr", "explain", "grill-spec", "verify"],
-        "forbidden_patterns": ["run_command: gh issue create", "run_command: gh pr create"]
+        "file_assertions": [
+          {
+            "file": ".agents/skills/write-issue-pr/SKILL.md",
+            "not_contains": [
+              "run_command: gh issue create",
+              "run_command: gh pr create"
+            ]
+          }
+        ]
       },
       "runtime_contract": {
         "scenarios": [
@@ -49,15 +57,20 @@
           ".codex/agents/reviewer.toml",
           ".codex/agents/researcher.toml"
         ],
-        "required_strings": [
-          "sandbox_mode = \"read-only\"",
-          "Read-Only Integrity",
-          "Independent Evidence Audit",
-          "Strict 3-State Judgment Vocabulary",
-          "Before Baseline Audit",
-          "Output Contract"
-        ],
-        "forbidden_patterns": ["PARTIAL PASS"]
+        "file_assertions": [
+          {
+            "file": ".codex/agents/verifier.toml",
+            "contains": [
+              "sandbox_mode = \"read-only\"",
+              "Read-Only Integrity",
+              "Independent Evidence Audit",
+              "Strict 3-State Judgment Vocabulary",
+              "Before Baseline Audit",
+              "Output Contract"
+            ],
+            "not_contains": ["PARTIAL PASS"]
+          }
+        ]
       },
       "judgment_mode": "auditor"
     },
@@ -78,11 +91,16 @@
           ".codex/agents/researcher.toml",
           "docs/research/0002-m2-intent-spec-gate.md"
         ],
-        "required_strings": [
-          "primary sources",
-          "confirmed facts",
-          "gaps",
-          "Do not modify existing source code"
+        "file_assertions": [
+          {
+            "file": ".codex/agents/researcher.toml",
+            "contains": [
+              "primary sources",
+              "confirmed facts",
+              "gaps",
+              "Do not modify existing source code"
+            ]
+          }
         ]
       },
       "judgment_mode": "schema"
