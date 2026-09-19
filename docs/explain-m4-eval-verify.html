@@ -452,7 +452,8 @@
         <p><strong>실제 런타임 감사 세션 실측 완료:</strong></p>
         <ul>
           <li>실제 저장소 자산인 <code>docs/specs/grill-spec/spec.md</code>의 7대 AC와 실측 명령어를 Verifier 독립 감사 프로토콜로 직접 가동하여 런타임 실측을 1회 완결했습니다.</li>
-          <li>대화 세션 증거가 없는 2개 항목을 정직하게 <strong>UNOBSERVED</strong>로 판정하고, 기준 1에서 3개 증거가 결합된 <strong>1:N 매핑</strong>을 실증했습니다 (코드 변조 0건 불변성 유지).</li>
+          <li>"지침의 존재 ≠ 실제 동작 관측" 원칙에 따라 정적 자산 2건은 PASS, 런타임 동작 미관측 5건은 엄격히 <strong>UNOBSERVED</strong>로 판정하여 최종 평결 <strong>UNOBSERVED</strong>(임의의 PARTIAL PASS 배제)를 도출했습니다.</li>
+          <li>기준 1에서 3개 증거가 결합된 <strong>1:N 매핑</strong> 및 코드 변조 0건의 <strong>Read-Only 불변성</strong>을 실증했습니다.</li>
         </ul>
         <p style="margin-top: 10px;"><strong>V2-M5 (Continuous Evals) 확장 시사점:</strong></p>
         <ul>

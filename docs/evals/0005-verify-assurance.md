@@ -131,22 +131,29 @@ EVAL_FILE_EXISTS_PASS (exit: 0)
 
 #### 2) Verifier의 실제 런타임 판정 출력 (Traceability Audit Output)
 
-| AC ID | 수용성 기준 요약 | 판정 (Judgment) | 증거 인용 (Evidence Citation) 및 매핑 성격 |
+| AC ID | 수용성 기준 요약 | 판정 (Judgment) | 증거 인용 (Evidence Citation) 및 판정 사유 |
 |---|---|:---:|---|
-| **기준 1** | Skill 구조, 유효 파일 및 MIT License 포함 | **PASS** | 증거 E1(exit 0) + E2(L2) + E3(L80) 복합 매핑 (**1:N 매핑**) |
+| **기준 1** | Skill 구조, 유효 파일 및 MIT License 포함 | **PASS** | 증거 E1(exit 0) + E2(L2) + E3(L80) 복합 매핑 (**1:N 매핑 입증**) |
 | **기준 2** | 라우팅 정확성 (일반 기능 ROUTE-B, 대형 ROUTE-C) | **UNOBSERVED** | 런타임 인터뷰 대화 세션 로그 미제출 (정적 파일만으로는 라우팅 실행 증명 불가) |
-| **기준 3** | Fact vs Decision 분리 원칙 준수 | **PASS** | `interview-guide.md` L27~35 지침 내용 실측 증거 |
-| **기준 4** | 핵심 Requirement가 Goal/Fact에 추적 가능 | **PASS** | `docs/specs/grill-spec/spec.md` L3 `기반 Intent: intent.md` 헤더 실측 증거 |
+| **기준 3** | Fact vs Decision 분리 원칙 준수 | **UNOBSERVED** | `interview-guide.md`에 지침이 적혀 있으나, 실제 대화에서 그렇게 행동했다는 런타임 증거 미제출 ("지침 존재 ≠ 동작 관측") |
+| **기준 4** | 핵심 Requirement가 Goal/Fact에 추적 가능 | **UNOBSERVED** | `spec.md` L3에 Intent 헤더가 존재하나, 개별 REQ-01~05 전부에 대한 Goal/Fact 매핑 증거 미제출 |
 | **기준 5** | Human Checkpoint 1, 2 준수 | **UNOBSERVED** | 실제 대화 턴 내 사용자 승인 상호작용 로그 미제출 |
-| **기준 6** | Upstream 도구 부재 시 Fallback 계약 동작 | **PASS** | `SKILL.md` L14~16 및 `interview-guide.md` L21~25 fallback 계약 정의 실측 |
-| **기준 7** | Continuous Eval 0004 추가 검증 | **PASS** | 증거 E4 (파일 존재 및 exit 0) |
+| **기준 6** | Upstream 도구 부재 시 Fallback 계약 동작 | **UNOBSERVED** | `SKILL.md` 및 `interview-guide.md`에 정의되어 있으나, upstream 부재 격리 환경에서의 실제 fallback 동작 관측 증거 미제출 ("정의됨 ≠ 동작함") |
+| **기준 7** | Continuous Eval 0004 추가 검증 | **PASS** | 증거 E4 (`test -f docs/evals/0004-skill-grill-spec.md` exit 0 실측) |
 
 #### 3) Verifier의 최종 평결 및 엔지니어링 소견
-* **최종 평결**: **PARTIAL PASS (정적 요건 All PASS / 대화형 런타임 세션 UNOBSERVED)**
+* **최종 평결**: **UNOBSERVED**
+  * **PASS**: 2건 (기준 1, 기준 7 — 정적 파일 및 라이선스 완비 입증)
+  * **FAIL**: 0건
+  * **UNOBSERVED**: 5건 (기준 2, 3, 4, 5, 6 — 런타임 동작/대화 증거 미관측)
+  * *(결정 근거: verifier.toml Rule 5 "Overall PASS only if all required ACs are PASS" 및 3-State 어휘 준수. 임의의 제4 상태인 PARTIAL PASS 배제)*
 * **독립 감사관 공학적 소견**:
-  1. *편향 없는 정직한 판정*: 기준 2(라우팅 동작)와 기준 5(사용자 체크포인트)는 정적 파일만으로는 실행 여부를 입증할 수 없으므로, 주관적 추측을 배제하고 정확하게 **`UNOBSERVED`**로 판정함.
-  2. *유연한 추적성 실증*: 기준 1은 단일 AC에 3개의 신선한 증거(E1, E2, E3)가 결합되어 통과한 1:N 매핑을 확인하였으며, 1:1 강제 규칙의 부당함을 런타임에서 입증함.
-  3. *Read-Only 불변성 실증*: 본 검증 세션 실행 전후 `git status -s` 확인 결과 대상 소스 코드 및 설정 파일에 대한 임의 수정(mutation) **0건** 유지 확인.
+  1. *지침의 존재 ≠ 실제 동작 관측 (자가합리화 원천 차단)*:
+     - 기준 3과 6처럼 "규칙 문서에 그렇게 적혀 있다"는 사실은 지침의 존재 증거일 뿐, 에이전트가 실제로 그렇게 행동하거나 도구 부재 시 정상 폴백함을 입증하지 못함. Verifier가 이를 구별하여 엄격히 **`UNOBSERVED`**로 판정함으로써 감사관의 독립성과 편향 차단 능력을 입증함.
+  2. *유연한 추적성 실증 (1:N 매핑)*:
+     - 기준 1은 단일 AC에 3개의 신선한 증거(E1, E2, E3)가 결합되어 통과한 1:N 매핑을 확인하였으며, ADR-0007/0008의 1:1 강제 배제 원칙을 실증함.
+  3. *Read-Only 불변성 실증*:
+     - 본 검증 세션 실행 전후 `git status -s` 확인 결과 대상 소스 코드 및 설정 파일에 대한 임의 수정(mutation) **0건** 유지 확인.
 
 ---
 
