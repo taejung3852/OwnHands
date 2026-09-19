@@ -104,7 +104,7 @@
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
 | **단일 Task Set 규격** | 5대 축적 Eval을 단일 선언형 JSON(`docs/evals/task-set.json`) 스키마로 관리하고, `execution_mode(static / runtime / composite)` 및 `sandbox_mode(read-only / isolated-write)`를 이원화한다. (2026-09-19 PR #137 머지 승인: Zero-Dependency 및 Thin Harness 확정) | ✅ `ADR-0009` |
-| **Eval Orchestrator** | `scripts/run-evals.js`로 빠른 정적 Preflight를 실행하고, 런타임 인터페이스 및 바이너리 환경을 정직하게 감지(Preflight + Interface Detection)한다. (실제 codex exec 구동/Judge는 후속 연계) | ✅ `ADR-0009` |
+| **Eval Orchestrator** | `scripts/run-evals.js`로 빠른 정적 Preflight를 선행하고, `codex exec --json` 비대화형 호출 및 JSONL 이벤트 파싱 기반 런타임 Judge 파이프라인을 연계한다. | ✅ `#138` |
 | **자체 Dry-run 평가 환경** | Codex 공식 CLI에 generic `--dry-run` 플래그는 부재하므로, 외부 GitHub 이슈/PR 무단 생성 차단은 OwnHands 러너 격리 환경이 담당한다 (AGENTS.md 준수). | ✅ `ADR-0009` |
 | **3-State Delta Matrix** | 단순 합격률(%) 착시를 배제하고, `docs/evals/baselines/current.json` 기준선 대비 `PASS ➔ UNOBSERVED/FAIL` 상태 전이를 핀포인트로 감지한다. | ✅ `ADR-0009` |
 
