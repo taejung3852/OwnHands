@@ -11,6 +11,8 @@ docs/legacy/spikes/raw/
 
 # packaging artifacts
 build/
+!.agents/skills/build/
+!.agents/skills/build/**
 dist/
 *.egg-info/
 
