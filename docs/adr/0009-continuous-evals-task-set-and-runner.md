@@ -41,7 +41,7 @@ OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아�
 │                     V2-M5 Continuous Evals 체계 (확정)                 │
 ├────────────────────────────────────────────────────────────────────────┤
 │ 1. 단일 선언형 Task Set 표준 스키마 (execution_mode & sandbox_mode 구분)│
-│    docs/evals/task-set.yaml 에 5대 축적 과제를 정적/런타임/복합으로 완전 수용│
+│    docs/evals/task-set.json 에 5대 축적 과제를 정적/런타임/복합으로 완전 수용│
 │                                                                        │
 │ 2. Eval Orchestrator (Static Preflight + Runtime Execution 러너)       │
 │    scripts/run-evals.js 로 빠른 정적 Preflight 우선 실행 후,            │
@@ -55,11 +55,12 @@ OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아�
 
 ---
 
-### 2.1 결정 1: 단일 선언형 Task Set 규격 (`docs/evals/task-set.yaml`)
+### 2.1 결정 1: 단일 선언형 Task Set 규격 (`docs/evals/task-set.json`)
 
-#### 1) 단일 통합 파일 채택 이유
-- 과제별로 수십 개의 YAML/JSON 파일을 쪼개면 디렉터리 오버헤드가 발생한다.
-- 현재 축적된 과제가 5-10개 내외이므로, 하나의 선언형 `task-set.yaml` 파일로 전체 평가 셋을 조망하고 Git diff를 추적하는 것이 가장 가볍고 직관적이다. (향후 과제가 30개 이상으로 비대해질 때 분할 검토)
+#### 1) 단일 통합 파일 및 표준 JSON 포맷 채택 이유
+- 과제별로 수십 개의 파일을 쪼개면 디렉터리 오버헤드가 발생한다.
+- 하나의 선언형 `task-set.json` 파일로 전체 평가 셋을 조망하고 Git diff를 추적한다.
+- **Thin Harness / Zero-Dependency 준수**: 별도의 외부 YAML 파서 의존성을 추가하거나 자체 파서를 오버엔지니어링하지 않고, Node.js 표준 네이티브 포맷인 JSON을 단일 선언형 Source of Truth로 채택한다. (향후 과제가 30개 이상으로 비대해질 때 분할 검토)
 
 #### 2) "지침 존재 ≠ 실제 동작 관측" 원칙을 보장하는 Task Set 표준 스키마
 기존 Eval 0001-0005의 검증 로직을 완전하게 수용하기 위해, 정적 문서 검사와 실제 에이전트 행동 관측을 구분하는 **`execution_mode: static | runtime | composite`**, 샌드박스 정책 **`sandbox_mode: read-only | isolated-write`**, 그리고 세분화된 **`side_effect_policy`** 필드를 필수화한다:

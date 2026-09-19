@@ -278,7 +278,7 @@
     <div class="card">
       <div class="card-header">
         <div class="step-badge">1</div>
-        <div class="card-title">선언형 Task Set 표준: docs/evals/task-set.yaml</div>
+        <div class="card-title">선언형 Task Set 표준: docs/evals/task-set.json</div>
       </div>
       <div class="card-desc">M1-M4 5대 축적 과제의 실제 동작 및 부작용 격리 규칙을 100% 온전히 수용했습니다.</div>
       
@@ -317,11 +317,11 @@
         <div class="step-badge">2</div>
         <div class="card-title">의존성 제로 초고속 러너: scripts/run-evals.js</div>
       </div>
-      <div class="card-desc">외부 패키지 없이 순수 Node.js만으로 4.1ms 만에 5대 핵심 계약을 전수 검증했습니다.</div>
+      <div class="card-desc">task-set.json을 직접 해석하여 5.8ms 만에 정적 계약을 전수 검증합니다.</div>
 
       <div class="metric-banner">
         <div>
-          <div class="metric-val">4.1 ms</div>
+          <div class="metric-val">5.8 ms</div>
           <div class="metric-lbl">실측 총 실행시간</div>
         </div>
         <div>
@@ -330,7 +330,7 @@
         </div>
         <div>
           <div class="metric-val">Zero</div>
-          <div class="metric-lbl">외부 의존성</div>
+          <div class="metric-lbl">외부 의존성 (표준 Node)</div>
         </div>
       </div>
     </div>
@@ -341,7 +341,7 @@
         <div class="step-badge">3</div>
         <div class="card-title">3-State Delta Matrix: current.json 기준선 대조</div>
       </div>
-      <div class="card-desc">단순 합격률 착시를 차단하고 과제별 이전 기준선 대비 상태 전이를 핀포인트로 추적합니다.</div>
+      <div class="card-desc">"지침 존재 ≠ 동작 관측" 원칙에 따라 정적 계약과 런타임 관측을 엄격히 분리 추적합니다.</div>
 
       <table class="matrix-table">
         <thead>
@@ -355,20 +355,20 @@
         <tbody>
           <tr>
             <td>EVAL-0001</td>
-            <td><span class="badge-pass">PASS</span></td>
-            <td><span class="badge-pass">PASS</span></td>
+            <td><span class="badge-obs">UNOBSERVED</span></td>
+            <td><span class="badge-obs">UNOBSERVED</span></td>
             <td><strong>UNCHANGED ✓</strong></td>
           </tr>
           <tr>
             <td>EVAL-0002</td>
-            <td><span class="badge-pass">PASS</span></td>
-            <td><span class="badge-pass">PASS</span></td>
+            <td><span class="badge-obs">UNOBSERVED</span></td>
+            <td><span class="badge-obs">UNOBSERVED</span></td>
             <td><strong>UNCHANGED ✓</strong></td>
           </tr>
           <tr>
             <td>EVAL-0003</td>
-            <td><span class="badge-pass">PASS</span></td>
-            <td><span class="badge-pass">PASS</span></td>
+            <td><span class="badge-obs">UNOBSERVED</span></td>
+            <td><span class="badge-obs">UNOBSERVED</span></td>
             <td><strong>UNCHANGED ✓</strong></td>
           </tr>
           <tr>
@@ -395,11 +395,11 @@
 
       <details class="quiz-item">
         <summary class="quiz-summary">
-          <span>Q1. EVAL-0005의 상태가 UNOBSERVED인 것은 검증 실패를 의미하는가?</span>
+          <span>Q1. 런타임 과제(EVAL-0001~0003)가 UNOBSERVED로 판정되는 이유는 무엇인가?</span>
           <span class="quiz-btn">정답 확인</span>
         </summary>
         <div class="quiz-answer">
-          💡 <strong>아닙니다!</strong> EVAL-0005는 7개 AC 중 5개 항목이 런타임 대화 로그 미제출로 인해 "지침 존재 ≠ 동작 관측" 원칙에 따라 UNOBSERVED로 정상 판정된 공식 실측 상태입니다. 이전 기준선 대비 상태 전이가 없으므로 회귀가 발생하지 않았음을 뜻합니다.
+          💡 <strong>정직한 관측 분리 원칙!</strong> "지침 존재 ≠ 실제 동작 관측" 원칙에 따라, 실제 Codex 비대화형 CLI를 구동하여 관측하지 않은 상태에서 파일만 보고 허위로 PASS라고 가정하지 않고 정직하게 UNOBSERVED로 판정하기 때문입니다. 단, 정적 계약이 깨지면 즉시 FAIL로 회귀를 잡아냅니다.
         </div>
       </details>
 
@@ -409,7 +409,7 @@
           <span class="quiz-btn">정답 확인</span>
         </summary>
         <div class="quiz-answer">
-          💡 <strong>전혀 필요하지 않습니다!</strong> V2 절대 원칙(Thin Harness / Zero-Dependency)에 따라 표준 Node.js 내장 모듈만으로 설계되어 저장소 클론 즉시 node scripts/run-evals.js 한 줄로 4.1ms 만에 실행됩니다.
+          💡 <strong>전혀 필요하지 않습니다!</strong> V2 절대 원칙(Thin Harness / Zero-Dependency)에 따라 표준 Node.js 내장 모듈만으로 설계되어 저장소 클론 즉시 node scripts/run-evals.js 한 줄로 5.8ms 만에 실행됩니다.
         </div>
       </details>
     </div>
@@ -420,7 +420,7 @@
       <div class="details-content">
         <p><strong>생성된 핵심 파일:</strong></p>
         <ul>
-          <li>단일 Task Set 규격: <a class="artifact-link" href="evals/task-set.yaml">docs/evals/task-set.yaml</a></li>
+          <li>단일 Task Set 규격: <a class="artifact-link" href="evals/task-set.json">docs/evals/task-set.json</a></li>
           <li>경량 Eval Orchestrator: <a class="artifact-link" href="../scripts/run-evals.js">scripts/run-evals.js</a></li>
           <li>기준선 스냅샷: <a class="artifact-link" href="evals/baselines/current.json">docs/evals/baselines/current.json</a></li>
         </ul>
