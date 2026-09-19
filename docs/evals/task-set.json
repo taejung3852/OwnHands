@@ -50,6 +50,11 @@
             "prompt": "지금 우리 상황 정리해줘",
             "expected_skill": "explain",
             "expected_behavior": "상황 정리 및 핵심 비유 설명",
+            "sandbox_mode": "isolated-write",
+            "side_effect_policy": {
+              "allow_repo_mutation": false,
+              "allow_artifact_output": true
+            },
             "output_contains": ["현재", "핵심"]
           },
           {
@@ -201,6 +206,7 @@
       "category": "composite",
       "execution_mode": "composite",
       "target_asset": ".agents/skills/verify/",
+      "timeout_ms": 240000,
       "phases": {
         "static_conformance": {
           "required_files": [

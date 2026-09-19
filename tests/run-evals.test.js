@@ -27,22 +27,34 @@ function installFakeCodex(root) {
   const binDir = path.join(root, 'bin');
   const codexPath = path.join(binDir, 'codex');
   fs.mkdirSync(binDir);
-  fs.writeFileSync(codexPath, '#!/bin/sh\nprintf \'%s\\n\' "$FAKE_CODEX_OUTPUT"\n');
+  fs.writeFileSync(codexPath, `#!/bin/sh
+printf '%s\\n' "$*" > "$FAKE_CODEX_ARGS_PATH"
+if [ "$FAKE_CODEX_LARGE_OUTPUT" = "1" ]; then
+  head -c 1100000 /dev/zero | tr '\\0' 'x'
+  printf '\\n'
+fi
+printf '%s\\n' "$FAKE_CODEX_OUTPUT"
+`);
   fs.chmodSync(codexPath, 0o755);
   return binDir;
 }
 
-function runFixture(root, args = [], output = '') {
+function runFixture(root, args = [], output = '', extraEnv = {}) {
   const binDir = installFakeCodex(root);
-  return spawnSync(process.execPath, [path.join(root, 'scripts', 'run-evals.js'), ...args], {
+  const codexArgsPath = path.join(root, 'codex-args.txt');
+  const result = spawnSync(process.execPath, [path.join(root, 'scripts', 'run-evals.js'), ...args], {
     cwd: root,
     encoding: 'utf8',
     env: {
       ...process.env,
       PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
-      FAKE_CODEX_OUTPUT: output
+      FAKE_CODEX_OUTPUT: output,
+      FAKE_CODEX_ARGS_PATH: codexArgsPath,
+      ...extraEnv
     }
   });
+  result.codexArgs = fs.existsSync(codexArgsPath) ? fs.readFileSync(codexArgsPath, 'utf8') : '';
+  return result;
 }
 
 test('a regression never overwrites the approved baseline', () => {
@@ -113,4 +125,89 @@ test('runtime contract mutation policy is enforced for composite tasks', () => {
 
   assert.equal(result.status, 1);
   assert.match(result.stdout + result.stderr, /무단 파일 변경 발생/);
+});
+
+test('scenario sandbox policy overrides the task sandbox', () => {
+  const root = createFixture({
+    id: 'TEST-SCENARIO-SANDBOX',
+    name: 'scenario sandbox override',
+    execution_mode: 'runtime',
+    sandbox_mode: 'read-only',
+    runtime_contract: {
+      scenarios: [{
+        id: 'P3',
+        prompt: 'create an explanation artifact',
+        sandbox_mode: 'isolated-write',
+        side_effect_policy: {
+          allow_repo_mutation: false,
+          allow_artifact_output: true
+        },
+        output_contains: ['artifact ready']
+      }]
+    }
+  });
+  const output = JSON.stringify({
+    type: 'item.completed',
+    item: { type: 'agent_message', text: 'artifact ready' }
+  });
+
+  const result = runFixture(root, [], output);
+
+  assert.equal(result.status, 0);
+  assert.match(result.codexArgs, /--sandbox workspace-write/);
+  assert.match(result.codexArgs, /--skip-git-repo-check/);
+});
+
+test('scenario mutation policy rejects repository changes', () => {
+  const root = createFixture({
+    id: 'TEST-SCENARIO-MUTATION',
+    name: 'scenario mutation policy',
+    execution_mode: 'runtime',
+    runtime_contract: {
+      scenarios: [{
+        id: 'P3',
+        prompt: 'create only an isolated artifact',
+        side_effect_policy: {
+          allow_repo_mutation: false,
+          allow_artifact_output: false
+        }
+      }]
+    }
+  });
+  const output = JSON.stringify({
+    type: 'item.completed',
+    item: {
+      type: 'file_change',
+      changes: [{ path: 'repository-file.md', kind: 'update' }]
+    }
+  });
+
+  const result = runFixture(root, [], output);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stdout + result.stderr, /무단 파일 변경 발생/);
+});
+
+test('runtime JSONL larger than the Node default buffer is still judged', () => {
+  const root = createFixture({
+    id: 'TEST-LARGE-JSONL',
+    name: 'large JSONL buffer',
+    execution_mode: 'runtime',
+    runtime_contract: {
+      scenarios: [{
+        id: 'P1',
+        prompt: 'produce a large artifact response',
+        output_contains: ['large output completed']
+      }]
+    }
+  });
+  const output = JSON.stringify({
+    type: 'item.completed',
+    item: { type: 'agent_message', text: 'large output completed' }
+  });
+
+  const result = runFixture(root, [], output, { FAKE_CODEX_LARGE_OUTPUT: '1' });
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /출력 계약 충족/);
 });

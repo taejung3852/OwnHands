@@ -240,6 +240,7 @@ function executeCodexSession(prompt, options = {}) {
       cwd: sessionCwd,
       timeout: timeoutMs,
       encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, CI: 'true' }
     });
@@ -289,7 +290,7 @@ function executeCodexSession(prompt, options = {}) {
       };
     }
     return {
-      started: false,
+      started: true,
       failureType: 'EXEC_ERROR',
       errorDetails: `실행 실패: ${res.error.message}`,
       events: [],
@@ -404,6 +405,25 @@ function executeCodexSession(prompt, options = {}) {
   };
 }
 
+function judgeMutationPolicy(session, policy) {
+  if (session.fileMutations.length === 0 || policy.allow_repo_mutation !== false) {
+    return { pass: true, details: [] };
+  }
+
+  if (policy.allow_artifact_output === true) {
+    const disallowed = session.fileMutations.filter(f => {
+      const isAllowed = f.startsWith('docs/research/') || f.includes('ownhands-eval-isolated-') || f.startsWith('/tmp/');
+      return !isAllowed;
+    });
+    if (disallowed.length > 0) {
+      return { pass: false, details: [`❌ 부작용 위반: 비허가 파일 변경 발생 (${disallowed.join(', ')})`] };
+    }
+    return { pass: true, details: [`✅ 격리된 아티팩트 파일 생성 허용 확인 (${session.fileMutations.join(', ')})`] };
+  }
+
+  return { pass: false, details: [`❌ 부작용 위반: 무단 파일 변경 발생 (${session.fileMutations.join(', ')})`] };
+}
+
 /**
  * task-set.json의 선언형 runtime_contract 동적 판정기 (Zero Hardcoding)
  */
@@ -424,9 +444,10 @@ function judgeRuntimeContract(task) {
     let allPassed = true;
 
     for (const sc of contract.scenarios) {
+      const scenarioPolicy = { ...policy, ...(sc.side_effect_policy || {}) };
       const session = executeCodexSession(sc.prompt, {
-        sandboxMode: task.sandbox_mode || 'read-only',
-        timeoutMs: task.timeout_ms || 120000
+        sandboxMode: sc.sandbox_mode ?? task.sandbox_mode ?? 'read-only',
+        timeoutMs: sc.timeout_ms ?? task.timeout_ms ?? 120000
       });
 
       // 1. 실행 자체를 시작하지 못함 ➔ UNOBSERVED
@@ -448,8 +469,8 @@ function judgeRuntimeContract(task) {
       }
 
       // 3. 사이드이펙트 금지 커맨드 검사
-      if (policy.forbidden_commands) {
-        for (const forbidden of policy.forbidden_commands) {
+      if (scenarioPolicy.forbidden_commands) {
+        for (const forbidden of scenarioPolicy.forbidden_commands) {
           const violated = session.commandExecutions.some(c => c.includes(forbidden));
           if (violated) {
             allPassed = false;
@@ -457,6 +478,10 @@ function judgeRuntimeContract(task) {
           }
         }
       }
+
+      const mutationResult = judgeMutationPolicy(session, scenarioPolicy);
+      if (!mutationResult.pass) allPassed = false;
+      scenarioDetails.push(...mutationResult.details.map(detail => `시나리오 [${sc.id}] ${detail}`));
 
       // 4. 관측 가능한 출력 계약(output_contains) 검사
       if (sc.output_contains) {
@@ -522,24 +547,9 @@ function judgeRuntimeContract(task) {
   let pass = true;
 
   // 3. 레포지토리 파일 변경 검사 (부작용 격리 정책 및 allow_artifact_output allowlist)
-  if (session.fileMutations.length > 0 && policy.allow_repo_mutation === false) {
-    if (policy.allow_artifact_output === true) {
-      // 아티팩트 생성 허용: docs/research/ 또는 임시 디렉터리 내 파일만 허용
-      const disallowed = session.fileMutations.filter(f => {
-        const isAllowed = f.startsWith('docs/research/') || f.includes('ownhands-eval-isolated-') || f.startsWith('/tmp/');
-        return !isAllowed;
-      });
-      if (disallowed.length > 0) {
-        pass = false;
-        details.push(`❌ 부작용 위반: 비허가 파일 변경 발생 (${disallowed.join(', ')})`);
-      } else {
-        details.push(`✅ 격리된 아티팩트 파일 생성 허용 확인 (${session.fileMutations.join(', ')})`);
-      }
-    } else {
-      pass = false;
-      details.push(`❌ 부작용 위반: 무단 파일 변경 발생 (${session.fileMutations.join(', ')})`);
-    }
-  }
+  const mutationResult = judgeMutationPolicy(session, policy);
+  if (!mutationResult.pass) pass = false;
+  details.push(...mutationResult.details);
 
   // 4. required_judgments 검사 (EVAL-0002 등)
   if (contract.required_judgments) {
