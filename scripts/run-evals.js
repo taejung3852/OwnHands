@@ -21,7 +21,6 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
 
@@ -190,9 +189,7 @@ function verifyStaticContract(task) {
  *   - event.type: 'item.started' | 'item.completed' | 'thread.started' | 'turn.completed' | 'turn.failed' | 'error'
  *   - event.item.type: 'agent_message' (text), 'command_execution' (command), 'file_change' (path)
  * 
- * 샌드박스 격리 모드:
- *   - 'read-only'      ➔ --sandbox read-only (기본 격리)
- *   - 'isolated-write' ➔ --sandbox workspace-write (disposable 복사본에서만 쓰기 허용)
+ * Task Set의 read-only 샌드박스에서 실제 응답과 부작용 이벤트를 관측한다.
  */
 function executeCodexSession(prompt, options = {}) {
   const {
@@ -201,52 +198,12 @@ function executeCodexSession(prompt, options = {}) {
     cwd = REPO_ROOT
   } = options;
 
-  let sessionCwd = cwd;
-  let isolatedTempDir = null;
-
-  const cmdArgs = ['exec', '--json'];
-
-  if (sandboxMode === 'read-only') {
-    cmdArgs.push('--sandbox', 'read-only');
-  } else if (sandboxMode === 'isolated-write') {
-    // 공식 codex exec 기본값(read-only)을 해제하고 명시적 workspace-write 활성화
-    cmdArgs.push('--sandbox', 'workspace-write');
-    cmdArgs.push('--skip-git-repo-check');
-    try {
-      isolatedTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ownhands-eval-isolated-'));
-      // 실제 저장소로 쓰기가 역류하지 않도록 필수 컨텍스트를 disposable workspace에 복사
-      const contextItems = ['.codex', '.agents', 'AGENTS.md', 'docs'];
-      for (const item of contextItems) {
-        const src = path.join(REPO_ROOT, item);
-        const dest = path.join(isolatedTempDir, item);
-        if (fs.existsSync(src) && !fs.existsSync(dest)) {
-          fs.cpSync(src, dest, { recursive: true, dereference: true });
-        }
-      }
-      sessionCwd = isolatedTempDir;
-    } catch (err) {
-      if (isolatedTempDir && fs.existsSync(isolatedTempDir)) {
-        try { fs.rmSync(isolatedTempDir, { recursive: true, force: true }); } catch {}
-      }
-      return {
-        started: true,
-        failureType: 'ISOLATION_ERROR',
-        errorDetails: `격리 workspace 준비 실패: ${err.message}`,
-        events: [],
-        outputText: '',
-        commandExecutions: [],
-        fileMutations: [],
-        isolatedTempDir
-      };
-    }
-  }
-
-  cmdArgs.push(prompt);
+  const cmdArgs = ['exec', '--json', '--sandbox', sandboxMode, prompt];
 
   let res;
   try {
     res = spawnSync('codex', cmdArgs, {
-      cwd: sessionCwd,
+      cwd,
       timeout: timeoutMs,
       encoding: 'utf8',
       maxBuffer: 10 * 1024 * 1024,
@@ -254,9 +211,6 @@ function executeCodexSession(prompt, options = {}) {
       env: { ...process.env, CI: 'true' }
     });
   } catch (err) {
-    if (isolatedTempDir && fs.existsSync(isolatedTempDir)) {
-      try { fs.rmSync(isolatedTempDir, { recursive: true, force: true }); } catch {}
-    }
     return {
       started: false,
       failureType: 'CLI_NOT_FOUND',
@@ -264,16 +218,12 @@ function executeCodexSession(prompt, options = {}) {
       events: [],
       outputText: '',
       commandExecutions: [],
-      fileMutations: [],
-      isolatedTempDir
+      fileMutations: []
     };
   }
 
   // 프로세스 시작 불가 (바이너리 미존재 등)
   if (res.error) {
-    if (isolatedTempDir && fs.existsSync(isolatedTempDir)) {
-      try { fs.rmSync(isolatedTempDir, { recursive: true, force: true }); } catch {}
-    }
     if (res.error.code === 'ENOENT') {
       return {
         started: false,
@@ -282,8 +232,7 @@ function executeCodexSession(prompt, options = {}) {
         events: [],
         outputText: '',
         commandExecutions: [],
-        fileMutations: [],
-        isolatedTempDir
+        fileMutations: []
       };
     }
     if (res.error.code === 'ETIMEDOUT') {
@@ -294,8 +243,7 @@ function executeCodexSession(prompt, options = {}) {
         events: [],
         outputText: '',
         commandExecutions: [],
-        fileMutations: [],
-        isolatedTempDir
+        fileMutations: []
       };
     }
     return {
@@ -305,8 +253,7 @@ function executeCodexSession(prompt, options = {}) {
       events: [],
       outputText: '',
       commandExecutions: [],
-      fileMutations: [],
-      isolatedTempDir
+      fileMutations: []
     };
   }
 
@@ -374,18 +321,6 @@ function executeCodexSession(prompt, options = {}) {
     }
   }
 
-  // 임시 디렉터리 내에 신규 생성된 파일 검출 (isolated-write 추적)
-  if (isolatedTempDir && fs.existsSync(isolatedTempDir)) {
-    try {
-      const generatedFiles = fs.readdirSync(isolatedTempDir);
-      for (const gf of generatedFiles) {
-        if (!['.codex', '.agents', 'AGENTS.md', 'docs'].includes(gf)) {
-          fileMutations.push(path.join(isolatedTempDir, gf));
-        }
-      }
-    } catch {}
-  }
-
   if (res.status !== 0 && res.status !== null) {
     const errDetail = res.stderr ? ` (${res.stderr.trim()})` : '';
     return {
@@ -396,8 +331,7 @@ function executeCodexSession(prompt, options = {}) {
       events,
       outputText: combinedText,
       commandExecutions,
-      fileMutations,
-      isolatedTempDir
+      fileMutations
     };
   }
 
@@ -409,25 +343,13 @@ function executeCodexSession(prompt, options = {}) {
     events,
     outputText: combinedText,
     commandExecutions,
-    fileMutations,
-    isolatedTempDir
+    fileMutations
   };
 }
 
 function judgeMutationPolicy(session, policy) {
   if (session.fileMutations.length === 0 || policy.allow_repo_mutation !== false) {
     return { pass: true, details: [] };
-  }
-
-  if (policy.allow_artifact_output === true) {
-    const disallowed = session.fileMutations.filter(f => {
-      const isAllowed = f.startsWith('docs/research/') || f.includes('ownhands-eval-isolated-') || f.startsWith('/tmp/');
-      return !isAllowed;
-    });
-    if (disallowed.length > 0) {
-      return { pass: false, details: [`❌ 부작용 위반: 비허가 파일 변경 발생 (${disallowed.join(', ')})`] };
-    }
-    return { pass: true, details: [`✅ 격리된 아티팩트 파일 생성 허용 확인 (${session.fileMutations.join(', ')})`] };
   }
 
   return { pass: false, details: [`❌ 부작용 위반: 무단 파일 변경 발생 (${session.fileMutations.join(', ')})`] };
@@ -443,7 +365,7 @@ function judgeRuntimeContract(task) {
   }
 
   const policy = { ...(task.side_effect_policy || {}) };
-  for (const key of ['allow_repo_mutation', 'allow_artifact_output', 'allow_network_writes', 'forbidden_commands']) {
+  for (const key of ['allow_repo_mutation', 'allow_network_writes', 'forbidden_commands']) {
     if (contract[key] !== undefined) policy[key] = contract[key];
   }
 
@@ -455,7 +377,7 @@ function judgeRuntimeContract(task) {
     for (const sc of contract.scenarios) {
       const scenarioPolicy = { ...policy, ...(sc.side_effect_policy || {}) };
       const session = executeCodexSession(sc.prompt, {
-        sandboxMode: sc.sandbox_mode ?? task.sandbox_mode ?? 'read-only',
+        sandboxMode: task.sandbox_mode ?? 'read-only',
         timeoutMs: sc.timeout_ms ?? task.timeout_ms ?? 120000
       });
 
@@ -555,7 +477,7 @@ function judgeRuntimeContract(task) {
   const details = [];
   let pass = true;
 
-  // 3. 레포지토리 파일 변경 검사 (부작용 격리 정책 및 allow_artifact_output allowlist)
+  // 3. 레포지토리 파일 변경 검사
   const mutationResult = judgeMutationPolicy(session, policy);
   if (!mutationResult.pass) pass = false;
   details.push(...mutationResult.details);

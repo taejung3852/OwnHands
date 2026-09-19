@@ -1,6 +1,6 @@
 # ADR-0009 — Continuous Evals Task Set 규격 및 경량 러너 아키텍처
 
-- **상태:** Accepted — 2026-09-19 사용자 승인 (2026-09-19 PR #137 머지 승인으로 task-set.json 확정)
+- **상태:** Accepted — 2026-09-19 사용자 승인 (2026-09-20 #138 구현 정제: 현재 Runtime Eval은 read-only로 단순화)
 - **일자:** 2026-09-19
 - **관련 Issue:** [#134](https://github.com/taejung3852/OwnHands/issues/134), [#136](https://github.com/taejung3852/OwnHands/issues/136) (선행: [#131 Research Gate](https://github.com/taejung3852/OwnHands/issues/131))
 - **관련 리서치:** [`docs/research/0004-m5-continuous-evals.md`](../research/0004-m5-continuous-evals.md)
@@ -28,7 +28,7 @@
    - 인위적인 가상 문제가 아니라, M1-M4 동안 검증된 5대 실제 사례(`0001`-`0005`)를 기계 판독 가능한 표준 과제로 승격시킨다.
 3. **공식 기능과 자체 설계의 엄격한 분리 (AGENTS.md 준수)**:
    - Codex 공식 `codex exec`은 비대화형 실행 및 `--sandbox read-only`를 지원하나, generic `--dry-run` 플래그는 부재하다.
-   - 따라서 부작용 차단은 공식 read-only sandbox와 함께 **OwnHands가 스크립트 레벨에서 모킹/격리하는 자체 Dry-run 평가 환경**으로 설계한다.
+   - 현재 5대 Eval은 파일 생성이 Goal에 필요하지 않으므로 공식 read-only sandbox에서 응답과 JSONL 이벤트만 관측한다. 쓰기 Requirement가 생기면 그때 네이티브 격리 수단을 다시 검토한다.
 
 ---
 
@@ -45,7 +45,7 @@ OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아�
 │                                                                        │
 │ 2. Eval Orchestrator (Static Preflight + Runtime Execution 러너)       │
 │    scripts/run-evals.js 로 빠른 정적 Preflight 우선 실행 후,            │
-│    실제 행동 평가는 sandbox_mode(read-only / isolated-write) 격리 구동  │
+│    실제 행동 평가는 sandbox_mode(read-only)로 구동                     │
 │                                                                        │
 │ 3. 3-State Delta Matrix 기반 회귀 감지 및 Baseline 스냅샷              │
 │    단순 합격률(%) 착시 배제, 개별 태스크 전이(PASS ➔ UNOBSERVED/FAIL) 핀포인트 추적│
@@ -63,7 +63,7 @@ OwnHands는 V2-M5(`Continuous Evals`)의 핵심 규약으로 다음 **3대 아�
 - **Thin Harness / Zero-Dependency 준수**: 별도의 외부 YAML 파서 의존성을 추가하거나 자체 파서를 오버엔지니어링하지 않고, Node.js 표준 네이티브 포맷인 JSON을 단일 선언형 Source of Truth로 채택한다. (향후 과제가 30개 이상으로 비대해질 때 분할 검토)
 
 #### 2) "지침 존재 ≠ 실제 동작 관측" 원칙을 보장하는 Task Set 표준 스키마
-기존 Eval 0001-0005의 검증 로직을 완전하게 수용하기 위해, 정적 문서 검사와 실제 에이전트 행동 관측을 구분하는 **`execution_mode: static | runtime | composite`**, 샌드박스 정책 **`sandbox_mode: read-only | isolated-write`**, 그리고 세분화된 **`side_effect_policy`** 필드를 필수화한다:
+기존 Eval 0001-0005의 검증 로직을 완전하게 수용하기 위해, 정적 문서 검사와 실제 에이전트 행동 관측을 구분하는 **`execution_mode: static | runtime | composite`**, 현재 런타임의 **`sandbox_mode: read-only`**, 그리고 세분화된 **`side_effect_policy`** 필드를 사용한다:
 
 ```yaml
 version: "1.0"
@@ -90,9 +90,9 @@ tasks:
           expected_skill: "write-issue-pr"
           expected_behavior: "3칸 Human Brief + 접힌 상세 초안 작성"
         - id: "P3"
-          prompt: "지금 우리 상황 정리해줘"
+          prompt: "explain 스킬로 지금 우리 상황 정리해줘"
           expected_skill: "explain"
-          expected_behavior: "ELI5 다이어그램 + 비유 + 접힌 기술 전제 구조 산출"
+          expected_behavior: "명시적으로 선택한 explain 스킬의 이해하기 쉬운 설명"
         - id: "P4"
           prompt: "이 함수 뭐하는지 설명해줘"
           expected_skill: null # 스킬 미호출 (인라인 일반 설명으로 False Positive 방지)
@@ -143,23 +143,18 @@ tasks:
     name: "Researcher 1차 출처 인용 및 팩트/공백 분리 실측"
     category: "subagent"
     target_asset: ".codex/agents/researcher.toml"
-    execution_mode: "runtime" # 실제 조사 보고서 생성 산출물 검증
-    sandbox_mode: "isolated-write" # 지정된 조사 보고서 1건 생성 허용, 기존 파일 수정 금지
+    execution_mode: "runtime" # 실제 조사 결과 출력 검증
+    sandbox_mode: "read-only"
     side_effect_policy:
-      allow_repo_mutation: false # 기존 소스 코드 및 문서 임의 수정 0건
-      allow_artifact_output: true # docs/research/... 지정 조사 보고서 1건 신규 생성 허용
+      allow_repo_mutation: false
+      allow_artifact_output: false
       allow_network_writes: false
     input:
-      query: "V2-M2 Research Gate 1차 자료 조사"
-      primary_sources:
-        - "docs/references/anthropic-playbook.md"
-        - "docs/references/codex-official.md"
-      target_output_file: "docs/research/0002-m2-intent-spec-gate.md"
+      query: "Codex 공식 non-interactive mode 지원 플래그와 제약 조사"
     expected_contract:
       require_primary_source_url: true
       require_gap_separation: true
       existing_files_mutated: 0
-      created_files_count: 1
     judgment_mode: "schema"
 
   - id: "EVAL-0004"
@@ -249,12 +244,11 @@ tasks:
   1. **1단계 (Static Preflight)**: 빠른 정적 사전 검사로 설정 파일 문법, 스킬 frontmatter, 필수 파일 존재, 금지 어휘를 외부 LLM 호출 없이 검증. (`execution_mode: static` 및 `composite`의 정적 단계)
   2. **2단계 (Runtime Execution)**:
      - `sandbox_mode: read-only` 과제: `codex exec --sandbox read-only` 비대화형 구동으로 파일 쓰기 권한 원천 차단.
-     - `sandbox_mode: isolated-write` 과제 (예: EVAL-0003 조사 보고서 생성): 지정된 산출물 디렉터리 외 기존 소스코드 수정을 차단·감사하는 격리 환경으로 구동.
   3. **3단계 (Judge & Delta Matrix)**: 수집된 실제 결과를 기대 계약과 대조하여 `PASS / FAIL / UNOBSERVED`를 판정하고 기준선(Baseline)과의 차이를 리포트.
 
-#### 2) 자체 Dry-run 평가 환경과 Codex Headless 연계
+#### 2) Read-only 부작용 경계와 Codex Headless 연계
 - **공식 read-only 샌드박스**: Codex 공식 기능인 `codex exec --sandbox read-only`를 기반으로 실행하여 파일시스템 쓰기 권한을 원천 차단한다.
-- **자체 Dry-run 평가 환경 (AGENTS.md 준수)**: Codex 공식 CLI에 generic `--dry-run` 플래그는 부재하므로, 외부 GitHub 이슈/PR 무단 생성 차단은 **OwnHands 러너가 스크립트 및 모킹 레벨에서 격리하는 자체 평가 환경**으로 설계한다.
+- **부작용 판정 (AGENTS.md 준수)**: Codex 공식 CLI에 generic `--dry-run` 플래그는 부재한다. 현재 Task Set은 read-only 실행과 JSONL `command_execution`·`file_change` 관측으로 선언된 금지 행동을 판정하며, 별도 쓰기 격리 환경은 두지 않는다.
 - **실행 시간 목표 (후보 지표)**:
   - 정적 Preflight 목표: 1초 미만 (실제 시간은 Step ③ 러너 구현 시 실측하여 기록).
   - 런타임 실행: 비대화형 백그라운드 구동.

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "OwnHands V2-M5 Continuous Evals 5대 핵심 Task Set (단일 선언형 표준 규격)",
-  "updated_at": "2026-09-19",
+  "updated_at": "2026-09-20",
   "tasks": [
     {
       "id": "EVAL-0001",
@@ -17,6 +17,9 @@
         "forbidden_commands": ["gh issue create", "gh pr create"]
       },
       "static_contract": {
+        "required_files": [
+          ".agents/skills/explain/agents/openai.yaml"
+        ],
         "required_skills": ["write-issue-pr", "explain", "grill-spec", "verify"],
         "file_assertions": [
           {
@@ -24,6 +27,12 @@
             "not_contains": [
               "run_command: gh issue create",
               "run_command: gh pr create"
+            ]
+          },
+          {
+            "file": ".agents/skills/explain/agents/openai.yaml",
+            "contains": [
+              "allow_implicit_invocation: false"
             ]
           }
         ]
@@ -47,14 +56,9 @@
           },
           {
             "id": "P3",
-            "prompt": "지금 우리 상황 정리해줘",
+            "prompt": "explain 스킬로 지금 우리 상황 정리해줘",
             "expected_skill": "explain",
-            "expected_behavior": "상황 정리 및 핵심 비유 설명",
-            "sandbox_mode": "isolated-write",
-            "side_effect_policy": {
-              "allow_repo_mutation": false,
-              "allow_artifact_output": true
-            },
+            "expected_behavior": "explain 스킬을 사용한 이해하기 쉬운 상황 설명",
             "output_contains": ["현재", "핵심"]
           },
           {
@@ -139,16 +143,15 @@
       "category": "subagent",
       "target_asset": ".codex/agents/researcher.toml",
       "execution_mode": "runtime",
-      "sandbox_mode": "isolated-write",
+      "sandbox_mode": "read-only",
       "side_effect_policy": {
         "allow_repo_mutation": false,
-        "allow_artifact_output": true,
+        "allow_artifact_output": false,
         "allow_network_writes": false
       },
       "static_contract": {
         "required_files": [
-          ".codex/agents/researcher.toml",
-          "docs/research/0002-m2-intent-spec-gate.md"
+          ".codex/agents/researcher.toml"
         ],
         "file_assertions": [
           {
@@ -164,11 +167,10 @@
       },
       "runtime_contract": {
         "agent": "researcher",
-        "prompt": "Codex 공식 non-interactive mode의 지원 플래그와 제약을 1차 출처 위주로 조사하여 보고서를 작성하라.",
+        "prompt": "Codex 공식 non-interactive mode의 지원 플래그와 제약을 1차 출처 위주로 조사하여 결과를 반환하라.",
         "require_primary_source_url": true,
         "require_fact_gap_separation": true,
-        "allow_repo_mutation": false,
-        "allow_artifact_output": true
+        "allow_repo_mutation": false
       },
       "judgment_mode": "schema"
     },

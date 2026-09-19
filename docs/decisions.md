@@ -60,7 +60,7 @@
 | **공통 규율의 자리** | 기본은 **각 Skill 안**이다. `AGENTS.md`에는 **반복해서 고쳐야 했던 것만** 올린다. ⚠️ "관측 후에 올린다"는 OwnHands의 판단이다. 공식 문서는 `Working agreements`·`Repository expectations`도 `AGENTS.md` 내용으로 들며, **관측 전에 두면 안 된다고 말하지 않는다.** | ✅ |
 | **`AGENTS.md`의 현재 내용** | **한 줄뿐이다** — "우리 결정을 플랫폼이 정한 것처럼 쓰지 않는다." 2026-09-17 세션에서 **세 번 고쳐야 했기 때문에** 올렸다. 상상해서 추가하지 않는다. | ✅ |
 | **Claude Code 대응** | `CLAUDE.md`는 `@AGENTS.md` **한 줄 import**다. 공식이 제시한 패턴이고, 내용을 두 벌로 관리하지 않는다. Claude Code는 `AGENTS.md`를 직접 읽지 않는다. | ✅ |
-| **Explain의 출력 형태** | **HTML 스토리 카드를 기본으로 한다.** ELI5 시각 모델(카드당 최대 2줄, 시각 메타포, 퀴즈 토글)을 수용하되 엔지니어링 도메인 어휘를 보존한다 ([ADR-0002](adr/0002-explain-visual-story-cards.md)). | ✅ `shape.md` |
+| **Explain의 출력 형태** | 명시적으로 선택된 `explain`은 우선 대화에서 큰 그림·비유·짧은 단계로 설명한다. 사용자가 HTML이나 별도 아티팩트를 요청한 경우에만 ELI5 시각 모델을 적용한다 ([ADR-0002](adr/0002-explain-visual-story-cards.md)). | ✅ `shape.md` |
 | **링크 전달 방식** | 스킴을 고정하지 않는다. 표면이 정한다 — Codex는 `file_opener`(기본 `vscode`)로 정하고, 렌더링하는 표면은 직접 표시한다. | ✅ |
 
 > ⚠️ **개수 제한은 실제 수치다.** Skill 목록 예산의 천장은 **10,000 토큰**이고(`skills.max_context_tokens`의 명시값 상한), 초과하면 description이 깎이는 데 그치지 않고 **Skill이 목록에서 빠진다.** → [Codex 공식 문서 §2.5](references/codex-official.md)
@@ -103,9 +103,9 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **단일 Task Set 규격** | 5대 축적 Eval을 단일 선언형 JSON(`docs/evals/task-set.json`) 스키마로 관리하고, `execution_mode(static / runtime / composite)` 및 `sandbox_mode(read-only / isolated-write)`를 이원화한다. (2026-09-19 PR #137 머지 승인: Zero-Dependency 및 Thin Harness 확정) | ✅ `ADR-0009` |
+| **단일 Task Set 규격** | 5대 축적 Eval을 단일 선언형 JSON(`docs/evals/task-set.json`) 스키마로 관리한다. 현재 Runtime Eval은 모두 `read-only`이며, 파일 생성 Requirement가 생길 때만 네이티브 격리 수단을 다시 검토한다. (2026-09-20 #138 구현 정제) | ✅ `ADR-0009` |
 | **Eval Orchestrator** | `scripts/run-evals.js`로 빠른 정적 Preflight를 선행하고, `codex exec --json` 비대화형 호출 및 JSONL 이벤트 파싱 기반 런타임 Judge 파이프라인을 연계한다. | ✅ `#138` |
-| **자체 Dry-run 평가 환경** | Codex 공식 CLI에 generic `--dry-run` 플래그는 부재하므로, 외부 GitHub 이슈/PR 무단 생성 차단은 OwnHands 러너 격리 환경이 담당한다 (AGENTS.md 준수). | ✅ `ADR-0009` |
+| **Runtime 부작용 경계** | Codex 공식 CLI의 `read-only` sandbox로 저장소 쓰기를 차단하고, JSONL `command_execution`·`file_change` 이벤트로 선언된 금지 행동을 판정한다. 별도 쓰기 격리 환경은 현재 Requirement가 없어 두지 않는다. | ✅ `#138` |
 | **3-State Delta Matrix** | 단순 합격률(%) 착시를 배제하고, `docs/evals/baselines/current.json` 기준선 대비 `PASS ➔ UNOBSERVED/FAIL` 상태 전이를 핀포인트로 감지한다. | ✅ `ADR-0009` |
 
 ### 검증 가이드라인 및 Verifier 감사 프로토콜 — 2026-09-19 확정 ([#127](https://github.com/taejung3852/OwnHands/issues/127), [ADR-0008](adr/0008-verification-references-and-verifier-protocol.md))
