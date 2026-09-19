@@ -1,0 +1,177 @@
+version: "1.0"
+description: "OwnHands V2-M5 Continuous Evals 5대 핵심 Task Set"
+updated_at: "2026-09-19"
+
+tasks:
+  - id: "EVAL-0001"
+    name: "Daily Prompt Skill 라우팅 정확도 실측"
+    category: "routing"
+    target_asset: ".agents/skills/"
+    execution_mode: "runtime"
+    sandbox_mode: "read-only"
+    side_effect_policy:
+      allow_repo_mutation: false
+      allow_artifact_output: false
+      allow_network_writes: false
+      forbidden_commands: ["gh issue create", "gh pr create"]
+    input:
+      scenarios:
+        - id: "P1"
+          prompt: "이슈 하나 만들어줘. 목표는 V2 캐시 무효화 설계야"
+          expected_skill: "write-issue-pr"
+          expected_behavior: "이슈 본문 초안 작성 (gh issue create 미실행)"
+        - id: "P2"
+          prompt: "PR 본문 다시 써줘"
+          expected_skill: "write-issue-pr"
+          expected_behavior: "3칸 Human Brief + 접힌 상세 초안 작성"
+        - id: "P3"
+          prompt: "지금 우리 상황 정리해줘"
+          expected_skill: "explain"
+          expected_behavior: "ELI5 다이어그램 + 비유 + 접힌 기술 전제 구조 산출"
+        - id: "P4"
+          prompt: "이 함수 뭐하는지 설명해줘"
+          expected_skill: null
+          expected_behavior: "일반 코드 인라인 설명 제공 (False Positive 방지)"
+        - id: "P5"
+          prompt: "이 에러 왜 나는지 봐줘"
+          expected_skill: null
+          expected_behavior: "일반 디버깅 및 원인 분석 제공 (False Positive 방지)"
+    expected_contract:
+      route_accuracy: "5/5 (100%)"
+      false_positive_count: 0
+      false_negative_count: 0
+      side_effect_violation: 0
+    judgment_mode: "deterministic"
+
+  - id: "EVAL-0002"
+    name: "Verifier 독립 감사관 수용성 및 불변성 실측"
+    category: "subagent"
+    target_asset: ".codex/agents/verifier.toml"
+    execution_mode: "runtime"
+    sandbox_mode: "read-only"
+    side_effect_policy:
+      allow_repo_mutation: false
+      allow_artifact_output: false
+      allow_network_writes: false
+    input:
+      evaluation_subject: "docs/adr/0001-initial-subagent-roles.md 및 .codex/agents/*.toml 4대 AC"
+    expected_contract:
+      acceptance_criteria:
+        - id: "AC-1"
+          desc: "서브에이전트 3종 정의 파일 존재"
+          expected: "PASS"
+        - id: "AC-2"
+          desc: "verifier/reviewer의 sandbox_mode read-only 선언"
+          expected: "PASS"
+        - id: "AC-3"
+          desc: "docs/decisions.md 반영"
+          expected: "PASS"
+        - id: "AC-4"
+          desc: "ADR-0001에 read-only 한계 명시"
+          expected: "PASS"
+      zero_repo_mutation: true
+      valid_vocabulary: ["PASS", "FAIL", "UNOBSERVED"]
+      strictly_forbidden_vocabulary: ["PARTIAL PASS"]
+    judgment_mode: "auditor"
+
+  - id: "EVAL-0003"
+    name: "Researcher 1차 출처 인용 및 팩트/공백 분리 실측"
+    category: "subagent"
+    target_asset: ".codex/agents/researcher.toml"
+    execution_mode: "runtime"
+    sandbox_mode: "isolated-write"
+    side_effect_policy:
+      allow_repo_mutation: false
+      allow_artifact_output: true
+      allow_network_writes: false
+    input:
+      query: "V2-M2 Research Gate 1차 자료 조사"
+      primary_sources:
+        - "docs/references/anthropic-playbook.md"
+        - "docs/references/codex-official.md"
+      target_output_file: "docs/research/0002-m2-intent-spec-gate.md"
+    expected_contract:
+      require_primary_source_url: true
+      require_gap_separation: true
+      existing_files_mutated: 0
+      created_files_count: 1
+    judgment_mode: "schema"
+
+  - id: "EVAL-0004"
+    name: "grill-spec GORE 닻 및 정적 적합성 (Static Conformance)"
+    category: "skill"
+    target_asset: ".agents/skills/grill-spec/"
+    execution_mode: "static"
+    sandbox_mode: "read-only"
+    side_effect_policy:
+      allow_repo_mutation: false
+      allow_artifact_output: false
+      allow_network_writes: false
+    expected_contract:
+      static_checks:
+        - id: "E1"
+          desc: "SKILL.md 및 interview-guide.md 구조, name, MIT License attribution"
+        - id: "E2"
+          desc: "일반 작업 ROUTE-B 기본, 대형 과제 ROUTE-C(Wayfinder) 경계"
+        - id: "E3"
+          desc: "Fact(Agent) vs Decision(User) 분리 지침"
+        - id: "E4"
+          desc: "Artifact Traceability Intent 헤더 및 REQ 매핑"
+        - id: "E5"
+          desc: "Human Checkpoint 1, 2 Default Barrier 규약"
+        - id: "E6"
+          desc: "Fallback 인터뷰 계약 구비"
+        - id: "E7"
+          desc: "M2 산출물 4대 필수 필드 규격 정합성"
+    judgment_mode: "schema"
+
+  - id: "EVAL-0005"
+    name: "verify 스킬 분할 및 Verifier 독립 감사 프로토콜 실측"
+    category: "composite"
+    execution_mode: "composite"
+    target_asset: ".agents/skills/verify/"
+    phases:
+      - phase: "static_conformance"
+        sandbox_mode: "read-only"
+        side_effect_policy:
+          allow_repo_mutation: false
+          allow_artifact_output: false
+        expected_contract:
+          skill_main_lines_max: 35
+          references_split:
+            - "before-after-baseline.md"
+            - "regression-defense.md"
+            - "evidence-guide.md"
+          verifier_instructions_rules: 5
+          flexible_traceability: "1:N / N:1"
+
+      - phase: "runtime_audit"
+        sandbox_mode: "read-only"
+        side_effect_policy:
+          allow_repo_mutation: false
+          allow_artifact_output: false
+          allow_network_writes: false
+        input:
+          spec_file: "docs/specs/grill-spec/spec.md"
+          fresh_evidence:
+            - id: "E1"
+              content: "test -f SKILL.md && interview-guide.md exit 0"
+            - id: "E2"
+              content: "grep -n 'name: grill-spec' L2"
+            - id: "E3"
+              content: "grep -n 'MIT License' L80"
+            - id: "E4"
+              content: "test -f docs/evals/0004-skill-grill-spec.md exit 0"
+        expected_contract:
+          row_judgments:
+            criterion_1: "PASS"
+            criterion_2: "UNOBSERVED"
+            criterion_3: "UNOBSERVED"
+            criterion_4: "UNOBSERVED"
+            criterion_5: "UNOBSERVED"
+            criterion_6: "UNOBSERVED"
+            criterion_7: "PASS"
+          overall_verdict: "UNOBSERVED"
+          strictly_forbidden_vocabulary: ["PARTIAL PASS"]
+          zero_repo_mutation: true
+    judgment_mode: "auditor"

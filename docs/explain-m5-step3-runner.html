@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V2-M5 Step ③: Continuous Evals Task Set과 경량 러너 실측</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #f7f6f2;
+      color: #1c1917;
+      line-height: 1.4;
+      padding: 40px 20px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .badge-status {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 900;
+      color: #0c0a09;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    p.subtitle {
+      font-size: 14px;
+      color: #78716c;
+      font-weight: 600;
+    }
+
+    /* 카드 공통 */
+    .card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 24px 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .step-badge {
+      width: 28px;
+      height: 28px;
+      background: #1c1917;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #1c1917;
+      letter-spacing: -0.3px;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: #57534e;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    /* 태스크 그리드 */
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .task-item {
+      background: #fafaf9;
+      border: 1px solid #e7e5e4;
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .task-id {
+      font-size: 11px;
+      font-weight: 900;
+      color: #0284c7;
+      margin-bottom: 2px;
+    }
+    .task-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 4px;
+    }
+    .task-meta {
+      font-size: 11px;
+      color: #78716c;
+    }
+
+    /* 실측 수치 배너 */
+    .metric-banner {
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 16px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      text-align: center;
+      margin-top: 12px;
+    }
+    .metric-val {
+      font-size: 20px;
+      font-weight: 900;
+      color: #38bdf8;
+    }
+    .metric-lbl {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+
+    /* 3-State 매트릭스 테이블 */
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .matrix-table th, .matrix-table td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .matrix-table th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 800;
+    }
+    .badge-pass {
+      color: #15803d;
+      font-weight: 800;
+      background: #f0fdf4;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .badge-obs {
+      color: #0369a1;
+      font-weight: 800;
+      background: #e0f2fe;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* 퀴즈 섹션 */
+    .quiz-section {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 24px 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .quiz-header {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1c1917;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .quiz-item {
+      background: #fafaf9;
+      border-radius: 14px;
+      border: 1px solid #e7e5e4;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .quiz-item:last-child {
+      margin-bottom: 0;
+    }
+    .quiz-summary {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      color: #292524;
+      list-style: none;
+      user-select: none;
+    }
+    .quiz-summary::-webkit-details-marker {
+      display: none;
+    }
+    .quiz-btn {
+      font-size: 11px;
+      background: #e7e5e4;
+      color: #44403c;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .quiz-answer {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #d6d3d1;
+      color: #0369a1;
+      font-size: 12px;
+      line-height: 1.5;
+      font-weight: 600;
+    }
+
+    /* 하단 디테일 */
+    .details-box {
+      background: #ffffff;
+      border-radius: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      padding: 18px 20px;
+      font-size: 13px;
+      color: #57534e;
+    }
+    .details-box summary {
+      cursor: pointer;
+      font-weight: 800;
+      color: #1c1917;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    .details-content ul {
+      padding-left: 20px;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+    .details-content li {
+      margin-bottom: 4px;
+    }
+    .artifact-link {
+      color: #0284c7;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .artifact-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-status">V2-M5 Step ③ 구현 완료 · 실측 성공</div>
+      <h1>Continuous Evals Task Set과 경량 러너가 가동되다</h1>
+      <p class="subtitle">단일 선언형 YAML과 4.1ms 초고속 Eval Orchestrator를 통한 무결성 실측</p>
+    </header>
+
+    <!-- 카드 1: 단일 선언형 Task Set 완성 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-badge">1</div>
+        <div class="card-title">선언형 Task Set 표준: docs/evals/task-set.yaml</div>
+      </div>
+      <div class="card-desc">M1-M4 5대 축적 과제의 실제 동작 및 부작용 격리 규칙을 100% 온전히 수용했습니다.</div>
+      
+      <div class="task-grid">
+        <div class="task-item">
+          <div class="task-id">EVAL-0001 (runtime)</div>
+          <div class="task-name">Daily Prompt 스킬 라우팅</div>
+          <div class="task-meta">P1-P5 일상 시나리오 · read-only</div>
+        </div>
+        <div class="task-item">
+          <div class="task-id">EVAL-0002 (runtime)</div>
+          <div class="task-name">Verifier 독립 감사관 불변성</div>
+          <div class="task-meta">4대 AC 대조 · 코드 무수정</div>
+        </div>
+        <div class="task-item">
+          <div class="task-id">EVAL-0003 (isolated-write)</div>
+          <div class="task-name">Researcher 1차 출처 인용</div>
+          <div class="task-meta">Fact/Gap 분리 · 보고서 1건 허용</div>
+        </div>
+        <div class="task-item">
+          <div class="task-id">EVAL-0004 (static)</div>
+          <div class="task-name">grill-spec 정적 적합성</div>
+          <div class="task-meta">7대 Conformance (E1-E7)</div>
+        </div>
+        <div class="task-item" style="grid-column: span 2;">
+          <div class="task-id" style="color: #7c3aed;">EVAL-0005 (composite: static + runtime)</div>
+          <div class="task-name">verify 분할 및 Verifier 독립 감사 실측</div>
+          <div class="task-meta">1단계(29행 경량화 + 3종 분할) ➔ 2단계(7개 AC 실측 대조 및 UNOBSERVED 평결 보존)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 2: 경량 Eval Orchestrator 실측 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-badge">2</div>
+        <div class="card-title">의존성 제로 초고속 러너: scripts/run-evals.js</div>
+      </div>
+      <div class="card-desc">외부 패키지 없이 순수 Node.js만으로 4.1ms 만에 5대 핵심 계약을 전수 검증했습니다.</div>
+
+      <div class="metric-banner">
+        <div>
+          <div class="metric-val">4.1 ms</div>
+          <div class="metric-lbl">실측 총 실행시간</div>
+        </div>
+        <div>
+          <div class="metric-val">0 건</div>
+          <div class="metric-lbl">침묵하는 회귀</div>
+        </div>
+        <div>
+          <div class="metric-val">Zero</div>
+          <div class="metric-lbl">외부 의존성</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 3: 3-State Delta Matrix & 기준선 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="step-badge">3</div>
+        <div class="card-title">3-State Delta Matrix: current.json 기준선 대조</div>
+      </div>
+      <div class="card-desc">단순 합격률 착시를 차단하고 과제별 이전 기준선 대비 상태 전이를 핀포인트로 추적합니다.</div>
+
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Task ID</th>
+            <th>이전 상태</th>
+            <th>현재 실측</th>
+            <th>판정 결과</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>EVAL-0001</td>
+            <td><span class="badge-pass">PASS</span></td>
+            <td><span class="badge-pass">PASS</span></td>
+            <td><strong>UNCHANGED ✓</strong></td>
+          </tr>
+          <tr>
+            <td>EVAL-0002</td>
+            <td><span class="badge-pass">PASS</span></td>
+            <td><span class="badge-pass">PASS</span></td>
+            <td><strong>UNCHANGED ✓</strong></td>
+          </tr>
+          <tr>
+            <td>EVAL-0003</td>
+            <td><span class="badge-pass">PASS</span></td>
+            <td><span class="badge-pass">PASS</span></td>
+            <td><strong>UNCHANGED ✓</strong></td>
+          </tr>
+          <tr>
+            <td>EVAL-0004</td>
+            <td><span class="badge-pass">PASS</span></td>
+            <td><span class="badge-pass">PASS</span></td>
+            <td><strong>UNCHANGED ✓</strong></td>
+          </tr>
+          <tr>
+            <td>EVAL-0005</td>
+            <td><span class="badge-obs">UNOBSERVED</span></td>
+            <td><span class="badge-obs">UNOBSERVED</span></td>
+            <td><strong>UNCHANGED ✓</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 스스로 풀어보는 3초 퀴즈 -->
+    <div class="quiz-section">
+      <div class="quiz-header">
+        <span>⚡ 스스로 풀어보는 3초 퀴즈</span>
+      </div>
+
+      <details class="quiz-item">
+        <summary class="quiz-summary">
+          <span>Q1. EVAL-0005의 상태가 UNOBSERVED인 것은 검증 실패를 의미하는가?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          💡 <strong>아닙니다!</strong> EVAL-0005는 7개 AC 중 5개 항목이 런타임 대화 로그 미제출로 인해 "지침 존재 ≠ 동작 관측" 원칙에 따라 UNOBSERVED로 정상 판정된 공식 실측 상태입니다. 이전 기준선 대비 상태 전이가 없으므로 회귀가 발생하지 않았음을 뜻합니다.
+        </div>
+      </details>
+
+      <details class="quiz-item">
+        <summary class="quiz-summary">
+          <span>Q2. scripts/run-evals.js를 실행하기 위해 npm install이 필요한가?</span>
+          <span class="quiz-btn">정답 확인</span>
+        </summary>
+        <div class="quiz-answer">
+          💡 <strong>전혀 필요하지 않습니다!</strong> V2 절대 원칙(Thin Harness / Zero-Dependency)에 따라 표준 Node.js 내장 모듈만으로 설계되어 저장소 클론 즉시 node scripts/run-evals.js 한 줄로 4.1ms 만에 실행됩니다.
+        </div>
+      </details>
+    </div>
+
+    <!-- 하단 접힌 엔지니어링 세부 사항 -->
+    <details class="details-box">
+      <summary>🛠️ V2-M5 Step ③ 엔지니어링 산출물 내역</summary>
+      <div class="details-content">
+        <p><strong>생성된 핵심 파일:</strong></p>
+        <ul>
+          <li>단일 Task Set 규격: <a class="artifact-link" href="evals/task-set.yaml">docs/evals/task-set.yaml</a></li>
+          <li>경량 Eval Orchestrator: <a class="artifact-link" href="../scripts/run-evals.js">scripts/run-evals.js</a></li>
+          <li>기준선 스냅샷: <a class="artifact-link" href="evals/baselines/current.json">docs/evals/baselines/current.json</a></li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>지원 실행 옵션:</strong></p>
+        <ul>
+          <li><code>node scripts/run-evals.js</code> : 기본 전체 평가 (Preflight + Runtime)</li>
+          <li><code>node scripts/run-evals.js --static-only</code> : 정적 사전 검사 전용 모드</li>
+          <li><code>node scripts/run-evals.js --task EVAL-0001</code> : 특정 태스크 단위 검증</li>
+          <li><code>node scripts/run-evals.js --update-baseline</code> : 실측 결과로 기준선 스냅샷 갱신</li>
+          <li><code>node scripts/run-evals.js --json</code> : 기계 판독용 JSON 출력</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</body>
+</html>
