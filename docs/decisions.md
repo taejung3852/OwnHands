@@ -21,7 +21,7 @@
 | 🚧 미구현 | V2에서 아직 만들지 않았다. |
 | 📦 V1 구현 기록 있음 | V1에 구현·검증 기록이 있으나 **V2로 자동 승계되지 않는다.** |
 
-> **2026-09-19 기준 V2에 존재하는 실행 자산은 Skill 4개(`write-issue-pr`·`explain`·`grill-spec`·`verify`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
+> **2026-09-20 기준 V2에 존재하는 실행 자산은 Skill 5개(`write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
 > 그 외 제품 기능은 🚧 미구현이다. 이 문서는 방향 문서이지 완료 보고가 아니다.
 
 ---
@@ -49,16 +49,17 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **이름과 개수** | `write-issue-pr`, `explain`, `grill-spec`, `verify` **4개**. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
+| **이름과 개수** | 초기 구성은 `write-issue-pr`, `explain`, `grill-spec`, `verify` **4개**다. V2-M3에서 `build`를 추가해 현재 **5개**다. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
 | **배치** | `.agents/skills/` — Codex REPO scope 탐색 경로다. V1의 `skills/`는 이 경로가 아니었다. | ✅ |
 | **판단 축** (공식) | 공식이 제시하는 축은 셋이다 — *"Split workflows when they have different **triggers, inputs, or success criteria**."* **`or`다.** 셋 중 **하나만 달라도** 공식 기준으로는 분할 근거가 된다. | — |
 | **분할 게이트** (OwnHands) | **공식보다 엄격하게 쓴다.** 세 축이 **모두** 뚜렷하게 다를 때만 새 Skill 후보로 본다. (`verify`는 Trigger: 구현 후 검증, Input: Spec/Plan/Evidence, Success: PASS/FAIL/UNOBSERVED 판정으로 3축 모두 상이하여 분할 충족). 근거는 10,000 토큰 천장과 description 상호 모순 위험이며, **공식이 요구하는 것이 아니라 우리가 과분할을 막으려고 좁힌 것이다.** | — |
+| **`build` 분할 근거** (OwnHands) | Trigger: 승인된 spec/plan 기반 구현. Input: `spec.md` + `plan.md` + Task. Success: 구현 + Fresh Evidence + `verify` 연결. 세 축이 기존 Skill과 모두 달라 OwnHands 분할 게이트를 충족한다. | ✅ `build` |
 | **분할 게이트의 비용** | ⚠️ **과소분할을 감수하는 선택이다.** 트리거는 같은데 재료·판정이 다른 2/3 사례에서 공식은 나누라 하고 이 게이트는 말린다. 그런 사례가 실제로 오면 게이트를 재검토한다. | — |
 | **추가 근거** | ① 위 게이트를 통과하거나, ② Eval에서 관측한 뒤 **description → 본문** 순으로 고쳐도 안 잡힐 때. **빈도는 근거가 아니다.** | — |
 | **삭제·병합** | 두 Skill이 서로의 영역에서 오발하면 합치고, 쓰이지 않으면 지운다. 늘리는 규칙만 두지 않는다. | — |
 | **지식의 배치** | 깊이는 Skill이 아니라 `references/`로 늘린다. `references/`는 카탈로그 예산을 먹지 않는다. 단 `SKILL.md`가 가리키고 언제 읽을지 적어야 로드된다. | ✅ |
-| **공통 규율의 자리** | 기본은 **각 Skill 안**이다. `AGENTS.md`에는 **반복해서 고쳐야 했던 것만** 올린다. ⚠️ "관측 후에 올린다"는 OwnHands의 판단이다. 공식 문서는 `Working agreements`·`Repository expectations`도 `AGENTS.md` 내용으로 들며, **관측 전에 두면 안 된다고 말하지 않는다.** | ✅ |
-| **`AGENTS.md`의 현재 내용** | **한 줄뿐이다** — "우리 결정을 플랫폼이 정한 것처럼 쓰지 않는다." 2026-09-17 세션에서 **세 번 고쳐야 했기 때문에** 올렸다. 상상해서 추가하지 않는다. | ✅ |
+| **공통 규율의 자리** | 기본은 **각 Skill 안**이다. `AGENTS.md`에는 반복해서 고쳐야 했던 규칙뿐 아니라, 공통 저장소 진입 규칙처럼 여러 Build 작업에 적용돼야 하는 **최소 라우팅**을 둘 수 있다. 이는 OwnHands의 결정이며 공식 요구가 아니다. | ✅ |
+| **`AGENTS.md`의 현재 내용** | 공식 결정과 OwnHands 결정을 분리하는 규칙, GORE와 `docs/specs/` 규약, 승인된 spec/plan 기반 Build 작업의 `build` Skill 라우팅을 둔다. Build 라우팅은 반복 실패가 아니라 여러 Build 작업에 적용되는 공통 진입점으로 사용자 승인됐다. | ✅ |
 | **Claude Code 대응** | `CLAUDE.md`는 `@AGENTS.md` **한 줄 import**다. 공식이 제시한 패턴이고, 내용을 두 벌로 관리하지 않는다. Claude Code는 `AGENTS.md`를 직접 읽지 않는다. | ✅ |
 | **Explain의 출력 형태** | 명시적으로 선택된 `explain`은 우선 대화에서 큰 그림·비유·짧은 단계로 설명한다. 사용자가 HTML이나 별도 아티팩트를 요청한 경우에만 ELI5 시각 모델을 적용한다 ([ADR-0002](adr/0002-explain-visual-story-cards.md)). | ✅ `shape.md` |
 | **링크 전달 방식** | 스킴을 고정하지 않는다. 표면이 정한다 — Codex는 `file_opener`(기본 `vscode`)로 정하고, 렌더링하는 표면은 직접 표시한다. | ✅ |
@@ -175,7 +176,7 @@
 |---|---|---|
 | *(현재 열린 결정 항목 없음)* | 2026-09-19: M5 Continuous Evals 체계 및 Task Set 규격(ADR-0009) 사용자 승인으로 확정. | ✅ [ADR-0009](adr/0009-continuous-evals-task-set-and-runner.md) |
 
-> ⚠️ `write-issue-pr`과 `explain`은 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
+> ⚠️ `write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`는 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
 > 그 밖에 문서에 보이는 `intent`, `design` 같은 표현은
 > **역할 설명 또는 후보이지 확정된 이름이 아니다.**
 
