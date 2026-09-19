@@ -413,7 +413,10 @@ function judgeRuntimeContract(task) {
     return { status: 'UNOBSERVED', details: ['런타임 계약 미선언'] };
   }
 
-  const policy = task.side_effect_policy || {};
+  const policy = { ...(task.side_effect_policy || {}) };
+  for (const key of ['allow_repo_mutation', 'allow_artifact_output', 'allow_network_writes', 'forbidden_commands']) {
+    if (contract[key] !== undefined) policy[key] = contract[key];
+  }
 
   // ─── CASE A: 시나리오 기반 (EVAL-0001 등) ─────────────────────────────────
   if (contract.scenarios) {
@@ -463,6 +466,17 @@ function judgeRuntimeContract(task) {
           scenarioDetails.push(`❌ 시나리오 [${sc.id}] 출력 계약 누락: [${missing.join(', ')}]`);
         } else {
           scenarioDetails.push(`✅ 시나리오 [${sc.id}] 출력 계약 충족 ("${sc.expected_behavior || '통과'}")`);
+        }
+      }
+
+      // 5. 관측 가능한 출력 금지 계약(output_not_contains) 검사
+      if (sc.output_not_contains) {
+        const found = sc.output_not_contains.filter(pat => session.outputText.includes(pat));
+        if (found.length > 0) {
+          allPassed = false;
+          scenarioDetails.push(`❌ 시나리오 [${sc.id}] 출력 금지 계약 위반: [${found.join(', ')}]`);
+        } else {
+          scenarioDetails.push(`✅ 시나리오 [${sc.id}] 출력 금지 계약 충족 ("${sc.expected_behavior || '통과'}")`);
         }
       }
     }
@@ -767,7 +781,9 @@ function main() {
   console.log('================================================================\n');
 
   // 6. 기준선 갱신 옵션 (Baseline Merge 보호)
-  if (isUpdateBaseline) {
+  if (isUpdateBaseline && regressionsCount > 0) {
+    console.error('🚫 회귀가 감지되어 승인된 기준선을 갱신하지 않습니다.');
+  } else if (isUpdateBaseline) {
     if (!fs.existsSync(BASELINE_DIR)) {
       fs.mkdirSync(BASELINE_DIR, { recursive: true });
     }
