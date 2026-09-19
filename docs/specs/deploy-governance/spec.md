@@ -44,11 +44,11 @@
 
 - `rejected-with-evidence`에는 Reviewer claim, 기각 이유, 코드·Spec·Test 중 하나 이상의 구체적 Evidence가 모두 있어야 한다. 개수만 기록한 항목은 유효한 기각이 아니다.
 - `REQ-06` — Reviewer의 의견을 자동 수정 명령이나 최종 Decision으로 취급하지 않는다.
-- `REQ-07` — `accepted` Finding의 대상 영역을 수정했거나 위험 경계가 바뀐 경우에만 해당 범위를 targeted re-review한다. 문구 수정이나 무관한 변경에는 반복 리뷰를 강제하지 않는다.
+- `REQ-07` — Finding 판정과 `plan.md` 기록, `accepted` 수정, Fresh Evidence 갱신이 끝난 최종 diff를 Reviewer가 한 번 확인해야 한다. 마지막 Reviewer 관측 뒤 tracked diff가 바뀌면 해당 관측은 유효하지 않으며, 변경 범위를 다시 확인해야 한다. 중간 단계에서는 `accepted` Finding의 대상 영역을 수정했거나 위험 경계가 바뀐 경우에만 targeted re-review한다.
 
 ### 1.3 Review Evidence와 Local Gate
 
-- `REQ-08` — Review 완료 시 현재 diff scope에 결합된 machine-readable Review Evidence를 저장한다. JSON은 Finding 상세 DB가 아니라 fingerprint·verdict·최종 count 요약이며, 상세 reasoning은 `plan.md`에 남긴다. Evidence는 최소한 다음 정보를 포함한다.
+- `REQ-08` — Review 완료 시 마지막 Reviewer가 관측한 최종 diff scope에 결합된 machine-readable Review Evidence를 저장한다. JSON은 Finding 상세 DB가 아니라 fingerprint·verdict·최종 count 요약이며, 상세 reasoning은 `plan.md`에 남긴다. Evidence는 최소한 다음 정보를 포함한다.
 
 ```json
 {
@@ -69,7 +69,7 @@
 ```
 
 - `REQ-09` — Review Evidence는 Git tracked artifact가 아니라 현재 checkout의 로컬 상태로 보관한다. Evidence 기록 자체가 diff를 바꾸거나 PR에 포함돼서는 안 된다.
-- `REQ-10` — 현재 diff fingerprint가 Evidence와 다르거나 `accepted`·`needs-human` Finding이 미해결이면 Evidence를 유효한 PASS로 취급하지 않는다. `record`는 `plan.md`의 `Review Results`를 검증해 count를 계산해야 하며, Reason이나 Evidence가 비어 있는 `rejected-with-evidence`가 하나라도 있으면 PASS 기록을 거부한다.
+- `REQ-10` — `record`는 Reviewer에게 전달되어 최종 관측된 fingerprint를 필수 입력으로 받고, 현재 diff fingerprint를 다시 계산해 둘이 정확히 같을 때만 Evidence를 기록한다. 현재 diff fingerprint가 관측값 또는 저장된 Evidence와 다르거나 `accepted`·`needs-human` Finding이 미해결이면 유효한 PASS로 취급하지 않는다. `record`는 `plan.md`의 `Review Results`를 검증해 count를 계산해야 하며, Reason이나 Evidence가 비어 있는 `rejected-with-evidence`가 하나라도 있으면 PASS 기록을 거부한다.
 - `REQ-11` — repo-local `PreToolUse` Hook은 shell command가 `git push`, `gh pr create`, `gh pr merge`에 해당할 때만 Review Evidence를 확인한다. 그 외 명령과 일반 응답에는 개입하지 않는다.
 - `REQ-12` — Hook은 누락·stale·미해결 Evidence를 발견하면 해당 외부 명령을 막고 짧은 이유를 반환한다. Hook 오류나 미지원 tool path를 완전한 보안 경계로 과장하지 않는다.
 - `REQ-13` — Hook은 파일·네트워크를 변경하거나 Secret을 읽지 않는 read-only 검사여야 한다. 실제 Reviewer 호출은 Hook이 아니라 현재 Codex 앱 세션의 Main Agent가 수행한다.
@@ -131,9 +131,13 @@ Finding adjudication을 plan.md Review Results에 기록
   ├─ rejected-with-evidence → Reason + Evidence 기록
   └─ needs-human → 사용자 결정과 해결 기록
         ↓
-최종 diff 확정 → 필요한 범위만 targeted re-review
+최종 tracked diff 확정 → fingerprint 계산
         ↓
-Review Evidence 기록 (current diff fingerprint)
+Reviewer가 해당 fingerprint의 최종 diff를 확인
+  ├─ 새 Finding → plan.md 기록·처리 → 최종 diff 확정부터 반복
+  └─ 새 Finding 없음 → tracked file을 더 수정하지 않음
+        ↓
+Review Evidence 기록 (reviewed fingerprint = current fingerprint)
         ↓
 Human Gate: Push + PR / Keep
         ↓
@@ -167,15 +171,18 @@ Human Gate: Merge
 외부 dependency 없이 Node.js 표준 라이브러리와 Git CLI만 사용한다.
 
 ```text
+node scripts/review-gate.js fingerprint --base origin/main
 node scripts/review-gate.js record \
   --base origin/main \
   --plan docs/specs/<feature>/plan.md \
+  --reviewed-fingerprint <sha256> \
   --verdict PASS
 node scripts/review-gate.js check-hook
 node scripts/review-gate.js clear
 ```
 
-- `record`: `plan.md`의 구조화된 `Review Results`를 검증하고 최종 count를 계산한 뒤, 현재 review scope의 fingerprint와 요약을 Git 내부 로컬 상태에 기록한다.
+- `fingerprint`: 현재 review scope의 fingerprint를 출력한다. 이 값과 동일한 diff를 최종 Review Packet으로 전달한다.
+- `record`: `plan.md`의 구조화된 `Review Results`를 검증하고 최종 count를 계산한 뒤, `--reviewed-fingerprint`와 다시 계산한 현재 fingerprint가 같을 때만 요약을 Git 내부 로컬 상태에 기록한다.
 - `check-hook`: Hook 입력의 command가 대상 외부 Git command인지 확인하고, 대상일 때만 current fingerprint와 Evidence를 비교한다.
 - `clear`: 사용자가 명시적으로 Evidence 폐기를 요청하거나 작업 전환 시 로컬 Evidence를 제거한다.
 - 실제 파일 위치는 worktree별 Git 경로를 사용하여 다른 checkout의 Evidence와 섞이지 않아야 한다.
@@ -202,11 +209,13 @@ Hook은 Review Evidence만 확인한다. 대화 transcript는 안정적인 Hook 
 |---|---|
 | 필수 AC가 `FAIL` | Reviewer 단계로 이동하지 않고 구현 루프로 복귀한다. |
 | 필수 AC가 `UNOBSERVED` | 자동 진행하지 않는다. Evidence를 확보하거나 사용자에게 override를 요청한다. |
-| Reviewer가 Finding을 반환하지 않음 | PASS Evidence를 현재 diff에 기록할 수 있다. |
-| `accepted` Finding 수정 후 diff 변경 | 기존 Review Evidence를 stale로 취급하고 대상 범위를 재검토한다. |
+| Reviewer가 Finding을 반환하지 않음 | Reviewer가 확인한 fingerprint와 현재 fingerprint가 같을 때 PASS Evidence를 기록할 수 있다. |
+| `accepted` Finding 수정 또는 `plan.md` Review Results 기록 후 diff 변경 | 모든 tracked 변경을 마친 뒤 새 fingerprint의 최종 diff를 Reviewer가 확인해야 한다. |
 | `rejected-with-evidence`만 존재 | 모든 항목의 Reviewer claim·Reason·Evidence가 `plan.md`에 있으면 PASS Evidence 기록을 허용한다. 하나라도 비어 있으면 거부한다. |
 | `needs-human`이 미해결 | Review Evidence를 PASS로 기록하지 않고 외부 Git 명령을 차단한다. |
-| Review 후 문서·코드 한 글자라도 변경 | fingerprint 불일치로 stale 처리한다. 변경이 Finding과 무관하면 Main Agent가 최소 targeted review 필요성을 판단해 새 Evidence를 기록한다. |
+| 최종 Review에서 새 Finding 발생 | Finding을 `plan.md`에 기록하고 처리한 뒤 새 fingerprint를 계산해 최종 Review를 반복한다. |
+| 최종 Review에서 새 Finding 없음 | 이 결과를 남기려고 tracked `plan.md`를 다시 수정하지 않는다. 로컬 Review Evidence가 마지막 관측과 PASS를 나타낸다. |
+| 마지막 Reviewer 관측 후 문서·코드 한 글자라도 변경 | `record`의 fingerprint 비교가 거부하거나 기존 Evidence를 stale 처리하며, 변경된 최종 diff를 다시 Review한다. |
 | 일반 질문이나 파일 읽기 | Hook 대상 command가 아니므로 추가 처리 없이 통과한다. |
 | 복합 shell command 안에 외부 Git 명령 포함 | command token을 보수적으로 판정하여 Review Gate 대상에 포함한다. |
 | Hook 파일이 새로 변경됨 | Codex의 Hook trust review를 거치기 전에는 실행됐다고 가정하지 않는다. |
@@ -224,7 +233,7 @@ Hook은 Review Evidence만 확인한다. 대화 transcript는 안정적인 Hook 
 - [ ] `AC-01` — `verify/verifier → reviewer → Human Gate` 순서와 각 역할의 책임이 단일 계약으로 정의된다.
 - [ ] `AC-02` — Review Packet이 Spec/Plan, diff scope, Fresh Evidence·관련 baseline, known constraints를 포함하고 전체 대화는 제외한다.
 - [ ] `AC-03` — Finding이 `accepted / rejected-with-evidence / needs-human`으로 판정되고 상세 판단이 `plan.md`에 보존되며 targeted re-review 조건이 정의된다.
-- [ ] `AC-04` — Review Evidence가 현재 diff fingerprint에 결합되고 변경 후 stale 처리된다.
+- [ ] `AC-04` — Review Evidence가 마지막 Reviewer가 관측한 fingerprint와 현재 diff가 동일할 때만 기록되고, 이후 변경 시 stale 처리된다.
 - [ ] `AC-05` — Hook은 일반 응답이 아닌 외부 Git command 직전에만 Review Evidence를 검사한다.
 - [ ] `AC-06` — `Push + PR`, `Merge`, `Deploy`, Cleanup의 승인 경계가 분리된다.
 - [ ] `AC-07` — OwnHands 자체 검사와 사용 프로젝트 검사가 분리되고 전체 Runtime Eval이 기본 required check에서 제외된다.

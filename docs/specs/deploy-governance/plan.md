@@ -46,9 +46,12 @@
 ### 2.1 CLI
 
 ```text
+node scripts/review-gate.js fingerprint --base origin/main
+
 node scripts/review-gate.js record \
   --base origin/main \
   --plan docs/specs/<feature>/plan.md \
+  --reviewed-fingerprint <sha256> \
   --verdict PASS
 
 node scripts/review-gate.js check-hook
@@ -56,8 +59,9 @@ node scripts/review-gate.js clear
 ```
 
 - 알 수 없는 subcommand·flag, 누락된 필수값, 저장소 밖 `--plan` 경로는 exit code `2`와 사용법 요약을 반환한다.
+- `fingerprint`는 최종 Review Packet에 넣을 현재 diff fingerprint를 출력한다.
 - `record`는 `--plan`의 `Review Results`에서 Finding 상태 count를 직접 계산한다. Caller가 count를 입력하거나 덮어쓸 수 없다.
-- `record`는 `verdict=PASS`, 미해결 `accepted=0`, `needs-human=0`, 모든 `rejected-with-evidence`의 Reviewer claim·Reason·Evidence가 존재할 때만 기록한다. 그 외는 exit code `1`로 거부한다.
+- `record`는 `--reviewed-fingerprint`를 필수로 받고 현재 fingerprint를 다시 계산한다. 두 값이 정확히 같고 `verdict=PASS`, 미해결 `accepted=0`, `needs-human=0`, 모든 `rejected-with-evidence`의 Reviewer claim·Reason·Evidence가 존재할 때만 기록한다. 그 외는 exit code `1`로 거부한다.
 - `clear`는 현재 checkout의 로컬 Evidence만 삭제하며 파일이 없어도 성공한다.
 
 ### 2.2 Evidence 저장과 fingerprint
@@ -80,6 +84,8 @@ node scripts/review-gate.js clear
 - `rejected-with-evidence`의 `Evidence`에는 코드 위치, Spec/REQ, 최신 테스트 결과 중 하나 이상의 구체적 인용이 있어야 한다.
 - Review Evidence JSON은 상세 내용을 복제하지 않고 `finding_counts`만 보존한다.
 - Review 후 `plan.md`를 포함한 diff가 바뀌면 fingerprint가 달라지므로 기존 JSON Evidence는 stale이 된다.
+- Finding 판정과 수정, `plan.md` 기록을 모두 끝낸 뒤 fingerprint를 계산하고 그 값의 최종 diff를 Reviewer에게 전달한다.
+- 최종 Reviewer가 새 Finding을 반환하면 이를 `plan.md`에 기록·처리하고 fingerprint 계산부터 반복한다. 새 Finding이 없으면 그 결과를 기록하기 위해 tracked file을 다시 수정하지 않고 로컬 Review Evidence만 기록한다.
 
 ```markdown
 ## 6. Review Results
@@ -120,9 +126,10 @@ node scripts/review-gate.js clear
 
 - [ ] **Task 1: Review Evidence core와 CLI를 TDD로 구현**
   - `scripts/review-gate.test.js`에 임시 Git 저장소 fixture와 CLI 실행 helper를 먼저 작성한다.
-  - 실패 테스트: 잘못된 인자, unresolved base, 저장소 밖 Plan, 누락된 Review Results 필드, 근거 없는 기각, 미해결 finding, record/clear, 동일 fingerprint, committed·staged·unstaged·untracked 변경 후 stale, linked worktree별 Evidence 분리를 각각 관측한다.
+  - 실패 테스트: 잘못된 인자, unresolved base, 저장소 밖 Plan, 누락된 Review Results 필드, 근거 없는 기각, 미해결 finding, reviewed fingerprint 누락·불일치, record/clear, 동일 fingerprint, committed·staged·unstaged·untracked 변경 후 stale, linked worktree별 Evidence 분리를 각각 관측한다.
   - `scripts/review-gate.js`에 argument parser, 구조화된 Review Results parser, Git command wrapper, per-checkout evidence path, fingerprint, atomic JSON write, clear를 최소 구현한다.
   - CLI count 입력은 제공하지 않고 Plan의 Finding 항목에서 count를 계산한다.
+  - 최종 Review 전 출력한 fingerprint가 `record --reviewed-fingerprint` 시점의 현재 fingerprint와 같을 때만 기록되는지 검증한다.
   - `record`가 저장한 JSON을 다시 읽어 Spec `REQ-08` 필드와 값 범위를 검증한다.
 
 - [ ] **Task 2: 좁은 PreToolUse Gate를 TDD로 연결**
@@ -132,7 +139,7 @@ node scripts/review-gate.js clear
   - Hook의 `agent` handler, `Stop`, `PostToolUse`, network/Secret 권한은 추가하지 않는다.
 
 - [ ] **Task 3: Build Review Loop와 Human Gate 계약 연결**
-  - `review-governance.md`에 Review Packet 3종, finding 3-state, `plan.md` Review Results 형식, targeted re-review, Review Evidence 기록, `Push + PR / Keep`, Merge·Deploy·Cleanup 별도 승인 규칙을 작성한다.
+  - `review-governance.md`에 Review Packet 3종, finding 3-state, `plan.md` Review Results 형식, final reviewed fingerprint, targeted re-review, Review Evidence 기록, `Push + PR / Keep`, Merge·Deploy·Cleanup 별도 승인 규칙을 작성한다.
   - `build/SKILL.md`에는 `verify`의 필수 AC PASS 후 해당 Reference를 읽고 기존 reviewer를 호출한다는 짧은 단계만 추가한다.
   - `UNOBSERVED` override는 누락 Evidence·확보 불가 사유·수용 위험을 제시하고 사용자에게 반드시 질문하도록 명시한다.
   - `docs/specs/README.md`의 기존 Fresh Evidence Checklist에 Finding별 Status·Reviewer claim·Reason·Evidence를 보존하는 `Review Results` 항목과 diff fingerprint·finding summary 항목만 추가한다.
@@ -146,8 +153,10 @@ node scripts/review-gate.js clear
   - 아래 정적·단위 검사를 실행하고 출력과 exit code를 이 Plan에 기록한다.
   - Codex `/hooks`에서 새 repo Hook 정의를 사용자가 검토·신뢰한 뒤, Evidence가 없는 상태의 `git push --dry-run`이 실제로 차단되는지 1회 관측한다.
   - 기존 `verify`와 `verifier`로 AC-01~AC-12를 감사한다.
-  - 기존 `reviewer`에 최소 Review Packet을 전달해 최종 diff를 검토하고 finding을 3-state로 판정한다.
-  - PASS Review Evidence를 기록한 뒤 `git push --dry-run`이 Hook을 통과하는지 1회 관측한다.
+  - Finding 판정·수정·`plan.md` Review Results·Fresh Evidence 갱신을 모두 마친 뒤 최종 diff를 고정한다.
+  - `fingerprint --base origin/main` 값을 포함한 최소 Review Packet을 기존 `reviewer`에 전달해 정확히 그 최종 diff를 검토하고 Finding을 3-state로 판정한다.
+  - 새 Finding이 있으면 기록·처리 후 fingerprint 계산과 최종 Review를 반복한다. 새 Finding이 없으면 tracked file을 더 수정하지 않는다.
+  - 같은 fingerprint를 `record --reviewed-fingerprint`에 전달해 PASS Review Evidence를 기록한 뒤 `git push --dry-run`이 Hook을 통과하는지 1회 관측한다.
   - 실제 Push/PR은 실행하지 않고 사용자에게 `Push + PR / Keep` 선택을 요청한다.
 
 ## 4. AC별 검증 전략 매핑 (Verification Strategy Mapping)
@@ -157,7 +166,7 @@ node scripts/review-gate.js clear
 | `AC-01` | 정적 흐름 감사 + verifier | `build`와 Reference의 순서 | `verify/verifier → reviewer → Human Gate` 명시 |
 | `AC-02` | 정적 계약 검사 | Review Packet 항목 | 필수 Context 포함, 전체 대화 제외 |
 | `AC-03` | 정적 계약 + parser test | plan Finding 상세와 re-review 분기 | 3-state, 기각 Reason·Evidence, 제한 조건 모두 관측 |
-| `AC-04` | `node:test` Git fixture | fingerprint 동일/변경 결과 | 동일 시 유효, 변경 시 stale |
+| `AC-04` | `node:test` Git fixture | reviewer 관측 fingerprint와 record 시점 fingerprint 비교 | 동일 시만 기록, 변경 시 거부·stale |
 | `AC-05` | `node:test` + Hook dry-run | 일반 command/외부 command 결과 | 일반 응답 무개입, 대상만 검사 |
 | `AC-06` | 정적 계약 검사 | Human Gate 문구 | Push+PR/Merge/Deploy/Cleanup 분리 |
 | `AC-07` | 정적 계약 + Static Preflight | OwnHands/사용 프로젝트 표 | 전체 Runtime Suite 기본 실행 없음 |
@@ -193,14 +202,16 @@ node scripts/review-gate.js clear
   - AC-01~AC-12별 `PASS / FAIL / UNOBSERVED` 표
   - 필수 AC 전부 PASS일 때만 구현 완료 주장
 - [ ] **독립 Reviewer Gate**
-  - Review Packet: 승인된 Spec/Plan, `origin/main...HEAD` 및 working tree, Fresh Evidence·관련 baseline, known constraints
+  - Review Packet: 승인된 Spec/Plan, `origin/main...HEAD` 및 working tree, Fresh Evidence·관련 baseline, known constraints, 최종 diff fingerprint
   - 모든 Finding의 `accepted / rejected-with-evidence / needs-human` 판정과 해결 기록
   - `rejected-with-evidence`마다 Reviewer claim·Reason·구체적 Evidence가 `plan.md`에 보존됐는지 확인
+  - 모든 tracked 기록과 수정이 끝난 뒤 계산한 fingerprint의 diff를 마지막으로 확인했으며, 그 뒤 변경 없이 Evidence를 기록했는지 확인
 
 ## 6. 중단 조건
 
 - Hook이 일반 질문이나 비대상 command를 차단하면 구현을 멈추고 matcher/command detection을 수정한다.
 - Review Evidence가 tracked file을 만들거나 다른 worktree와 공유되면 구현을 멈추고 storage path를 수정한다.
+- 마지막 Reviewer 관측 뒤 tracked file이 변경되면 Evidence 기록을 멈추고 새 fingerprint의 최종 Review로 돌아간다.
 - 원격 PR head를 로컬 Hook만으로 증명해야 하는 요구가 생기면 Spec으로 돌아간다.
 - Codex Action/API key, Managed Policy, 새 Agent, 새 Eval Task가 필요해지면 이번 Plan 범위를 확장하지 않고 사용자 승인을 요청한다.
 - Hook trust를 확보하지 못해 실제 차단을 관측하지 못하면 `UNOBSERVED`로 남기고 Push/PR 단계로 진행하지 않는다.
