@@ -29,6 +29,11 @@ function installFakeCodex(root) {
   fs.mkdirSync(binDir);
   fs.writeFileSync(codexPath, `#!/bin/sh
 printf '%s\\n' "$*" > "$FAKE_CODEX_ARGS_PATH"
+printf '%s\\n' "$PWD" > "$FAKE_CODEX_CWD_PATH"
+if [ "$FAKE_CODEX_WRITE_ARTIFACT" = "1" ]; then
+  mkdir -p docs/research
+  printf 'isolated artifact\\n' > docs/research/test.md
+fi
 if [ "$FAKE_CODEX_LARGE_OUTPUT" = "1" ]; then
   head -c 1100000 /dev/zero | tr '\\0' 'x'
   printf '\\n'
@@ -42,6 +47,7 @@ printf '%s\\n' "$FAKE_CODEX_OUTPUT"
 function runFixture(root, args = [], output = '', extraEnv = {}) {
   const binDir = installFakeCodex(root);
   const codexArgsPath = path.join(root, 'codex-args.txt');
+  const codexCwdPath = path.join(root, 'codex-cwd.txt');
   const result = spawnSync(process.execPath, [path.join(root, 'scripts', 'run-evals.js'), ...args], {
     cwd: root,
     encoding: 'utf8',
@@ -50,10 +56,12 @@ function runFixture(root, args = [], output = '', extraEnv = {}) {
       PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
       FAKE_CODEX_OUTPUT: output,
       FAKE_CODEX_ARGS_PATH: codexArgsPath,
+      FAKE_CODEX_CWD_PATH: codexCwdPath,
       ...extraEnv
     }
   });
   result.codexArgs = fs.existsSync(codexArgsPath) ? fs.readFileSync(codexArgsPath, 'utf8') : '';
+  result.codexCwd = fs.existsSync(codexCwdPath) ? fs.readFileSync(codexCwdPath, 'utf8').trim() : '';
   return result;
 }
 
@@ -156,6 +164,36 @@ test('scenario sandbox policy overrides the task sandbox', () => {
   assert.equal(result.status, 0);
   assert.match(result.codexArgs, /--sandbox workspace-write/);
   assert.match(result.codexArgs, /--skip-git-repo-check/);
+});
+
+test('isolated-write keeps artifacts in a disposable workspace', () => {
+  const root = createFixture({
+    id: 'TEST-ISOLATED-WRITE',
+    name: 'isolated write workspace',
+    execution_mode: 'runtime',
+    sandbox_mode: 'isolated-write',
+    side_effect_policy: {
+      allow_repo_mutation: false,
+      allow_artifact_output: true
+    },
+    runtime_contract: {
+      prompt: 'create docs/research/test.md',
+      allow_repo_mutation: false,
+      allow_artifact_output: true
+    }
+  });
+  const repositoryArtifact = path.join(root, 'docs', 'research', 'test.md');
+  const output = JSON.stringify({
+    type: 'item.completed',
+    item: { type: 'agent_message', text: 'artifact ready' }
+  });
+
+  const result = runFixture(root, [], output, { FAKE_CODEX_WRITE_ARTIFACT: '1' });
+  const isolatedArtifact = path.join(result.codexCwd, 'docs', 'research', 'test.md');
+
+  assert.equal(result.status, 0);
+  assert.equal(fs.existsSync(isolatedArtifact), true);
+  assert.equal(fs.existsSync(repositoryArtifact), false);
 });
 
 test('scenario mutation policy rejects repository changes', () => {

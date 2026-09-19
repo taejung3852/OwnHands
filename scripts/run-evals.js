@@ -192,7 +192,7 @@ function verifyStaticContract(task) {
  * 
  * 샌드박스 격리 모드:
  *   - 'read-only'      ➔ --sandbox read-only (기본 격리)
- *   - 'isolated-write' ➔ --sandbox workspace-write (임시 격리 작업공간 바인딩 및 allowlist 관리)
+ *   - 'isolated-write' ➔ --sandbox workspace-write (disposable 복사본에서만 쓰기 허용)
  */
 function executeCodexSession(prompt, options = {}) {
   const {
@@ -214,21 +214,30 @@ function executeCodexSession(prompt, options = {}) {
     cmdArgs.push('--skip-git-repo-check');
     try {
       isolatedTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ownhands-eval-isolated-'));
-      // 격리 workspace 안에 필수 OwnHands 컨텍스트 준비 (심볼릭 링크 바인딩)
+      // 실제 저장소로 쓰기가 역류하지 않도록 필수 컨텍스트를 disposable workspace에 복사
       const contextItems = ['.codex', '.agents', 'AGENTS.md', 'docs'];
       for (const item of contextItems) {
         const src = path.join(REPO_ROOT, item);
         const dest = path.join(isolatedTempDir, item);
         if (fs.existsSync(src) && !fs.existsSync(dest)) {
-          try {
-            const isDir = fs.statSync(src).isDirectory();
-            fs.symlinkSync(src, dest, isDir ? 'dir' : 'file');
-          } catch {}
+          fs.cpSync(src, dest, { recursive: true, dereference: true });
         }
       }
       sessionCwd = isolatedTempDir;
-    } catch {
-      sessionCwd = cwd;
+    } catch (err) {
+      if (isolatedTempDir && fs.existsSync(isolatedTempDir)) {
+        try { fs.rmSync(isolatedTempDir, { recursive: true, force: true }); } catch {}
+      }
+      return {
+        started: true,
+        failureType: 'ISOLATION_ERROR',
+        errorDetails: `격리 workspace 준비 실패: ${err.message}`,
+        events: [],
+        outputText: '',
+        commandExecutions: [],
+        fileMutations: [],
+        isolatedTempDir
+      };
     }
   }
 
