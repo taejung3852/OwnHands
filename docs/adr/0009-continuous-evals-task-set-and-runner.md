@@ -1,6 +1,6 @@
 # ADR-0009 — Continuous Evals Task Set 규격 및 경량 러너 아키텍처
 
-- **상태:** Accepted — 2026-09-19 사용자 승인 (2026-09-19 사용자 명시적 결정: task-set.yaml → task-set.json 변경 승인. Zero-Dependency 및 Thin Harness 우선)
+- **상태:** Accepted — 2026-09-19 사용자 승인 (단, task-set.yaml ➔ task-set.json 변경은 Zero-Dependency 구현 제안으로 사용자 확정 승인 대기)
 - **일자:** 2026-09-19
 - **관련 Issue:** [#134](https://github.com/taejung3852/OwnHands/issues/134), [#136](https://github.com/taejung3852/OwnHands/issues/136) (선행: [#131 Research Gate](https://github.com/taejung3852/OwnHands/issues/131))
 - **관련 리서치:** [`docs/research/0004-m5-continuous-evals.md`](../research/0004-m5-continuous-evals.md)
