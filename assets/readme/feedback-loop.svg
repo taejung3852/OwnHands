@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="feedback-loop-title feedback-loop-desc">
+      <title id="feedback-loop-title">OwnHands 피드백 순환</title>
+      <desc id="feedback-loop-desc">실제 사용의 교정을 프로젝트에 기록하고 선별한 뒤, 사람이 개선 요청과 채택을 결정하면 구현·검증·리뷰와 프로젝트 적용을 거쳐 다음 사용 경험으로 돌아가는 순환.</desc>
+      <defs>
+        <marker id="feedback-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6c88ad"/></marker>
+        <marker id="feedback-arrow-blue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#1688f2"/></marker>
+        <marker id="feedback-arrow-orange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#ff8124"/></marker>
+      </defs>
+      <rect width="1280" height="720" fill="#f7faff"/>
+
+      <line x1="272" y1="160" x2="360" y2="160" stroke="#6c88ad" stroke-width="2" marker-end="url(#feedback-arrow)"/>
+      <line x1="600" y1="160" x2="688" y2="160" stroke="#6c88ad" stroke-width="2" marker-end="url(#feedback-arrow)"/>
+      <path d="M928 160 H992 Q1000 160 1000 168 V272" fill="none" stroke="#ff8124" stroke-width="2" marker-end="url(#feedback-arrow-orange)"/>
+      <path d="M1000 368 V448 Q1000 456 992 456 H928" fill="none" stroke="#ff8124" stroke-width="2" marker-end="url(#feedback-arrow-orange)"/>
+      <line x1="688" y1="456" x2="600" y2="456" stroke="#1688f2" stroke-width="2" marker-end="url(#feedback-arrow-blue)"/>
+      <line x1="360" y1="456" x2="272" y2="456" stroke="#1688f2" stroke-width="2" marker-end="url(#feedback-arrow-blue)"/>
+      <path d="M152 416 V352 Q152 344 144 344 H88 Q80 344 80 336 V200 Q80 192 88 192 H152 V200" fill="none" stroke="#1688f2" stroke-width="2" stroke-dasharray="8 8" marker-end="url(#feedback-arrow-blue)"/>
+
+      <g font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">
+        <g><rect x="32" y="120" width="240" height="80" rx="8" fill="#eef7ff" stroke="#1688f2" stroke-width="2"/><text x="152" y="152" fill="#0b2248" font-size="20" font-weight="600">실제 사용과 교정</text><text x="152" y="180" fill="#53749f" font-size="16">user correction · eval · review</text></g>
+        <g><rect x="360" y="120" width="240" height="80" rx="8" fill="#ffffff" stroke="#6c88ad"/><text x="480" y="152" fill="#0b2248" font-size="20" font-weight="600">프로젝트 원본 기록</text><text x="480" y="180" fill="#53749f" font-size="16">docs/ownhands/feedback/</text></g>
+        <g><rect x="688" y="120" width="240" height="80" rx="8" fill="#ffffff" stroke="#6c88ad"/><text x="808" y="152" fill="#0b2248" font-size="20" font-weight="600">Triage</text><text x="808" y="180" fill="#53749f" font-size="16">공개 가능 요약 · 기존 Issue 확인</text></g>
+        <g><path d="M1000 272 L1120 320 L1000 368 L880 320 Z" fill="#fff4ea" stroke="#ff8124" stroke-width="2"/><text x="1000" y="312" fill="#0b2248" font-size="20" font-weight="600">Human choice</text><text x="1000" y="336" fill="#b6530d" font-size="14">보존 · 보류 · 연결 · 제안</text></g>
+        <g><rect x="688" y="416" width="240" height="80" rx="8" fill="#fff4ea" stroke="#ff8124"/><text x="808" y="448" fill="#0b2248" font-size="20" font-weight="600">명시적 개선 요청</text><text x="808" y="476" fill="#b6530d" font-size="16">Issue만으로 자동 착수하지 않음</text></g>
+        <g><rect x="360" y="416" width="240" height="80" rx="8" fill="#ffffff" stroke="#1688f2"/><text x="480" y="448" fill="#0b2248" font-size="20" font-weight="600">Build · Verify · Review</text><text x="480" y="476" fill="#53749f" font-size="16">Before / After와 회귀 Evidence</text></g>
+        <g><rect x="32" y="416" width="240" height="80" rx="8" fill="#eef7ff" stroke="#1688f2"/><text x="152" y="448" fill="#0b2248" font-size="20" font-weight="600">채택과 프로젝트 적용</text><text x="152" y="476" fill="#53749f" font-size="16">commit/tag · 적용 버전 · 이후 관측</text></g>
+      </g>
+
+      <rect x="304" y="264" width="416" height="104" rx="8" fill="#ffffff" stroke="#d7e4f3" stroke-dasharray="8 8"/>
+      <text x="328" y="296" fill="#53749f" font-size="12" font-family="'Geist Mono', monospace" letter-spacing="2">BOUNDARY</text>
+      <text x="328" y="328" fill="#0b2248" font-size="16" font-family="'Geist', 'Noto Sans KR', sans-serif" font-weight="600">상시 감시하지 않습니다 · 자동 수정하지 않습니다 · 자동 업데이트하지 않습니다</text>
+      <text x="328" y="352" fill="#53749f" font-size="14" font-family="'Geist', 'Noto Sans KR', sans-serif">실제 관측과 사람의 선택이 다음 단계로 이동시키는 조건입니다.</text>
+
+      <line x1="40" y1="600" x2="1240" y2="600" stroke="#d7e4f3"/>
+      <text x="40" y="644" fill="#0b2248" font-size="16" font-family="'Geist', 'Noto Sans KR', sans-serif" font-weight="600">전체 운영 순환은 아직 UNOBSERVED입니다. 기록과 제안은 구현 착수·채택·적용 승인을 대신하지 않습니다.</text>
+    </svg>

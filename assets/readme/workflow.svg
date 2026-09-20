@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ownhands-workflow-title ownhands-workflow-desc">
+      <title id="ownhands-workflow-title">OwnHands 개발 흐름</title>
+      <desc id="ownhands-workflow-desc">Intent, Spec, Codex Plan Mode, 승인된 plan.md, Build, Verify, Review, Human Gate, Git operation이 순서대로 이어지고 Feedback이 다음 Intent로 돌아가는 흐름.</desc>
+      <defs>
+        <marker id="workflow-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6c88ad"/></marker>
+        <marker id="workflow-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#ff8124"/></marker>
+      </defs>
+      <rect width="1280" height="720" fill="#f7faff"/>
+
+      <text x="40" y="96" fill="#53749f" font-size="12" font-family="'Geist Mono', monospace" letter-spacing="2">HUMAN SETS DIRECTION</text>
+      <text x="448" y="96" fill="#1688f2" font-size="12" font-family="'Geist Mono', monospace" letter-spacing="2">CODEX BUILDS EVIDENCE</text>
+      <text x="992" y="96" fill="#ff8124" font-size="12" font-family="'Geist Mono', monospace" letter-spacing="2">HUMAN AUTHORIZES CHANGE</text>
+      <line x1="40" y1="112" x2="424" y2="112" stroke="#d7e4f3" stroke-width="1"/>
+      <line x1="448" y1="112" x2="968" y2="112" stroke="#b9d9fb" stroke-width="1"/>
+      <line x1="992" y1="112" x2="1240" y2="112" stroke="#ffd4b2" stroke-width="1"/>
+
+      <line x1="152" y1="268" x2="176" y2="268" stroke="#6c88ad" stroke-width="2" marker-end="url(#workflow-arrow)"/>
+      <line x1="288" y1="268" x2="312" y2="268" stroke="#6c88ad" stroke-width="2" marker-end="url(#workflow-arrow)"/>
+      <line x1="424" y1="268" x2="448" y2="268" stroke="#1688f2" stroke-width="2" marker-end="url(#workflow-arrow)"/>
+      <line x1="560" y1="268" x2="584" y2="268" stroke="#1688f2" stroke-width="2" marker-end="url(#workflow-arrow)"/>
+      <line x1="696" y1="268" x2="720" y2="268" stroke="#6c88ad" stroke-width="2" marker-end="url(#workflow-arrow)"/>
+      <line x1="832" y1="268" x2="856" y2="268" stroke="#6c88ad" stroke-width="2" marker-end="url(#workflow-arrow)"/>
+      <line x1="968" y1="268" x2="992" y2="268" stroke="#ff8124" stroke-width="2" marker-end="url(#workflow-arrow-accent)"/>
+      <line x1="1104" y1="268" x2="1128" y2="268" stroke="#ff8124" stroke-width="2" marker-end="url(#workflow-arrow-accent)"/>
+      <path d="M1240 268 H1256 Q1264 268 1264 276 V440 Q1264 448 1256 448 H104 Q96 448 96 440 V304 Q96 296 104 296" fill="none" stroke="#1688f2" stroke-width="2" stroke-dasharray="8 8" marker-end="url(#workflow-arrow)"/>
+      <rect x="524" y="416" width="232" height="20" rx="4" fill="#f7faff"/>
+      <text x="640" y="430" text-anchor="middle" fill="#1688f2" font-size="12" font-family="'Geist Mono', monospace">FEEDBACK → NEXT INTENT</text>
+
+      <g font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">
+        <g><rect x="40" y="240" width="112" height="56" rx="8" fill="#ffffff" stroke="#6c88ad"/><text x="96" y="264" fill="#0b2248" font-size="16" font-weight="600">Intent</text><text x="96" y="284" fill="#53749f" font-size="12">왜 만드는가</text></g>
+        <g><rect x="176" y="240" width="112" height="56" rx="8" fill="#ffffff" stroke="#6c88ad"/><text x="232" y="264" fill="#0b2248" font-size="16" font-weight="600">Spec</text><text x="232" y="284" fill="#53749f" font-size="12">무엇을 만족하는가</text></g>
+        <g><rect x="312" y="232" width="112" height="72" rx="8" fill="#eef7ff" stroke="#1688f2"/><text x="368" y="260" fill="#0b2248" font-size="16" font-weight="600">Plan Mode</text><text x="368" y="280" fill="#53749f" font-size="12">순서 · 범위 · 검증</text><text x="368" y="296" fill="#1688f2" font-size="12">사용자와 계획</text></g>
+        <g><rect x="448" y="232" width="112" height="72" rx="8" fill="#eef7ff" stroke="#1688f2" stroke-width="2"/><text x="504" y="260" fill="#0b2248" font-size="16" font-weight="600">plan.md</text><text x="504" y="280" fill="#1688f2" font-size="12">승인된 계획</text><text x="504" y="296" fill="#53749f" font-size="12">durable artifact</text></g>
+        <g><rect x="584" y="240" width="112" height="56" rx="8" fill="#ffffff" stroke="#6c88ad"/><text x="640" y="264" fill="#0b2248" font-size="16" font-weight="600">Build</text><text x="640" y="284" fill="#53749f" font-size="12">구현 · 확인</text></g>
+        <g><rect x="720" y="240" width="112" height="56" rx="8" fill="#ffffff" stroke="#6c88ad"/><text x="776" y="264" fill="#0b2248" font-size="16" font-weight="600">Verify</text><text x="776" y="284" fill="#53749f" font-size="12">AC · Evidence</text></g>
+        <g><rect x="856" y="240" width="112" height="56" rx="8" fill="#ffffff" stroke="#6c88ad"/><text x="912" y="264" fill="#0b2248" font-size="16" font-weight="600">Review</text><text x="912" y="284" fill="#53749f" font-size="12">독립 변경 검토</text></g>
+        <g><rect x="992" y="232" width="112" height="72" rx="8" fill="#fff4ea" stroke="#ff8124" stroke-width="2"/><text x="1048" y="260" fill="#0b2248" font-size="16" font-weight="600">Human Gate</text><text x="1048" y="280" fill="#b6530d" font-size="12">위험 수용</text><text x="1048" y="296" fill="#53749f" font-size="12">외부 변경 승인</text></g>
+        <g><rect x="1128" y="240" width="112" height="56" rx="8" fill="#ffffff" stroke="#ff8124"/><text x="1184" y="264" fill="#0b2248" font-size="16" font-weight="600">Git</text><text x="1184" y="284" fill="#53749f" font-size="12">push · PR · merge</text></g>
+      </g>
+
+      <line x1="40" y1="544" x2="1240" y2="544" stroke="#d7e4f3"/>
+      <g font-family="'Geist', 'Noto Sans KR', sans-serif">
+        <circle cx="48" cy="584" r="6" fill="#1688f2"/><text x="64" y="588" fill="#0b2248" font-size="16" font-weight="600">승인된 산출물이 다음 단계의 입력이 됩니다.</text>
+        <circle cx="48" cy="620" r="6" fill="#ff8124"/><text x="64" y="624" fill="#0b2248" font-size="16" font-weight="600">외부 상태 변경은 사람이 범위별로 승인합니다.</text>
+        <circle cx="48" cy="656" r="6" fill="#6c88ad"/><text x="64" y="660" fill="#0b2248" font-size="16" font-weight="600">Feedback은 자동 수정이 아니라 다음 Intent와 Eval 사례로 돌아갑니다.</text>
+      </g>
+    </svg>
