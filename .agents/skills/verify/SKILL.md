@@ -25,4 +25,4 @@ description: Verifies implementation against spec acceptance criteria, ensures r
    - *(세부 기준: `references/evidence-guide.md` 참고)*
 
 4. **독립 감사관(Verifier) 호출**:
-   - 구현이 완료되면 독립 `verifier` Subagent(`.codex/agents/verifier.toml`)를 호출하여 `spec.md`의 AC와 `plan.md`의 Fresh Evidence를 역추적 대조하여 `PASS / FAIL / UNOBSERVED` 최종 판정을 받는다.
+   - 구현이 완료되면 `.codex/agents/model-policy.md`에서 위험 tier를 선택하고 model과 reasoning effort를 모두 명시해 독립 `verifier` Subagent(`.codex/agents/verifier.toml`)를 호출한다. `spec.md`의 AC와 `plan.md`의 Fresh Evidence를 역추적 대조하여 `PASS / FAIL / UNOBSERVED` 최종 판정을 받고 요청 provenance를 기록한다.

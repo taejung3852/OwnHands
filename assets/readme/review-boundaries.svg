@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="review-boundaries-title review-boundaries-desc">
+      <title id="review-boundaries-title">OwnHands 검토 책임 경계</title>
+      <desc id="review-boundaries-desc">메인 에이전트가 구현과 근거를 만들고 Verifier와 Reviewer가 서로 다른 대상을 독립 확인하며, 사용자가 위험과 Git 작업을 승인하고 Review Gate가 검토한 변경과 현재 변경의 일치만 검사하는 구조.</desc>
+      <defs>
+        <marker id="boundary-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6c88ad"/></marker>
+        <marker id="boundary-arrow-blue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#1688f2"/></marker>
+        <marker id="boundary-arrow-orange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#ff8124"/></marker>
+      </defs>
+      <rect width="1280" height="720" fill="#f7faff"/>
+
+      <rect x="40" y="56" width="1200" height="536" rx="8" fill="#ffffff" stroke="#d7e4f3"/>
+      <text x="80" y="96" fill="#53749f" font-size="12" font-family="'Geist Mono', monospace" letter-spacing="2">IMPLEMENTATION</text>
+      <text x="424" y="96" fill="#1688f2" font-size="12" font-family="'Geist Mono', monospace" letter-spacing="2">INDEPENDENT CHECKS</text>
+      <text x="816" y="96" fill="#ff8124" font-size="12" font-family="'Geist Mono', monospace" letter-spacing="2">HUMAN + DETERMINISTIC GATE</text>
+
+      <path d="M320 304 H360 Q368 304 368 296 V152 Q368 144 376 144 H424" fill="none" stroke="#1688f2" stroke-width="2" marker-end="url(#boundary-arrow-blue)"/>
+      <path d="M320 336 H360 Q368 336 368 344 V496 Q368 504 376 504 H424" fill="none" stroke="#1688f2" stroke-width="2" marker-end="url(#boundary-arrow-blue)"/>
+      <line x1="664" y1="144" x2="816" y2="144" stroke="#6c88ad" stroke-width="2" marker-end="url(#boundary-arrow)"/>
+      <path d="M664 480 H736 Q744 480 744 472 V160 Q744 152 752 152 H816" fill="none" stroke="#6c88ad" stroke-width="2" marker-end="url(#boundary-arrow)"/>
+      <line x1="936" y1="184" x2="936" y2="456" stroke="#ff8124" stroke-width="2" marker-end="url(#boundary-arrow-orange)"/>
+      <line x1="664" y1="504" x2="816" y2="504" stroke="#6c88ad" stroke-width="2" marker-end="url(#boundary-arrow)"/>
+
+      <rect x="332" y="208" width="128" height="20" rx="4" fill="#ffffff"/><text x="396" y="222" text-anchor="middle" fill="#1688f2" font-size="12" font-family="'Geist Mono', monospace">AC + EVIDENCE</text>
+      <rect x="328" y="400" width="136" height="20" rx="4" fill="#ffffff"/><text x="396" y="414" text-anchor="middle" fill="#1688f2" font-size="12" font-family="'Geist Mono', monospace">FINAL DIFF</text>
+      <rect x="852" y="304" width="168" height="20" rx="4" fill="#ffffff"/><text x="936" y="318" text-anchor="middle" fill="#ff8124" font-size="12" font-family="'Geist Mono', monospace">EXPLICIT APPROVAL</text>
+
+      <g font-family="'Geist', 'Noto Sans KR', sans-serif" text-anchor="middle">
+        <g><rect x="80" y="272" width="240" height="96" rx="8" fill="#eef7ff" stroke="#1688f2" stroke-width="2"/><text x="200" y="308" fill="#0b2248" font-size="20" font-weight="600">Main Agent</text><text x="200" y="336" fill="#53749f" font-size="16">구현 · 근거 수집 · Finding 처리</text></g>
+        <g><rect x="424" y="104" width="240" height="80" rx="8" fill="#ffffff" stroke="#1688f2"/><text x="544" y="136" fill="#0b2248" font-size="20" font-weight="600">Verifier</text><text x="544" y="164" fill="#53749f" font-size="16">수용 기준 ↔ Evidence 감사</text></g>
+        <g><rect x="424" y="456" width="240" height="96" rx="8" fill="#ffffff" stroke="#1688f2"/><text x="544" y="492" fill="#0b2248" font-size="20" font-weight="600">Reviewer</text><text x="544" y="520" fill="#53749f" font-size="16">최종 변경의 결함 · 회귀 검토</text><text x="544" y="540" fill="#53749f" font-size="12">구현 맥락과 분리된 판단</text></g>
+        <g><rect x="816" y="104" width="240" height="80" rx="8" fill="#fff4ea" stroke="#ff8124" stroke-width="2"/><text x="936" y="136" fill="#0b2248" font-size="20" font-weight="600">Human</text><text x="936" y="164" fill="#b6530d" font-size="16">의도 · 위험 수용 · Git 승인</text></g>
+        <g><rect x="816" y="456" width="240" height="96" rx="8" fill="#ffffff" stroke="#6c88ad"/><text x="936" y="492" fill="#0b2248" font-size="20" font-weight="600">Local Review Gate</text><text x="936" y="520" fill="#53749f" font-size="16">reviewed fingerprint = current diff</text><text x="936" y="540" fill="#53749f" font-size="12">일치하면 허용 · 아니면 차단</text></g>
+      </g>
+
+      <line x1="40" y1="624" x2="1240" y2="624" stroke="#d7e4f3"/>
+      <text x="40" y="664" fill="#0b2248" font-size="16" font-family="'Geist', 'Noto Sans KR', sans-serif" font-weight="600">Verifier와 Reviewer는 서로 다른 질문을 확인합니다. Review Gate도 사람의 승인이나 원격 보호 규칙을 대신하지 않습니다.</text>
+    </svg>

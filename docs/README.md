@@ -12,6 +12,7 @@
 2. [왜 V2인가](story/why-v2.md) — 무엇을 바꾸고 왜 바꾸는가
 3. [개요](overview.md) — 무엇을 만들려는가
 4. [로드맵](roadmap.md) — 어떤 순서로 가는가
+5. [설치 계약](installation.md) — 새 프로젝트에 OwnHands를 안전하게 연결하고 진단하는 방법
 
 ### 설계 검토
 
@@ -28,6 +29,7 @@
 3. [Codex 공식 문서 확인](references/codex-official.md) — 확인된 것과 미확인의 구분
 4. [개요](overview.md) — Skill·Reference·Agent·Script의 책임 구분
 5. [로드맵](roadmap.md) — 현재 마일스톤과 선행 조건
+6. [설치 계약](installation.md) — `npx ownhands init/doctor`, 병합·제거·검증 경계
 
 대신 확정하지 말 것: Company 정책 우선순위, Skill 이름·수, 초기 Agent 역할·수, 다른 vendor 지원 방식, Eval 지표, 마일스톤 내부 설계.
 
@@ -47,6 +49,7 @@ docs/
 ├── overview.md                큰 구조와 책임 관계
 ├── roadmap.md                 실행 순서와 각 단계의 남겨둔 결정
 ├── development-method.md      각 단계 진행 방식
+├── installation.md            npx bootstrap 설치·진단·수동 제거 계약
 ├── adr/                       아키텍처 결정 기록 (ADR-0001 ~ ADR-0008)
 ├── specs/                     의도(intent), 명세(spec), 실행 계획(plan) 산출물
 ├── research/                  마일스톤별 1차 공식 자료 조사 보고서

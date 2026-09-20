@@ -40,5 +40,11 @@ description: Sharpens development intent and technical specifications into OwnHa
    - 승인된 Intent와 수집된 팩트를 기반으로 Requirements, Architecture, Edge cases, Acceptance criteria를 `docs/specs/<feature-name>/spec.md`로 작성한다. 상단에 `- 기반 Intent: intent.md` 헤더를 반드시 유지한다.
 9. **Human Checkpoint 2**:
    - 작성된 `spec.md`에 대해 사용자의 엔지니어링 검토 및 승인을 받는다.
+10. **Codex native Plan Mode handoff (Heavy Flow)**:
+   - 승인된 Spec을 입력으로 Codex native Plan Mode에서 구현 순서, 변경 범위, 검증 전략을 만든다. 현재 Agent가 직접 전환할 수 없다면 사용자에게 `/plan` 또는 `Shift+Tab`으로 Plan Mode 전환이 필요하다고 안내하고 여기서 중단한다.
+   - Plan Mode 결과를 사용자가 승인하기 전에는 Build로 이동하지 않는다. 승인 후에만 결과를 `plan.md`의 `Approved` durable artifact로 보존하고 `build`로 인계한다. `plan.md`는 Plan Mode 자체를 대체하지 않는다.
+   - 오타·좁은 단순 수정처럼 intent/spec/plan heavy flow 적용 대상이 아닌 trivial change에는 이 전체 절차를 강제하지 않는다.
+
+Researcher를 위임할 때는 `.codex/agents/model-policy.md`의 역할 기본값 또는 위험 기반 override를 선택하고 model과 reasoning effort를 모두 명시한다.
 
 Section Review 대상 판별과 3-way 처리, 세부 인터뷰 지침, Upstream 도구 fallback 계약, 추적성 매핑 규칙은 `references/interview-guide.md`를 참고한다.
