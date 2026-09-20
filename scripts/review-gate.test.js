@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { execFileSync, spawnSync } = require('node:child_process');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -264,6 +265,18 @@ test('fingerprint hashes an untracked symlink itself without reading its target'
   const repo = makeRepo();
   fs.symlinkSync('/definitely/missing/secret', path.join(repo, 'outside-link'));
   const result = run(repo, ['fingerprint', '--base', 'HEAD']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout.trim(), /^[a-f0-9]{64}$/);
+});
+
+test('fingerprint handles a committed binary diff larger than the child-process default buffer', () => {
+  const repo = makeRepo();
+  const base = git(repo, 'rev-parse', 'HEAD');
+  fs.writeFileSync(path.join(repo, 'large.bin'), crypto.randomBytes(1_500_000));
+  git(repo, 'add', 'large.bin');
+  git(repo, 'commit', '-m', 'large binary');
+
+  const result = run(repo, ['fingerprint', '--base', base]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout.trim(), /^[a-f0-9]{64}$/);
 });

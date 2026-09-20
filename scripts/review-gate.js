@@ -23,7 +23,11 @@ const SHELL_CONTROL = '[;&|()\\r\\n]';
 class UsageError extends Error {}
 
 function git(args, cwd = process.cwd()) {
-  return execFileSync('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+  return execFileSync('git', args, {
+    cwd,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 64 * 1024 * 1024,
+  });
 }
 
 function textGit(args, cwd) {
