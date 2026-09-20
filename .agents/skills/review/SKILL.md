@@ -18,7 +18,7 @@ Reviewer 요청은 최소 Packet으로 제한하고, 받은 Finding은 근거로
 ## 작업 절차
 
 1. 승인된 `spec.md`·`plan.md`와 `verify`·`verifier` 결과를 확인한다. 필수 AC의 `FAIL`은 중단한다. `UNOBSERVED`는 해당 Gate에서 누락 Evidence·확보 불가 사유·위험을 보여주고 사용자의 명시적 override를 받아야 한다.
-2. [`references/review-governance.md`](references/review-governance.md)를 읽고 기존 read-only `reviewer`에게 최소 Review Packet을 전달한다.
+2. [`references/review-governance.md`](references/review-governance.md)와 `.codex/agents/model-policy.md`를 읽고 위험 tier의 model과 reasoning effort를 모두 명시해 read-only `reviewer`에게 최소 Review Packet을 전달하며 요청 provenance를 기록한다.
 3. 각 Finding을 저장소 Fact·승인된 Spec·Evidence로 판정하고 `plan.md`의 `Review Results`에 `Status`와 `Resolution`을 분리해 기록한다.
 4. 필요한 수정과 Fresh Evidence, targeted re-review를 끝낸 뒤 현재 최종 diff의 fingerprint를 Reviewer가 확인하게 한다.
 5. 마지막 Reviewer 관측 뒤 diff가 바뀌지 않았고 미해결 Finding이 없을 때만 로컬 Review Evidence를 기록한다.

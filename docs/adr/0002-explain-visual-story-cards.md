@@ -1,6 +1,6 @@
 # ADR-0002 — Explain 스킬의 ELI5 시각 모델 수용 및 도메인 어휘 보존
 
-- **상태:** Accepted — 사용자 합의 (2026-09-20 #138 정제: 명시적으로 HTML/아티팩트를 요청한 경우에만 적용)
+- **상태:** Accepted — 사용자 합의 (2026-09-20 hardening: 명시적 `$explain`은 HTML visual artifact 기본)
 - **일자:** 2026-09-18
 - **관련 Issue:** [#106](https://github.com/taejung3852/OwnHands/issues/106) (선행: [#103](https://github.com/taejung3852/OwnHands/issues/103), [#104](https://github.com/taejung3852/OwnHands/issues/104))
 
@@ -29,7 +29,7 @@
 
 ## 2. Decision (결정)
 
-`explain`은 사용자가 스킬을 명시적으로 선택했을 때만 사용한다. 그중 HTML이나 별도 아티팩트를 요청한 경우, 산출물 구조를 **"ELI5의 시각적 스토리 카드 UX + 정확한 엔지니어링 도메인 어휘"**의 결합 모델로 적용한다.
+일반적인 “설명해줘”는 normal response로 유지하고, 사용자가 `$explain`·`/explain`처럼 Skill을 명시적으로 선택하면 기존 [`shape.md`](../../.agents/skills/explain/references/shape.md)를 재사용한 단일 HTML visual artifact를 기본으로 만든다. 명시적 text-only 요청 또는 artifact 쓰기·표시가 부적절한 환경에서는 이유를 알리고 text fallback을 제공한다. 새 renderer, framework, visual runtime은 추가하지 않는다.
 
 | 구성 요소 | 설계 내용 | 채택 이유 |
 |---|---|---|

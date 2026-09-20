@@ -73,6 +73,25 @@ test('a regression never overwrites the approved baseline', () => {
   assert.equal(fs.readFileSync(baselinePath, 'utf8'), before);
 });
 
+test('static-only cannot update an unexecuted runtime baseline', () => {
+  const root = createFixture({
+    id: 'TEST-RUNTIME-BASELINE',
+    name: 'runtime baseline guard',
+    execution_mode: 'runtime',
+    runtime_contract: {
+      scenarios: [{ id: 'P1', prompt: 'runtime observation' }]
+    }
+  });
+  const baselinePath = path.join(root, 'docs', 'evals', 'baselines', 'current.json');
+  const before = fs.readFileSync(baselinePath);
+
+  const result = runFixture(root, ['--static-only', '--update-baseline']);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /cannot update.*baseline/i);
+  assert.deepEqual(fs.readFileSync(baselinePath), before);
+});
+
 test('output_not_contains rejects an observable forbidden output', () => {
   const root = createFixture({
     id: 'TEST-NEGATIVE',
@@ -150,6 +169,35 @@ test('runtime scenario uses the task read-only sandbox', () => {
 
   assert.equal(result.status, 0);
   assert.match(result.codexArgs, /--sandbox read-only/);
+});
+
+test('subagent runtime dispatch names the requested model, effort, and selection basis', () => {
+  const root = createFixture({
+    id: 'TEST-EXPLICIT-DISPATCH',
+    name: 'explicit subagent dispatch',
+    execution_mode: 'runtime',
+    sandbox_mode: 'read-only',
+    runtime_contract: {
+      agent: 'verifier',
+      requested_model: 'gpt-5.6-sol',
+      requested_reasoning_effort: 'high',
+      selection_basis: 'default',
+      prompt: 'audit the evidence',
+      allow_repo_mutation: false
+    }
+  });
+  const output = JSON.stringify({
+    type: 'item.completed',
+    item: { type: 'agent_message', text: 'audit complete' }
+  });
+
+  const result = runFixture(root, [], output);
+
+  assert.equal(result.status, 0);
+  assert.match(result.codexArgs, /agent_role=verifier/);
+  assert.match(result.codexArgs, /requested_model=gpt-5\.6-sol/);
+  assert.match(result.codexArgs, /requested_reasoning_effort=high/);
+  assert.match(result.codexArgs, /selection_basis=default/);
 });
 
 test('scenario mutation policy rejects repository changes', () => {

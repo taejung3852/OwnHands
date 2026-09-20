@@ -50,6 +50,12 @@ docs/specs/<feature-name>/
 - `plan.md`는 임시 메모가 아니며, 기능 브랜치 작업과 함께 커밋되어 PR 머지 시 저장소 메인 히스토리에 영구 보존된다.
 - 이를 통해 **"의도(Why) ➔ 설계(What) ➔ 계획(How) ➔ 검증(Evidence)"**의 전 생명주기 감사 추적성(Audit Trail)을 완성한다.
 
+### 2.1.1 Native Plan Mode 인계
+
+Heavy flow는 `spec 승인 → Codex native Plan Mode → 사용자 계획 승인 → plan.md 보존 → Build` 순서를 따른다. Agent가 직접 Plan Mode로 전환할 수 없으면 `/plan` 또는 `Shift+Tab` 전환을 안내하고 중단한다. Plan 승인 전에 구현하지 않으며 Plan Mode를 사용한 척하지 않는다.
+
+`plan.md`는 승인된 계획의 **durable artifact**로서 감사 추적성과 다음 세션 인계를 제공하지만 native Plan Mode 자체를 대체하지 않는다. 오타나 좁은 단순 수정처럼 기존 Thin Harness에서 heavy flow 적용 대상이 아닌 trivial change에는 이 전체 체인을 강제하지 않는다.
+
 ---
 
 ### 2.2 `plan.md` 규격 — "실행 단위 분해와 신선한 증거"

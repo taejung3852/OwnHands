@@ -20,7 +20,7 @@
         "required_files": [
           ".agents/skills/explain/agents/openai.yaml"
         ],
-        "required_skills": ["write-issue-pr", "explain", "grill-spec", "verify"],
+        "required_skills": ["write-issue-pr", "explain", "grill-spec", "verify", "build", "review", "feedback"],
         "file_assertions": [
           {
             "file": ".agents/skills/write-issue-pr/SKILL.md",
@@ -33,6 +33,15 @@
             "file": ".agents/skills/explain/agents/openai.yaml",
             "contains": [
               "allow_implicit_invocation: false"
+            ]
+          },
+          {
+            "file": ".agents/skills/explain/SKILL.md",
+            "contains": [
+              "HTML visual artifact",
+              "references/shape.md",
+              "text-only",
+              "fallback"
             ]
           }
         ]
@@ -56,9 +65,9 @@
           },
           {
             "id": "P3",
-            "prompt": "$explain 지금 우리 상황 정리해줘",
+            "prompt": "$explain 지금 우리 상황을 text-only로 정리해줘",
             "expected_skill": "explain",
-            "expected_behavior": "explain 스킬을 사용한 이해하기 쉬운 상황 설명",
+            "expected_behavior": "명시적 text-only 요청에 따른 explain 텍스트 fallback",
             "output_contains": ["현재", "핵심"]
           },
           {
@@ -110,7 +119,8 @@
         "required_files": [
           ".codex/agents/verifier.toml",
           ".codex/agents/reviewer.toml",
-          ".codex/agents/researcher.toml"
+          ".codex/agents/researcher.toml",
+          ".codex/agents/model-policy.md"
         ],
         "file_assertions": [
           {
@@ -123,12 +133,35 @@
               "Before Baseline Audit",
               "Output Contract"
             ],
-            "not_contains": ["PARTIAL PASS"]
+            "not_contains": ["PARTIAL PASS", "model =", "model_reasoning_effort"]
+          },
+          {
+            "file": ".codex/agents/reviewer.toml",
+            "contains": ["sandbox_mode = \"read-only\""],
+            "not_contains": ["model =", "model_reasoning_effort"]
+          },
+          {
+            "file": ".codex/agents/researcher.toml",
+            "contains": ["sandbox_mode = \"read-only\""],
+            "not_contains": ["model =", "model_reasoning_effort"]
+          },
+          {
+            "file": ".codex/agents/model-policy.md",
+            "contains": [
+              "gpt-5.6-terra` / `medium",
+              "gpt-5.6-sol` / `high",
+              "gpt-6-astra` / `high",
+              "selection_basis",
+              "UNOBSERVED"
+            ]
           }
         ]
       },
       "runtime_contract": {
         "agent": "verifier",
+        "requested_model": "gpt-5.6-sol",
+        "requested_reasoning_effort": "high",
+        "selection_basis": "default",
         "prompt": "docs/specs/grill-spec/spec.md 와 fresh evidence를 감사하여 3-State 판정 보고서를 작성하라.",
         "required_judgments": ["PASS", "FAIL", "UNOBSERVED"],
         "forbidden_judgments": ["PARTIAL PASS"],
@@ -157,6 +190,7 @@
           {
             "file": ".codex/agents/researcher.toml",
             "contains": [
+              "sandbox_mode = \"read-only\"",
               "primary sources",
               "confirmed facts",
               "gaps",
@@ -167,6 +201,9 @@
       },
       "runtime_contract": {
         "agent": "researcher",
+        "requested_model": "gpt-5.6-terra",
+        "requested_reasoning_effort": "medium",
+        "selection_basis": "default",
         "prompt": "Codex 공식 non-interactive mode의 지원 플래그와 제약을 1차 출처 위주로 조사하여 결과를 반환하라.",
         "require_primary_source_url": true,
         "require_fact_gap_separation": true,
@@ -190,11 +227,15 @@
         "required_files": [
           ".agents/skills/grill-spec/SKILL.md",
           ".agents/skills/grill-spec/references/interview-guide.md",
+          ".agents/skills/build/SKILL.md",
+          "docs/adr/0007-plan-artifact-and-build-feedback-loop.md",
           "docs/specs/grill-spec/spec.md",
           "docs/specs/grill-spec/intent.md"
         ],
         "file_assertions": [
-          { "file": ".agents/skills/grill-spec/SKILL.md", "contains": ["name: grill-spec", "Checkpoint 1", "Checkpoint 2", "Decision-bearing section", "Spec Fact & Decision Review"] },
+          { "file": ".agents/skills/grill-spec/SKILL.md", "contains": ["name: grill-spec", "Checkpoint 1", "Checkpoint 2", "Decision-bearing section", "Spec Fact & Decision Review", "Codex native Plan Mode", "/plan", "Shift+Tab"] },
+          { "file": ".agents/skills/build/SKILL.md", "contains": ["Codex native Plan Mode", "Approved"] },
+          { "file": "docs/adr/0007-plan-artifact-and-build-feedback-loop.md", "contains": ["Plan Mode", "durable artifact"] },
           { "file": ".agents/skills/grill-spec/references/interview-guide.md", "contains": ["MIT License", "ROUTE-B", "ROUTE-C", "Fact", "Decision-bearing Section Review Loop", "3-way 응답 계약", "Open Question", "Decision Card", "intent-only", "spec-from-intent", "full-flow"] },
           { "file": "docs/specs/grill-spec/spec.md", "contains": ["기반 Intent:"] },
           { "file": "docs/specs/grill-spec/intent.md", "contains": ["Non-goals", "Constraints"] }
@@ -227,6 +268,9 @@
         },
         "runtime_audit": {
           "agent": "verifier",
+          "requested_model": "gpt-5.6-sol",
+          "requested_reasoning_effort": "high",
+          "selection_basis": "default",
           "prompt": "docs/specs/grill-spec/spec.md 와 Fresh Evidence를 감사하고 7대 AC 역추적 판정 보고서를 작성하라.",
           "spec_file": "docs/specs/grill-spec/spec.md",
           "expected_overall_verdict": "UNOBSERVED",

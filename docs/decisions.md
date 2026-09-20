@@ -71,7 +71,7 @@
 | **공통 규율의 자리** | 기본은 **각 Skill 안**이다. `AGENTS.md`에는 반복해서 고쳐야 했던 규칙뿐 아니라, 공통 저장소 진입 규칙처럼 여러 Build 작업에 적용돼야 하는 **최소 라우팅**을 둘 수 있다. 이는 OwnHands의 결정이며 공식 요구가 아니다. | ✅ |
 | **`AGENTS.md`의 현재 내용** | 공식 결정과 OwnHands 결정을 분리하는 규칙, GORE와 `docs/specs/` 규약, 승인된 구현의 `build` 라우팅과 검증 완료 변경의 `review` 라우팅을 둔다. 두 문장은 여러 작업에 적용되는 공통 진입점으로 사용자 승인됐다. | ✅ |
 | **Claude Code 대응** | `CLAUDE.md`는 `@AGENTS.md` **한 줄 import**다. 공식이 제시한 패턴이고, 내용을 두 벌로 관리하지 않는다. Claude Code는 `AGENTS.md`를 직접 읽지 않는다. | ✅ |
-| **Explain의 출력 형태** | 명시적으로 선택된 `explain`은 우선 대화에서 큰 그림·비유·짧은 단계로 설명한다. 사용자가 HTML이나 별도 아티팩트를 요청한 경우에만 ELI5 시각 모델을 적용한다 ([ADR-0002](adr/0002-explain-visual-story-cards.md)). | ✅ `shape.md` |
+| **Explain의 출력 형태** | 일반 “설명해줘”는 normal response다. 명시적 `$explain`은 `shape.md` 기반 HTML visual artifact가 기본이며, text-only 요청 또는 artifact가 부적절한 환경에서만 이유를 알리고 text fallback한다 ([ADR-0002](adr/0002-explain-visual-story-cards.md)). | ✅ `shape.md` |
 | **링크 전달 방식** | 스킴을 고정하지 않는다. 표면이 정한다 — Codex는 `file_opener`(기본 `vscode`)로 정하고, 렌더링하는 표면은 직접 표시한다. | ✅ |
 
 > ⚠️ **개수 제한은 실제 수치다.** Skill 목록 예산의 천장은 **10,000 토큰**이고(`skills.max_context_tokens`의 명시값 상한), 초과하면 description이 깎이는 데 그치지 않고 **Skill이 목록에서 빠진다.** → [Codex 공식 문서 §2.5](references/codex-official.md)
@@ -101,6 +101,7 @@
 |---|---|---|
 | **저장 위치** | `docs/specs/<feature-name>/plan.md` 아래 영구 Git 아티팩트로 보존. (`intent` ➔ `spec` ➔ `plan` 3단계 체인) | ✅ `specs/README.md` |
 | **`plan.md` 규격** | **"실행 단위 분해와 신선한 증거"**. 대상 파일(Blast Radius Guard), 작은 작업 분해(Task Breakdown), 양방향 추적성 매핑, 신선한 증거 체크리스트 필수 기술. | ✅ `ADR-0007` |
+| **Plan Mode 인계** | Heavy flow는 Spec 승인 뒤 Codex native Plan Mode와 사용자 계획 승인을 거쳐 `plan.md`를 durable artifact로 보존한 후 Build한다. 전환 불가 시 안내하고 중단하며 trivial change 면제는 유지한다. | ✅ `ADR-0007` |
 | **위계 구조** | **SDD > Verification Strategy > TDD**. 스펙이 상위 계약이며, TDD는 실행 가능한 로직을 위한 단위 피드백 루프로 배치 (OwnHands 자체 설계). | ✅ `ADR-0007` |
 | **수용 기준 매핑** | AC-테스트 1:1 강제 안티패턴을 배제하고, ISTQB 블랙박스 기법(동등분할/경계값 분석) 및 양방향 추적성에 따라 유연 매핑 (1:N, N:1 허용). | ✅ `ADR-0007` |
 | **신선한 증거 (Iron Law)** | 직접 관측된 최신 증거(테스트 출력, 스크린샷, 정적 검사 무에러 등) 없이는 완료 주장을 할 수 없다. (자가합리화 및 허위 통과 차단) | ✅ `ADR-0007` |
@@ -162,7 +163,8 @@
 | **역할과 개수** | **3개** (`verifier`, `reviewer`, `researcher`). | ✅ `.codex/agents/*.toml` |
 | **`verifier`** | 독립 수용성 검증 및 테스트 판정 전담. 구현자(부모)의 편향·자기합리화 차단 목적. `sandbox_mode = "read-only"`. | ✅ |
 | **`reviewer`** | Git diff 및 프로젝트 규율(`AGENTS.md`) 검토 전담. `sandbox_mode = "read-only"`. | ✅ |
-| **`researcher`** | 대량의 웹/문서 자료 조사 및 요약 전담. 메인 컨텍스트 윈도우 오염 방지 목적. | ✅ |
+| **`researcher`** | 대량의 웹/문서 자료 조사 및 요약 전담. 메인 컨텍스트 윈도우 오염 방지 목적. `sandbox_mode = "read-only"`. | ✅ |
+| **Model / reasoning** | TOML에는 model/effort를 고정하지 않고 `.codex/agents/model-policy.md`의 역할별 기본 pair와 위험 기반 override를 모든 dispatch에서 명시한다. 실제 값이 관측되지 않으면 `UNOBSERVED`다. | ✅ |
 | **Build 전담** | 보류. 별도 커스텀 에이전트를 만들지 않고 필요시 Codex 내장 `worker`를 호출한다. | — |
 | **Writer 전담** | 기각. `explain`과 `write-issue-pr`은 세션 맥락 직렬화 오버헤드를 피하기 위해 기존 **Skill 체제를 유지**한다. | — |
 
@@ -199,7 +201,7 @@
 |---|---|---|
 | *(현재 열린 결정 항목 없음)* | 2026-09-19: M5 Continuous Evals 체계 및 Task Set 규격(ADR-0009) 사용자 승인으로 확정. | ✅ [ADR-0009](adr/0009-continuous-evals-task-set-and-runner.md) |
 
-> ⚠️ `write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`·`review`는 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
+> ⚠️ `write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`·`review`·`feedback`은 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
 > 그 밖에 문서에 보이는 `intent`, `design` 같은 표현은
 > **역할 설명 또는 후보이지 확정된 이름이 아니다.**
 

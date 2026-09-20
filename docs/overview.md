@@ -1,8 +1,8 @@
 # V2 개요 — 무엇을 만들려는가
 
 > 이 문서는 **책임 관계의 지도**다. 구현 완료 보고가 아니다.
-> 2026-09-17 기준 V2에 존재하는 실행 자산은 Skill 2개(`write-issue-pr`·`explain`)뿐이고,
-> 그 외 제품 기능은 미구현이다. → [결정 상태표](decisions.md)
+> 2026-09-20 기준 V2에는 Skill 7개, custom Subagent 3개, Eval·Review Gate와 bootstrap source가 있다.
+> 공개 npm 설치, Hook trust, 실제 제품 E2E는 아직 `UNOBSERVED`다. → [결정 상태표](decisions.md)
 
 ---
 
@@ -35,7 +35,7 @@ flowchart LR
 |---|---|
 | **Plan** | 문제·목표·제약·범위를 정리한다. `intent.md`가 중심이다. |
 | **Design** | Intent와 적용 정책을 바탕으로 요구·구조·수용 조건을 정한다. `spec.md`가 중심이다. |
-| **Build** | 코드베이스에 맞는 구현 계획을 정리하고 구현·실행·확인·수정을 반복한다. `plan.md`와 코드가 중심이다. |
+| **Build** | 승인된 Spec을 Codex native Plan Mode에서 구현 계획으로 구체화하고 사용자 승인 뒤 `plan.md`로 보존한 다음 구현·확인을 반복한다. |
 | **Test** | 필요한 검증 패턴을 적용하고, 확인한 결과·근거·남은 빈틈을 구분한다. |
 | **Deploy** | PR 검토·자동 검사·사람의 판단·배포 권한과 절차를 연결한다. |
 | **Maintain** | 운영·사용·개발 경험에서 다음 Intent와 Eval 사례로 이어지는 피드백을 얻는다. |
@@ -55,11 +55,8 @@ flowchart LR
 | `spec.md` | **어떤 설계로** 무엇을 만족시킬 것인가? |
 | `plan.md` | **현재 코드에서 어떻게** 구현할 것인가? |
 
-⏳ 정확한 저장 경로·메타데이터·자동화 규칙은 **미정**이다.
-
 > ⚠️ Plan Stage와 코딩 에이전트의 계획 기능을 혼동하지 않는다.
-> 특정 호스트의 Plan Mode를 사용했다고 프로젝트의 `plan.md` 저장과 검토가 자동으로 끝난다고 가정하지 않는다.
-> Codex에서의 실제 방법은 공식 문서 기반 후속 이슈에서 결정한다.
+> Heavy flow에서는 Spec 승인 뒤 Codex native Plan Mode를 사용하고, 계획을 사람이 승인한 뒤에만 `plan.md` durable artifact로 보존해 Build로 이동한다. Plan Mode 전환이 불가능하면 `/plan` 또는 `Shift+Tab`을 안내하고 중단한다. 사소한 변경에는 전체 heavy flow를 강제하지 않는다.
 
 ---
 
@@ -85,8 +82,8 @@ flowchart LR
 > Codex는 Skills·Hooks·Subagents·MCP를 네이티브로 제공한다(확인일 2026-09-16).
 > 이 구분을 **직접 구현할 필요는 없고, 무엇을 어디에 둘지 결정하면 된다.** → [Codex 공식 문서](references/codex-official.md)
 
-✅ Skill의 이름·수는 **2026-09-17에 확정됐다** — `write-issue-pr`·`explain` 2개. → [결정 상태표 §1](decisions.md)
-💬 초기 Agent 역할·수는 여전히 **사용자와 결정한다.** → [#104](https://github.com/taejung3852/OwnHands/issues/104)
+✅ 현재 Skill은 `write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`·`review`·`feedback` 7개다. → [결정 상태표 §1](decisions.md)
+✅ custom Agent는 `researcher`·`verifier`·`reviewer` 3개이며 명시적 model policy와 read-only 기본 sandbox를 사용한다. → [ADR-0001](adr/0001-initial-subagent-roles.md)
 
 ---
 
@@ -148,8 +145,7 @@ Agent System Eval       →  시스템이 나아졌는지 비교
 대화에 한두 문장  +  그림 위주의 HTML 페이지
 ```
 
-> 출력 형태는 2026-09-17에 **HTML 페이지를 기본으로** 확정했다. 대화에는 한두 문장만 두고
-> 나머지는 페이지로 낸다. 사람이 가장 짧은 시간에 이해하는 것이 이 기능의 판정 기준이기 때문이다.
+> 일반 “설명해줘”는 normal response다. 명시적 `$explain`은 **HTML 페이지를 기본으로** 하며 대화에는 한두 문장만 두고 나머지는 `shape.md` 기반 페이지로 낸다. text-only 요청이나 artifact가 부적절한 환경만 text fallback한다.
 > → [결정 상태표](decisions.md) · 구현은 `.agents/skills/explain/`
 
 **V2에서 바뀐 것**

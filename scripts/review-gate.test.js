@@ -37,6 +37,7 @@ function makeRepo(findings = '') {
   git(repo, 'init', '-b', 'main');
   git(repo, 'config', 'user.email', 'test@example.com');
   git(repo, 'config', 'user.name', 'OwnHands Test');
+  git(repo, 'remote', 'add', 'origin', 'https://github.com/example/repo.git');
   const planPath = path.join(repo, 'docs/specs/feature/plan.md');
   fs.mkdirSync(path.dirname(planPath), { recursive: true });
   fs.writeFileSync(planPath, plan(findings));
@@ -156,6 +157,56 @@ test('record rejects rejected-with-evidence without concrete support', () => {
   const repo = makeRepo(finding({ evidence: '' }));
   const result = record(repo);
   assert.equal(result.status, 1);
+});
+
+test('record ignores fenced Review Results examples and reads the real section', () => {
+  for (const fence of ['```', '~~~']) {
+    const repo = makeRepo();
+    const planPath = path.join(repo, 'docs/specs/feature/plan.md');
+    fs.writeFileSync(planPath, [
+      '# Plan',
+      '',
+      `${fence}markdown`,
+      '## Review Results',
+      finding(),
+      fence,
+      '',
+      '## Review Results',
+      '',
+      finding({ status: 'accepted', resolution: 'open' }),
+    ].join('\n'));
+
+    const result = record(repo, fingerprint(repo));
+    assert.equal(result.status, 1, `${fence} fence must not become the source of truth`);
+    assert.equal(fs.existsSync(evidencePath(repo)), false);
+  }
+});
+
+test('record rejects multiple real Review Results sections', () => {
+  const repo = makeRepo();
+  const planPath = path.join(repo, 'docs/specs/feature/plan.md');
+  fs.writeFileSync(planPath, `${plan(finding())}\n\n## Review Results\n\n${finding({ id: 'F-02' })}`);
+
+  const result = record(repo, fingerprint(repo));
+  assert.equal(result.status, 1);
+  assert.equal(fs.existsSync(evidencePath(repo)), false);
+});
+
+test('record rejects required finding fields whose value is on the next field line', () => {
+  const cases = [
+    finding({ reason: '' }),
+    finding({ evidence: '' }).replace(
+      '- **Evidence**:\n  \n',
+      '- **Evidence**:\n- **Notes**: not evidence\n',
+    ),
+  ];
+
+  for (const findingBody of cases) {
+    const repo = makeRepo(findingBody);
+    const result = record(repo);
+    assert.equal(result.status, 1);
+    assert.equal(fs.existsSync(evidencePath(repo)), false);
+  }
 });
 
 test('record rejects unresolved accepted and needs-human findings', () => {
@@ -288,18 +339,81 @@ test('check-hook allows valid evidence and denies it after the diff changes', ()
   const repo = makeRepo();
   assert.equal(record(repo).status, 0);
 
-  const allowed = hook(repo, 'git push --dry-run');
-  assert.equal(allowed.status, 0, allowed.stderr);
-  assert.equal(allowed.stdout, '');
+  for (const command of [
+    'git push --dry-run',
+    'gh pr create --title "fix(auth): validate" --body "ok"',
+    'echo "example; git push"',
+  ]) {
+    const allowed = hook(repo, command);
+    assert.equal(allowed.status, 0, allowed.stderr);
+    assert.equal(allowed.stdout, '', command);
+  }
 
   for (const command of [
     'git commit --allow-empty -m late && git push',
+    'git commit --allow-empty -m late; git push',
+    'git commit --allow-empty -m late || git push',
     'printf change | git push',
     'printf change & git push',
+    'printf change\ngit push',
+    '(git push)',
+    'git push origin "$(printf changed > tracked.txt)"',
+    'git push origin "`printf changed > tracked.txt`"',
+    'git push origin `printf changed > tracked.txt`',
   ]) {
     assertDenied(hook(repo, command));
   }
 
   fs.writeFileSync(path.join(repo, 'later.txt'), 'change\n');
   assertDenied(hook(repo, 'gh pr create --fill'));
+});
+
+test('check-hook requires external Git targets to match the reviewed repository', () => {
+  const repo = makeRepo();
+  const otherRepo = makeRepo();
+  git(otherRepo, 'remote', 'set-url', 'origin', 'https://github.com/example/other.git');
+  assert.equal(record(repo).status, 0);
+
+  for (const command of [
+    `git -C "${repo}" push --dry-run`,
+    'git push origin main --dry-run',
+    'git push git@github.com:example/repo.git main --dry-run',
+    'gh pr create --repo example/repo --fill',
+    'gh pr merge 148 -R example/repo --merge',
+  ]) {
+    const allowed = hook(repo, command);
+    assert.equal(allowed.status, 0, allowed.stderr);
+    assert.equal(allowed.stdout, '', command);
+  }
+
+  for (const command of [
+    `git -C "${otherRepo}" push --dry-run`,
+    'git push https://github.com/example/other.git main',
+    'git push --repo',
+    'gh pr create --repo example/other --fill',
+    'gh pr create --repo=example/other --fill',
+    'gh pr create --repo',
+    'gh pr merge 148 -R example/other --merge',
+    'gh pr merge 148 -Rexample/other --merge',
+    'gh -R example/other pr create --fill',
+    'gh --repo example/other pr merge 148 --merge',
+    'gh pr -R example/other merge 148 --merge',
+    'gh pr merge https://github.com/example/other/pull/148 --merge',
+    'git push example/repo main',
+  ]) {
+    assertDenied(hook(repo, command));
+  }
+});
+
+test('check-hook resolves the effective Git push destination', () => {
+  const repo = makeRepo();
+  assert.equal(record(repo).status, 0);
+
+  git(repo, 'remote', 'set-url', '--add', '--push', 'origin', 'https://github.com/example/other.git');
+  assertDenied(hook(repo, 'git push origin --dry-run'));
+  assertDenied(hook(repo, 'git push --dry-run'));
+
+  git(repo, 'remote', 'set-url', '--delete', '--push', 'origin', 'https://github.com/example/other.git');
+  git(repo, 'config', 'remote.pushDefault', 'missing');
+  assertDenied(hook(repo, 'git push --dry-run'));
 });

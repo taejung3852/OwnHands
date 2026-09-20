@@ -2,11 +2,26 @@
 
 **AI 코딩 에이전트가 만든 결과를 사람이 이해하고 검증하면서, 개발을 주도할 수 있게 하는 개발 시스템.**
 
-> 🚧 **현재 상태: V2 전환 · 설계 단계**
+> 🚧 **현재 상태: 첫 baseline release 전 hardening**
 > V1은 주요 검증·Dashboard 흐름을 실제 구현하고 병합했지만 **최종 수용 검증까지 가기 전에** V2로 전환했다.
-> V2는 방향을 확정했고, 첫 실행 자산으로 **Skill 2개**(`write-issue-pr`·`explain`)를 만들었다.
-> 그 외 제품 기능은 아직 구현하지 않았다.
+> V2에는 **Skill 7개**, read-only custom Subagent 3개, Eval·Review Gate와 얇은 bootstrap source가 있다.
+> 공개 npm 설치와 실제 제품 E2E는 아직 검증하지 않았다.
 > 무엇이 확정이고 무엇이 아닌지는 [결정 상태표](docs/decisions.md)를 본다.
+
+---
+
+## 새 프로젝트에 연결하기
+
+Node.js 18+와 Git이 있는 대상 프로젝트에서 실행한다.
+
+```bash
+npx ownhands init
+npx ownhands doctor
+```
+
+`init`은 기존 `AGENTS.md`와 `.codex/hooks.json`을 통째로 덮어쓰지 않고 OwnHands-owned 파일과 marker/Hook entry만 연결한다. `doctor`는 설치 누락과 drift를 읽기 전용으로 검사한다. 공개 registry package는 별도 release/publish 전까지 `UNOBSERVED`다.
+
+자산 목록, 충돌 정책, 안전한 수동 제거는 [설치 계약](docs/installation.md)을 따른다.
 
 ---
 
@@ -119,8 +134,8 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 | ✅ 확정 | 🤔 / 💬 / ⏳ 미확정 |
 |---|---|
 | Codex-first, 공식 문서 중심 | Company 정책 우선순위 (사용자 생각) |
-| 요청형 Explain | ~~Skill 이름·수~~ → ✅ 2026-09-17 확정 (2개) |
-| clean-slate 설계 | 초기 Agent 역할·수 (함께 결정) |
+| 요청형 Explain | ✅ 현재 Skill 7개와 Subagent 3개 |
+| clean-slate 설계 | Agent 역할·model policy 확정, 실제 E2E provenance는 미관측 |
 | 초기 작은 Eval + M5 확장 | 다른 vendor 지원 방식 |
 | 개인 전용으로 제한하지 않음 | Eval 지표·비용·gate |
 
@@ -153,8 +168,8 @@ V1에서 직접 만들어 짊어졌던 것 중 일부는 **만들지 않아도 �
 | 이슈 | 질문 | 상태 |
 |---|---|---|
 | [#102](https://github.com/taejung3852/OwnHands/issues/102) | Codex가 이미 제공하는 것은 무엇이고 무엇을 안 만들어도 되는가? | ✅ 조사 완료 |
-| [#103](https://github.com/taejung3852/OwnHands/issues/103) | Skill의 이름과 개수는 무엇인가? | ✅ 확정 — `write-issue-pr`·`explain` 2개 |
-| [#104](https://github.com/taejung3852/OwnHands/issues/104) | 초기 Agent 역할과 위임 조건은? | 💬 함께 결정 |
+| [#103](https://github.com/taejung3852/OwnHands/issues/103) | Skill의 이름과 개수는 무엇인가? | ✅ 초기 결정 후 현재 7개 — [결정 상태표](docs/decisions.md) |
+| [#104](https://github.com/taejung3852/OwnHands/issues/104) | 초기 Agent 역할과 위임 조건은? | ✅ 3개 역할 확정 — [ADR-0001](docs/adr/0001-initial-subagent-roles.md) |
 | [#105](https://github.com/taejung3852/OwnHands/issues/105) | 기본·조직 정책을 어떻게 연결하는가? | 🤔 생각 단계 |
 | [#106](https://github.com/taejung3852/OwnHands/issues/106) | 초기 Eval을 어떻게 시작하고 M5에서 무엇을 확장하는가? | ⏳ 후속 결정 |
 
@@ -178,4 +193,4 @@ pre-v2-2026-09-16
 
 V1 추적 이슈 [#7](https://github.com/taejung3852/OwnHands/issues/7) · [#89](https://github.com/taejung3852/OwnHands/issues/89) · [#99](https://github.com/taejung3852/OwnHands/issues/99)는 2026-09-16에 **`not planned`로 종료**했다. 구현이 잘못돼서가 아니라 제품 방향이 바뀌었기 때문이며, **`완료`로 닫지 않았다.**
 
-> V2에는 아직 설치할 패키지가 없다. Skill 2개는 이 저장소의 `.agents/skills/`에서 Codex가 직접 읽는다.
+> 현재 tree는 `npx ownhands init/doctor`용 development package source를 포함한다. npm publish와 정식 version/tag는 별도 release Human Gate다.

@@ -9,7 +9,7 @@ description: Executes approved spec.md and plan.md one task at a time, gathers f
 
 ## 작업 절차
 
-1. 대상 `spec.md`와 `plan.md`를 찾고 상호 링크, 승인 상태, Target Files를 확인한다. 누락되거나 미승인이면 수정하지 않고 해당 Checkpoint로 돌아간다.
+1. 대상 `spec.md`와 `plan.md`를 찾고 상호 링크, 승인 상태, Target Files를 확인한다. heavy flow의 `plan.md`가 Codex native Plan Mode에서 작성되고 사용자에게 승인된 `Approved` artifact인지 확인한다. 누락·미승인 또는 Plan Mode 미사용이면 수정하지 않고 해당 Checkpoint로 돌아간다. 사전에 heavy flow 면제로 분류된 trivial change에는 이 문서 gate를 강제하지 않는다.
 2. `plan.md`에서 다음 미완료 Task 하나와 연결된 AC·검증 전략을 선택한다.
 3. 실행 방식을 고른다.
    - 실행 가능한 로직이고 계획이 TDD를 지정하면 `references/tdd-loop.md`를 읽는다.
@@ -23,3 +23,4 @@ description: Executes approved spec.md and plan.md one task at a time, gathers f
 - Spec 충돌이나 새 제약 발견: 구현을 멈추고 `spec.md` 수정·사람 승인·`plan.md` 재정렬로 돌아간다.
 - Target Files 밖 변경 필요: 무단 수정하지 않고 먼저 계획 범위를 갱신한다.
 - 구현 증거 실패 또는 미실행: `FAIL` 또는 `UNOBSERVED`로 기록하며 완료로 취급하지 않는다.
+- `plan.md`가 Plan Mode를 사용한 척 작성됐거나 사용자 승인 전임: Build를 시작하지 않는다.

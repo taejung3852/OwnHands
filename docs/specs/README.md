@@ -21,15 +21,21 @@
        ↓
  [🛡️ Checkpoint 2 (권장)] ➔  사람과 spec.md 검토 (인터페이스, 엣지케이스, 수용조건)
        ↓
- Stage 3 (Build)      ➔  plan.md 작성 및 단위 피드백 루프 (AI 실행 / "어떻게 구현·검증?")
+ Codex native Plan Mode ➔ 구현 순서·변경 범위·검증 전략 수립
+       ↓
+ [🛡️ Plan 승인 (필수)] ➔ 사용자 승인 뒤 plan.md를 durable artifact로 보존
+       ↓
+ Stage 3 (Build)      ➔  승인된 plan.md의 단위 피드백 루프 (AI 실행 / "어떻게 구현·검증?")
        ↓
  [🛡️ Checkpoint 3 (필수)] ➔  신선한 검증 증거(Fresh Evidence) & Verifier Subagent Gate
  ```
 
 Stage 1·2에서 사용자 선택에 따라 결과가 달라지는 주요 Decision은 Artifact 초안에 반영하기 전에 `grill-spec`의 Section Review로 확인합니다. 코드베이스 Fact는 승인 대상으로 만들지 않으며, Section Review는 완성된 Artifact 전체를 검토하는 Checkpoint 1·2를 대체하지 않습니다.
  
- > ⚠️ **적용 범위 안내**: 오타 수정, 단순 버그 픽스 등 사소한 작업까지 intent/spec/plan 아티팩트 작성을 의무 강제하지 않습니다.  
- > 개발 시스템이 무거워지지 않도록 "어떤 작업에 이 흐름을 적용할 것인가"의 세부 기준은 후속으로 정립합니다.
+> ⚠️ **적용 범위 안내**: 오타 수정, 단순 버그 픽스 등 사소한 작업까지 intent/spec/plan 아티팩트 작성을 의무 강제하지 않습니다.
+> 개발 시스템이 무거워지지 않도록 "어떤 작업에 이 흐름을 적용할 것인가"의 세부 기준은 후속으로 정립합니다.
+
+Heavy flow에서 Agent가 Plan Mode로 직접 전환할 수 없으면 사용자에게 `/plan` 또는 `Shift+Tab` 전환을 안내하고 중단합니다. Plan Mode를 사용한 척 `plan.md`를 먼저 쓰거나 승인 전에 Build를 시작하지 않습니다. `plan.md`는 승인된 native Plan Mode 결과를 보존하는 저장소 아티팩트이지 Plan Mode의 대체 기능이 아닙니다.
 
 ### 저장 위치 규칙
 모든 작업 문서는 `docs/specs/<feature-name>/` 아래에 영구 보존합니다:

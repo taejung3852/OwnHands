@@ -28,10 +28,17 @@
 |---|---|---|---|---|
 | **`verifier`** | Test | `read-only` | 독립 수용성 검증 및 테스트 판정 | 구현자(부모)의 편향 및 자기합리화 차단 |
 | **`reviewer`** | Review | `read-only` | Git diff 및 `AGENTS.md` 규율 검토 | 작성자와 분리된 제3자적 품질/규칙 검토 |
-| **`researcher`** | Plan / Design | default | 대량의 웹/문서 자료 수집 및 요약 | 검색 잔여물에 의한 메인 컨텍스트 오염 방지 |
+| **`researcher`** | Plan / Design | `read-only` | 대량의 웹/문서 자료 수집 및 요약 | 검색 잔여물에 의한 메인 컨텍스트 오염 방지 |
 
 - **Build 단계 서브에이전트**: 보류. 별도 커스텀 에이전트를 만들지 않고, 독립 태스크가 필요할 때만 Codex 내장 `worker`를 호출한다.
 - **문서 작성 전담 에이전트 (`writer`)**: **기각**. `explain`과 `write-issue-pr`은 기존 **Skill 체제를 유지**한다.
+
+### 2.1 Model / reasoning dispatch 정책 (2026-09-20 hardening)
+
+- custom-agent TOML의 `model`/`model_reasoning_effort`가 호출 시 선택보다 우선하므로 세 TOML에는 이를 고정하지 않는다.
+- `.codex/agents/model-policy.md`를 역할별 기본 pair, 비용·속도·판단 품질, downgrade/escalation 기준의 Source of Truth로 둔다.
+- 모든 dispatch는 model과 reasoning effort를 함께 명시하고 `agent_role`, 요청 pair, `selection_basis`를 기록한다. 실제 runtime 값이 관측되지 않으면 actual은 `UNOBSERVED`다.
+- 기본값은 researcher `gpt-5.6-terra/medium`, verifier `gpt-5.6-sol/high`, reviewer `gpt-6-astra/high`이며 위험도에 따라 명시적으로 override한다. 이는 하나의 모델을 영구 고정하는 정책이 아니다.
 
 ---
 
@@ -69,4 +76,3 @@
 - **권한 한계**: `sandbox_mode = "read-only"`는 기본 경계일 뿐이며, 부모 세션의 런타임 권한(`--yolo` 등)이 우선 적용되므로 절대적인 hard security enforcement로 취급하지 않는다.
 - `verifier`와 `reviewer` 호출 시, 부모가 "무엇을 검증해야 하는지(수용 조건, 파일 경로)"를 프롬프트에 명확히 명시해야 함.
 - 3개 에이전트의 프롬프트와 역할이 겹치지 않도록 `description`을 명확히 정의해야 함.
-

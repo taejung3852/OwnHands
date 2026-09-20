@@ -95,24 +95,36 @@ function calculateFingerprint(baseRef, repo = repository()) {
 }
 
 function reviewSection(markdown) {
-  const heading = /^##\s+(?:\d+\.\s+)?Review Results\s*$/m.exec(markdown);
-  if (!heading) throw new Error('Review Results section is missing.');
+  let fence = null;
+  const outsideFences = markdown.split(/(?<=\n)/).map((line) => {
+    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
+    if (!fence && marker) {
+      fence = marker;
+      return '\n';
+    }
+    if (fence && marker?.[0] === fence[0] && marker.length >= fence.length) fence = null;
+    return fence || marker ? '\n' : line;
+  }).join('');
+  const headings = [...outsideFences.matchAll(/^##\s+(?:\d+\.\s+)?Review Results\s*$/gm)];
+  if (headings.length !== 1) throw new Error('Exactly one Review Results section is required.');
+  const heading = headings[0];
   const start = heading.index + heading[0].length;
-  const remainder = markdown.slice(start);
+  const remainder = outsideFences.slice(start);
   const nextHeading = /^##\s+/m.exec(remainder);
   return nextHeading ? remainder.slice(0, nextHeading.index) : remainder;
 }
 
 function field(section, name) {
-  const match = new RegExp(`^- \\*\\*${name}\\*\\*:\\s*(.*)$`, 'm').exec(section);
+  const match = new RegExp(`^- \\*\\*${name}\\*\\*:[ \\t]*(.*)$`, 'm').exec(section);
   return match ? match[1].trim().replace(/^`|`$/g, '') : '';
 }
 
 function evidenceField(section) {
-  const marker = /^- \*\*Evidence\*\*:\s*(.*)$/m.exec(section);
+  const marker = /^- \*\*Evidence\*\*:[ \t]*(.*)$/m.exec(section);
   if (!marker) return '';
-  const after = section.slice(marker.index + marker[0].length);
-  const bullets = after.match(/^(?:\s{2,}-\s+.+(?:\n|$))+/);
+  const lineEnd = section.indexOf('\n', marker.index + marker[0].length);
+  const after = lineEnd === -1 ? '' : section.slice(lineEnd + 1);
+  const bullets = after.match(/^(?:[ \t]{2,}-[ \t]+\S.*(?:\n|$))+/);
   return [marker[1].trim(), bullets?.[0].trim() || ''].filter(Boolean).join('\n');
 }
 
@@ -196,11 +208,251 @@ function record(flags) {
   });
 }
 
+function scanShell(command) {
+  let quote = null;
+  let escaped = false;
+  let compound = false;
+  let searchable = '';
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index];
+    if (escaped) {
+      searchable += ' ';
+      escaped = false;
+    } else if (char === '\\' && quote !== "'") {
+      searchable += ' ';
+      escaped = true;
+    } else if (quote) {
+      searchable += /[;&|()\r\n]/.test(char) ? ' ' : char;
+      if (quote === '"' && (char === '`' || (char === '$' && command[index + 1] === '('))) {
+        compound = true;
+      }
+      if (char === quote) quote = null;
+    } else if (char === "'" || char === '"') {
+      quote = char;
+      searchable += char;
+    } else {
+      searchable += char;
+      if (/[;&|()\r\n`]/.test(char)) compound = true;
+    }
+  }
+  return { searchable, compound };
+}
+
 function targetsExternalGit(command) {
   const boundary = `(?:^|${SHELL_CONTROL})\\s*`;
-  const gitPush = "git(?:\\s+-C\\s+(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]+))?\\s+push\\b";
-  const ghPr = 'gh\\s+pr\\s+(?:create|merge)\\b';
+  const value = `(?:"[^"]*"|'[^']*'|[^\\s;&|]+)`;
+  const gitPush = `git(?:\\s+-C\\s+${value})?\\s+push\\b`;
+  const repositoryOption = `(?:--repo|-R)\\s+${value}|--repo=${value}|-R[^\\s;&|]+`;
+  const ghPr = `gh(?:\\s+(?:${repositoryOption}))*\\s+pr(?:\\s+(?:${repositoryOption}))*\\s+(?:create|merge)\\b`;
   return new RegExp(`${boundary}(?:${gitPush}|${ghPr})`).test(command);
+}
+
+function shellWords(command) {
+  const words = [];
+  let word = '';
+  let quote = null;
+  let escaped = false;
+  let started = false;
+  for (const char of command) {
+    if (escaped) {
+      word += char;
+      started = true;
+      escaped = false;
+    } else if (char === '\\' && quote !== "'") {
+      escaped = true;
+      started = true;
+    } else if (quote) {
+      if (char === quote) quote = null;
+      else word += char;
+      started = true;
+    } else if (char === "'" || char === '"') {
+      quote = char;
+      started = true;
+    } else if (/\s/.test(char)) {
+      if (started) words.push(word);
+      word = '';
+      started = false;
+    } else {
+      word += char;
+      started = true;
+    }
+  }
+  if (quote || escaped) return null;
+  if (started) words.push(word);
+  return words;
+}
+
+function normalizeGitHubRepository(value) {
+  if (!value) return null;
+  let candidate = value.trim().replace(/\/$/, '').replace(/\.git$/, '');
+  const scp = /^(?:[^@\s]+@)?github\.com:([^/\s]+\/[^/\s]+)$/i.exec(candidate);
+  if (scp) return scp[1].toLowerCase();
+  const url = /^(?:https?|ssh):\/\/(?:[^@/\s]+@)?github\.com\/([^/\s]+\/[^/\s]+)$/i.exec(candidate);
+  if (url) return url[1].toLowerCase();
+  return /^[^/\s]+\/[^/\s]+$/.test(candidate) ? candidate.toLowerCase() : null;
+}
+
+function remoteRepositories(repo, remote = 'origin', push = false) {
+  try {
+    const args = ['remote', 'get-url'];
+    if (push) args.push('--push', '--all');
+    args.push(remote);
+    return textGit(args, repo.root).split('\n').map(normalizeGitHubRepository);
+  } catch {
+    return [];
+  }
+}
+
+function remoteRepository(repo, remote = 'origin') {
+  const repositories = remoteRepositories(repo, remote);
+  return repositories.length === 1 ? repositories[0] : null;
+}
+
+function configValue(repo, key) {
+  try {
+    return textGit(['config', '--get', key], repo.root) || null;
+  } catch {
+    return null;
+  }
+}
+
+function defaultPushRemote(repo) {
+  let branch = null;
+  try {
+    branch = textGit(['symbolic-ref', '--quiet', '--short', 'HEAD'], repo.root);
+  } catch {}
+  if (branch) {
+    const branchPushRemote = configValue(repo, `branch.${branch}.pushRemote`);
+    if (branchPushRemote) return branchPushRemote;
+  }
+  const pushDefault = configValue(repo, 'remote.pushDefault');
+  if (pushDefault) return pushDefault;
+  if (branch) {
+    const branchRemote = configValue(repo, `branch.${branch}.remote`);
+    if (branchRemote) return branchRemote;
+  }
+  const remotes = textGit(['remote'], repo.root).split('\n').filter(Boolean);
+  if (remotes.includes('origin')) return 'origin';
+  return remotes.length === 1 ? remotes[0] : null;
+}
+
+function pushTargetMatches(repo, target, current) {
+  if (!target) return false;
+  const remoteTargets = remoteRepositories(repo, target, true);
+  if (remoteTargets.length) return remoteTargets.every((item) => item === current);
+  if (/^[^/:@\s]+\/[^/\s]+$/.test(target)) return false;
+  return normalizeGitHubRepository(target) === current;
+}
+
+function gitTargetMatches(words, repo) {
+  let index = 1;
+  let commandRoot = repo.root;
+  if (words[index] === '-C') {
+    const directory = words[index + 1];
+    if (!directory) return false;
+    try {
+      commandRoot = fs.realpathSync(textGit(['-C', directory, 'rev-parse', '--show-toplevel']));
+    } catch {
+      return false;
+    }
+    index += 2;
+  }
+  if (words[index] !== 'push' || commandRoot !== repo.root) return false;
+
+  const noValueOptions = new Set([
+    '--all', '--atomic', '--delete', '--dry-run', '--follow-tags', '--force',
+    '--force-with-lease', '--mirror', '--no-atomic', '--porcelain', '--prune',
+    '--quiet', '--set-upstream', '--tags', '--verbose', '-f', '-n', '-q', '-u', '-v',
+  ]);
+  let target = null;
+  let explicitTarget = false;
+  for (index += 1; index < words.length; index += 1) {
+    const token = words[index];
+    if (token === '--repo') {
+      explicitTarget = true;
+      target = words[index + 1] || null;
+      break;
+    }
+    if (token.startsWith('--repo=')) {
+      explicitTarget = true;
+      target = token.slice('--repo='.length);
+      break;
+    }
+    if (noValueOptions.has(token)) continue;
+    if (token.startsWith('-')) return false;
+    target = token;
+    break;
+  }
+
+  const current = remoteRepository(repo);
+  if (!current) return false;
+  if (explicitTarget && !target) return false;
+  return pushTargetMatches(repo, target || defaultPushRemote(repo), current);
+}
+
+function ghPrCommand(words) {
+  const prIndex = words.indexOf('pr', 1);
+  if (prIndex === -1) return null;
+  let actionIndex = prIndex + 1;
+  while (actionIndex < words.length) {
+    const token = words[actionIndex];
+    if (token === '--repo' || token === '-R') {
+      if (!words[actionIndex + 1]) return null;
+      actionIndex += 2;
+      continue;
+    }
+    if (token.startsWith('--repo=') || (token.startsWith('-R') && token.length > 2)) {
+      actionIndex += 1;
+      continue;
+    }
+    break;
+  }
+  return ['create', 'merge'].includes(words[actionIndex]) ? { prIndex, actionIndex } : null;
+}
+
+function pullRequestRepository(value) {
+  const match = /^https?:\/\/github\.com\/([^/\s]+\/[^/\s]+)\/pull\/\d+\/?$/i.exec(value || '');
+  return match ? match[1].replace(/\.git$/i, '').toLowerCase() : null;
+}
+
+function ghTargetMatches(words, repo) {
+  const current = remoteRepository(repo);
+  if (!current) return false;
+  const command = ghPrCommand(words);
+  if (!command) return false;
+  const targets = [];
+  for (let index = 1; index < words.length; index += 1) {
+    const token = words[index];
+    if (token === '--repo' || token === '-R') {
+      const target = words[index + 1];
+      if (!target) return false;
+      targets.push(normalizeGitHubRepository(target));
+      index += 1;
+      continue;
+    }
+    if (token.startsWith('--repo=')) {
+      targets.push(normalizeGitHubRepository(token.slice('--repo='.length)));
+      continue;
+    }
+    if (token.startsWith('-R') && token.length > 2) {
+      targets.push(normalizeGitHubRepository(token.slice(2)));
+    }
+  }
+  if (words[command.actionIndex] === 'merge') {
+    const pullTarget = words.slice(command.actionIndex + 1).map(pullRequestRepository).find(Boolean);
+    if (pullTarget) targets.push(pullTarget);
+  }
+  return targets.every((target) => target === current);
+}
+
+function repositoryTargetMatches(command, repo) {
+  const words = shellWords(command);
+  if (!words) return false;
+  if (words[0] === 'git') return gitTargetMatches(words, repo);
+  if (words[0] === 'gh' && ghPrCommand(words)) {
+    return ghTargetMatches(words, repo);
+  }
+  return false;
 }
 
 function validEvidence(repo) {
@@ -236,8 +488,10 @@ function checkHook() {
     return;
   }
   const command = input?.tool_input?.command;
-  if (input?.tool_name !== 'Bash' || typeof command !== 'string' || !targetsExternalGit(command)) return;
-  if (new RegExp(SHELL_CONTROL).test(command)) {
+  if (input?.tool_name !== 'Bash' || typeof command !== 'string') return;
+  const shell = scanShell(command);
+  if (!targetsExternalGit(shell.searchable)) return;
+  if (shell.compound) {
     deny();
     return;
   }
@@ -248,7 +502,7 @@ function checkHook() {
     deny();
     return;
   }
-  if (!validEvidence(repo)) deny();
+  if (!repositoryTargetMatches(command, repo) || !validEvidence(repo)) deny();
 }
 
 function main(args) {

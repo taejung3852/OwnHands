@@ -79,7 +79,7 @@ V1에서 커진 부담의 상당 부분이 **수단을 구분하지 않은 데�
 
 - Skill·Reference·Agent·Tool·Script·Hook의 **책임을 먼저 구분**한다(✅ 확정). → [V2 개요 §4](../v2/overview.md)
 - ✅ 플랫폼이 이미 제공하는 것을 다시 만들지 않는다. 세 가지 모두 Codex에 네이티브로 존재함을 확인했다. → [Codex 공식 문서](codex-official.md)
-- 💬 **Skill의 이름·수, 초기 Agent 역할·수는 사용자와 결정한다.**
+- ✅ **Skill 7개와 custom Agent 3개, 역할별 model/reasoning policy를 사용자와 확정했다.**
 - ⏳ Hooks의 구체 이벤트·규칙·권한은 후속 설계다.
 
 ---
@@ -117,7 +117,7 @@ V1에서 커진 부담의 상당 부분이 **수단을 구분하지 않은 데�
 **OwnHands의 선택**
 
 - **작업 중 feedback loop, 별도 맥락의 최종 Verifier, PR Review, Agent System Eval은 서로 다른 책임**으로 구분한다.
-- ⚠️ 특정 호스트의 Plan Mode를 사용했다고 프로젝트의 `plan.md` 저장·검토가 끝난다고 가정하지 않는다. Codex에서의 실제 방법은 후속 조사다.
+- ⚠️ heavy flow는 Spec 승인 뒤 Codex native Plan Mode와 사용자 계획 승인을 거쳐 `plan.md`를 durable artifact로 보존한다. Plan Mode 사용이 저장·검토를 자동 완료하지는 않는다.
 - ⏳ `REVIEW.md` 형태의 리뷰 정책 문서를 둘지는 정하지 않았다.
 
 ---
@@ -161,7 +161,7 @@ V1에서 커진 부담의 상당 부분이 **수단을 구분하지 않은 데�
 | Skills·Hooks·Subagents | ✅ 책임 구분 채택 (상세는 💬/⏳) |
 | Continuous evals (두 축 구분) | ✅ 핵심 축으로 채택 |
 | eval CI 게이트·통과율 임계값 | ⏳ 미정 (merge 차단 여부 포함) |
-| Plan mode | ⏳ Codex 대응 방법 후속 조사 |
+| Plan mode | ✅ native Plan Mode → 사용자 승인 → `plan.md` durable artifact |
 | `REVIEW.md` | ⏳ 미정 |
 | control-band 모니터링 | ⏳ 방향만, 상세 미정 |
 | 조직 역할 분담 | ❌ 채택하지 않음 |

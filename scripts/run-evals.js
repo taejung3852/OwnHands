@@ -37,6 +37,11 @@ const isJsonOutput = args.includes('--json');
 const taskFilterIdx = args.indexOf('--task');
 const targetTaskId = taskFilterIdx !== -1 ? args[taskFilterIdx + 1] : null;
 
+if (isStaticOnly && isUpdateBaseline) {
+  console.error('Error: --static-only cannot update the runtime baseline.');
+  process.exit(1);
+}
+
 // ─── 유틸리티 함수 ──────────────────────────────────────────────────────────
 function readFileSafe(relPath) {
   if (!relPath) return null;
@@ -447,7 +452,21 @@ function judgeRuntimeContract(task) {
   let prompt = contract.prompt || (contract.spec_file ? `${contract.spec_file} 감사 수행` : '');
   // contract.agent 선언 시 대상 서브에이전트(.codex/agents/*.toml) 명시적 위임 주입
   if (contract.agent) {
-    prompt = `Use the ${contract.agent} subagent (.codex/agents/${contract.agent}.toml) to: ${prompt}`;
+    const requestedModel = contract.requested_model;
+    const requestedEffort = contract.requested_reasoning_effort;
+    const selectionBasis = contract.selection_basis;
+    if (!requestedModel || !requestedEffort || !selectionBasis) {
+      return { status: 'FAIL', details: ['Explicit subagent model provenance is missing.'] };
+    }
+    prompt = [
+      'Dispatch provenance:',
+      `agent_role=${contract.agent}`,
+      `requested_model=${requestedModel}`,
+      `requested_reasoning_effort=${requestedEffort}`,
+      `selection_basis=${selectionBasis}`,
+      `Use the ${contract.agent} subagent (.codex/agents/${contract.agent}.toml) with that explicit model and reasoning effort to: ${prompt}`,
+      'If that model is unavailable, explicitly choose an available model in the same risk tier and record the reason. Do not omit model or effort.',
+    ].join('\n');
   }
 
   const session = executeCodexSession(prompt, {
