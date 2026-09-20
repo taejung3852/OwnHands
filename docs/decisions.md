@@ -121,6 +121,17 @@
 
 
 
+### Review · Human Gate · CI Governance — 2026-09-20 확정 ([#146](https://github.com/taejung3852/OwnHands/issues/146), [ADR-0010](adr/0010-review-human-ci-governance.md))
+
+| 주제 | 결정 내용 | 구현 |
+|---|---|---|
+| **Build 종료 흐름** | `verify/verifier PASS → 기존 read-only reviewer → Finding 판정 → Final Review → Review Evidence → Human Gate` 순서로 연결한다. | ✅ [#148](https://github.com/taejung3852/OwnHands/issues/148) |
+| **Finding Source of Truth** | 상세 판단은 `plan.md`에 `Status / Resolution / Reviewer claim / Reason / Evidence`로 보존하고 JSON에는 count만 둔다. | ✅ |
+| **Review Evidence** | 마지막 Reviewer가 본 fingerprint와 현재 diff가 같을 때만 Git 내부 checkout별 로컬 상태에 PASS Evidence를 기록한다. | ✅ |
+| **좁은 Hook** | repo-local `PreToolUse`는 `git push`, `gh pr create`, `gh pr merge`만 검사하며 일반 응답·명령에는 개입하지 않는다. 완전한 보안 경계로 주장하지 않는다. | ✅ 설정·스크립트 / 실제 Hook trust `UNOBSERVED` |
+| **Human Gate** | `Push + PR`, Merge, Deploy, Cleanup 승인은 서로 독립적이며 자동 실행하지 않는다. | ✅ |
+| **CI 경계** | deterministic checks와 M5 `--static-only`를 기본 후보로 두고 Codex Action/API 과금 Runtime CI·Managed Policy는 도입하지 않는다. | — |
+
 ### grill-spec 인터뷰 도우미 설계 — 2026-09-18 확정, 2026-09-20 보강 ([#119](https://github.com/taejung3852/OwnHands/issues/119), [#142](https://github.com/taejung3852/OwnHands/issues/142), [ADR-0006](adr/0006-grill-spec-orchestration-tradeoffs.md))
 
 | 주제 | 결정 내용 | 구현 |

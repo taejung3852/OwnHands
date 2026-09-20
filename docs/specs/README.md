@@ -197,6 +197,10 @@ npm test / pytest / gh 명령어 등
 - [ ] **최종 Acceptance Criteria 역추적 대조 (Verifier Subagent Gate — ADR-0008)**:
   - 감사 방식: read-only 환경에서 `spec.md` AC ↔ `plan.md` applicable Fresh Evidence 역추적 대조
   - Verifier 판정: `PASS / FAIL / UNOBSERVED`
+- [ ] **Review Results 및 Local Review Gate Evidence (ADR-0010)**:
+  - Finding별 `Status`·`Resolution`·Reviewer claim·Reason·Evidence를 `Review Results`에 기록
+  - 모든 tracked 변경 뒤 최종 Reviewer가 확인한 fingerprint와 `record` 시점 fingerprint 일치
+  - `Push + PR`, Merge, Deploy, Cleanup의 Human Gate를 각각 별도 승인
 ```
 
 ---

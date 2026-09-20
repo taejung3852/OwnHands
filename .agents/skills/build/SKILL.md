@@ -16,7 +16,8 @@ description: Executes approved spec.md and plan.md one task at a time, gathers f
    - 위임 이점이 명확할 때만 `references/subagent-routing.md`를 읽는다.
    - 그 외에는 현재 Builder가 직접 수행한다.
 4. Target Files 안에서 Task를 구현하고 적용 가능한 Fresh Evidence를 `plan.md`에 기록한다. 증거를 확인한 뒤에만 다음 Task로 이동한다.
-5. 모든 Task가 끝나면 기존 `verify` Skill을 사용해 AC와 Evidence를 감사한다. 필수 AC가 모두 `PASS`일 때만 완료를 주장한다.
+5. 모든 Task가 끝나면 기존 `verify` Skill과 read-only `verifier`를 사용해 AC와 Evidence를 감사한다. 필수 AC가 모두 `PASS`일 때만 다음 단계로 이동한다.
+6. `references/review-governance.md`를 읽고 기존 read-only `reviewer`의 최종 Review, Review Evidence 기록, `Push + PR / Keep` Human Gate를 순서대로 수행한다.
 
 ## 중단 조건
 

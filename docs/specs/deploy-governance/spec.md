@@ -5,6 +5,7 @@
 - **일자**: 2026-09-20
 - **상태**: Approved — 사용자 확인 (2026-09-20)
 - **관련 Issue**: [#146](https://github.com/taejung3852/OwnHands/issues/146)
+- **구현 Issue**: [#148](https://github.com/taejung3852/OwnHands/issues/148)
 
 ---
 
@@ -35,6 +36,7 @@
 ```markdown
 ### Finding `F-01`
 - **Status**: `rejected-with-evidence`
+- **Resolution**: `resolved`
 - **Reviewer claim**: `foo()`가 `null`을 반환할 수 있음
 - **Reason**: 승인된 contract와 회귀 테스트가 non-null 동작을 보장함
 - **Evidence**:
@@ -42,7 +44,8 @@
   - `foo.test.ts` null-path test PASS
 ```
 
-- `rejected-with-evidence`에는 Reviewer claim, 기각 이유, 코드·Spec·Test 중 하나 이상의 구체적 Evidence가 모두 있어야 한다. 개수만 기록한 항목은 유효한 기각이 아니다.
+- `Resolution`은 `open / resolved` 중 하나다. 해결된 `accepted`·`needs-human` Finding은 기록에서 지우지 않고 `resolved`로 남기며, Gate는 `open`인 항목만 미해결로 계산한다.
+- `rejected-with-evidence`에는 `Resolution: resolved`, Reviewer claim, 기각 이유, 코드·Spec·Test 중 하나 이상의 구체적 Evidence가 모두 있어야 한다. 개수만 기록한 항목은 유효한 기각이 아니다.
 - `REQ-06` — Reviewer의 의견을 자동 수정 명령이나 최종 Decision으로 취급하지 않는다.
 - `REQ-07` — Finding 판정과 `plan.md` 기록, `accepted` 수정, Fresh Evidence 갱신이 끝난 최종 diff를 Reviewer가 한 번 확인해야 한다. 마지막 Reviewer 관측 뒤 tracked diff가 바뀌면 해당 관측은 유효하지 않으며, 변경 범위를 다시 확인해야 한다. 중간 단계에서는 `accepted` Finding의 대상 영역을 수정했거나 위험 경계가 바뀐 경우에만 targeted re-review한다.
 
@@ -69,7 +72,7 @@
 ```
 
 - `REQ-09` — Review Evidence는 Git tracked artifact가 아니라 현재 checkout의 로컬 상태로 보관한다. Evidence 기록 자체가 diff를 바꾸거나 PR에 포함돼서는 안 된다.
-- `REQ-10` — `record`는 Reviewer에게 전달되어 최종 관측된 fingerprint를 필수 입력으로 받고, 현재 diff fingerprint를 다시 계산해 둘이 정확히 같을 때만 Evidence를 기록한다. 현재 diff fingerprint가 관측값 또는 저장된 Evidence와 다르거나 `accepted`·`needs-human` Finding이 미해결이면 유효한 PASS로 취급하지 않는다. `record`는 `plan.md`의 `Review Results`를 검증해 count를 계산해야 하며, Reason이나 Evidence가 비어 있는 `rejected-with-evidence`가 하나라도 있으면 PASS 기록을 거부한다.
+- `REQ-10` — `record`는 Reviewer에게 전달되어 최종 관측된 fingerprint를 필수 입력으로 받고, 현재 diff fingerprint를 다시 계산해 둘이 정확히 같을 때만 Evidence를 기록한다. 현재 diff fingerprint가 관측값 또는 저장된 Evidence와 다르거나 `Resolution: open`인 `accepted`·`needs-human` Finding이 있으면 유효한 PASS로 취급하지 않는다. `record`는 `plan.md`의 `Review Results`를 검증해 미해결 count를 계산해야 하며, `Resolution: resolved`나 Reason·Evidence가 비어 있는 `rejected-with-evidence`가 하나라도 있으면 PASS 기록을 거부한다.
 - `REQ-11` — repo-local `PreToolUse` Hook은 shell command가 `git push`, `gh pr create`, `gh pr merge`에 해당할 때만 Review Evidence를 확인한다. 그 외 명령과 일반 응답에는 개입하지 않는다.
 - `REQ-12` — Hook은 누락·stale·미해결 Evidence를 발견하면 해당 외부 명령을 막고 짧은 이유를 반환한다. Hook 오류나 미지원 tool path를 완전한 보안 경계로 과장하지 않는다.
 - `REQ-13` — Hook은 파일·네트워크를 변경하거나 Secret을 읽지 않는 read-only 검사여야 한다. 실제 Reviewer 호출은 Hook이 아니라 현재 Codex 앱 세션의 Main Agent가 수행한다.
