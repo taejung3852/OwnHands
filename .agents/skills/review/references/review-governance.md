@@ -1,6 +1,6 @@
 # Review Governance
 
-필수 AC가 `verify`와 read-only `verifier`에서 모두 `PASS`이거나, 필수 `UNOBSERVED`의 누락 항목·확보 불가 사유·수용 위험을 보여준 뒤 사용자가 명시적으로 override했을 때만 이 절차를 시작한다. `FAIL`은 override하지 않고 구현 루프로 돌린다.
+필수 AC가 `verify`와 read-only `verifier`에서 모두 `PASS`이거나, 필수 `UNOBSERVED`의 누락 항목·확보 불가 사유·수용 위험을 보여준 뒤 사용자가 **현재 Human Gate에 한해** 명시적으로 override했을 때만 이 절차를 시작한다. 한 Gate의 승인이나 override는 다음 Gate로 승계되지 않는다. `FAIL`은 override하지 않고 구현 루프로 돌린다.
 
 ## Review Packet
 
@@ -27,6 +27,7 @@ Reviewer 의견은 자동 수정 명령이 아니다. 저장소 Fact, 승인된 
 - `accepted`: 최소 수정과 Fresh Evidence를 확보한 뒤 `resolved`로 전환한다.
 - `rejected-with-evidence`: `resolved` 상태와 Reviewer claim·Reason·구체적인 코드/Spec/Test Evidence가 모두 필요하다.
 - `needs-human`: 구현을 멈추고 사용자 결정을 받은 뒤 그 근거와 해결 내용을 기록하고 `resolved`로 전환한다.
+- 미해결 count는 `Resolution: open`인 Finding만 센다. 해결 기록은 삭제하지 않는다.
 - `accepted` 영역을 수정했거나 위험 경계가 바뀌었거나 해결 여부 확인이 필요할 때만 해당 범위를 다시 Review한다.
 
 ## Final Review와 Evidence
@@ -41,11 +42,11 @@ Review Evidence JSON은 Git 내부 로컬 상태에 fingerprint·verdict·count�
 
 ## Human Gate
 
-다음 승인은 서로 대체하지 않는다. Main Agent는 각 단계 직전에 사용자에게 해당 선택만 요청한다.
+다음 승인과 `UNOBSERVED` override는 서로 대체하거나 승계하지 않는다. Main Agent는 각 단계 직전에 사용자에게 해당 선택만 요청한다.
 
 1. `Push + PR / Keep`
 2. `Merge / Keep`
 3. Deploy가 있는 작업의 `Deploy / Keep`
 4. `Cleanup / Keep`
 
-Hook은 Review Evidence만 확인하는 로컬 guardrail이다. 사람 승인을 추론하지 않으며 완전한 보안 경계가 아니다.
+Hook은 Review Evidence만 확인하는 로컬 guardrail이다. 사람 승인을 추론하지 않으며 완전한 보안 경계가 아니다. 대상 외부 Git 명령이 복합 shell command에 포함되면 Evidence가 유효해도 차단하고 독립 command로 다시 실행한다.

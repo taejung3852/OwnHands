@@ -1,9 +1,9 @@
 # Spec: Review Loop · Human Gate · CI Governance
 
 - **기반 Intent**: [`intent.md`](intent.md)
-- **작성 주체**: Codex 분석 (사람 검토 및 승인 필요)
+- **작성 주체**: Codex 분석 (사용자 재승인 반영)
 - **일자**: 2026-09-20
-- **상태**: Approved — 사용자 확인 (2026-09-20)
+- **상태**: Approved — 사용자 재확인 (2026-09-20; Decision A/B/C)
 - **관련 Issue**: [#146](https://github.com/taejung3852/OwnHands/issues/146)
 - **구현 Issue**: [#148](https://github.com/taejung3852/OwnHands/issues/148)
 
@@ -13,7 +13,7 @@
 
 ### 1.1 Review Loop
 
-- `REQ-01` — 필수 AC가 `verify → verifier`에서 모두 `PASS`이거나 필수 `UNOBSERVED`가 `REQ-22` 절차로 명시적 override된 뒤, `Push + PR` Human Gate를 제시하기 전에 기존 read-only `reviewer`를 1회 호출한다. `FAIL`은 이 경로로 진행하지 않는다.
+- `REQ-01` — `build`는 구현과 applicable Fresh Evidence 확보 후 `verify`로 인계하고, 필수 AC가 `verify → verifier`에서 모두 `PASS`이거나 필수 `UNOBSERVED`가 `REQ-22` 절차로 명시적 override된 뒤 `review` Skill이 기존 read-only `reviewer` 호출, Review Evidence, Human Gate를 담당한다. `FAIL`은 이 경로로 진행하지 않는다.
 - `REQ-02` — 기본 Reviewer는 `.codex/agents/reviewer.toml`이며 새 Reviewer Agent, 네이티브 `/review`, GitHub `@codex review`를 기본 흐름에 추가하지 않는다.
 - `REQ-03` — Reviewer에는 다음 최소 Review Packet만 전달한다.
   1. 변경 목표와 승인된 `spec.md`·`plan.md`
@@ -121,13 +121,13 @@
 ### 2.1 책임 흐름
 
 ```text
-build Task 완료
+build: 구현 Task + applicable Fresh Evidence 완료
   ↓
 verify + verifier
   ├─ FAIL / required UNOBSERVED → 구현 루프 또는 Human 판단
-  └─ required AC PASS
+  └─ required AC PASS 또는 현재 Gate의 명시적 UNOBSERVED override
         ↓
-existing read-only reviewer + Review Packet
+review Skill → existing read-only reviewer + Review Packet
   ↓
 Finding adjudication을 plan.md Review Results에 기록
   ├─ accepted → 최소 수정 → Fresh Evidence
@@ -159,8 +159,9 @@ Human Gate: Merge
 
 | 구분 | 후보 경로 | 책임 |
 |---|---|---|
-| MODIFY | `.agents/skills/build/SKILL.md` | `verify` 이후 Reviewer와 Human Gate 연결 |
-| NEW | `.agents/skills/build/references/review-governance.md` | Review Packet, Finding, re-review, Human Gate 상세 |
+| MODIFY | `.agents/skills/build/SKILL.md` | 구현과 applicable Fresh Evidence 후 `verify`로 인계 |
+| NEW | `.agents/skills/review/SKILL.md` | Reviewer·Review Evidence·Human Gate의 얇은 Process 진입점 |
+| NEW | `.agents/skills/review/references/review-governance.md` | Review Packet, Finding, re-review, Human Gate 상세 |
 | NEW | `.codex/hooks.json` | 외부 Git command에만 좁게 적용되는 `PreToolUse` 등록 |
 | NEW | `scripts/review-gate.js` | Review Evidence 기록·현재 diff 비교·Hook 판정 |
 | MODIFY | `docs/specs/README.md` | 기존 Plan 규격과 Review Evidence 연결 안내 |
@@ -233,7 +234,7 @@ Hook은 Review Evidence만 확인한다. 대화 transcript는 안정적인 Hook 
 
 ### 4.1 수용성 기준
 
-- [ ] `AC-01` — `verify/verifier → reviewer → Human Gate` 순서와 각 역할의 책임이 단일 계약으로 정의된다.
+- [ ] `AC-01` — `build → verify/verifier → review → reviewer → Human Gate` 순서와 각 역할의 책임이 분리된 계약으로 정의된다.
 - [ ] `AC-02` — Review Packet이 Spec/Plan, diff scope, Fresh Evidence·관련 baseline, known constraints를 포함하고 전체 대화는 제외한다.
 - [ ] `AC-03` — Finding이 `accepted / rejected-with-evidence / needs-human`으로 판정되고 상세 판단이 `plan.md`에 보존되며 targeted re-review 조건이 정의된다.
 - [ ] `AC-04` — Review Evidence가 마지막 Reviewer가 관측한 fingerprint와 현재 diff가 동일할 때만 기록되고, 이후 변경 시 stale 처리된다.

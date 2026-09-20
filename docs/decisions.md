@@ -21,7 +21,7 @@
 | 🚧 미구현 | V2에서 아직 만들지 않았다. |
 | 📦 V1 구현 기록 있음 | V1에 구현·검증 기록이 있으나 **V2로 자동 승계되지 않는다.** |
 
-> **2026-09-20 기준 V2에 존재하는 실행 자산은 Skill 5개(`write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
+> **2026-09-20 기준 V2에 존재하는 실행 자산은 Skill 6개(`write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`·`review`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
 > 그 외 제품 기능은 🚧 미구현이다. 이 문서는 방향 문서이지 완료 보고가 아니다.
 
 ---
@@ -49,11 +49,12 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **이름과 개수** | 초기 구성은 `write-issue-pr`, `explain`, `grill-spec`, `verify` **4개**다. V2-M3에서 `build`를 추가해 현재 **5개**다. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
+| **이름과 개수** | 초기 구성은 `write-issue-pr`, `explain`, `grill-spec`, `verify` **4개**다. V2-M3에서 `build`, V2-M6에서 `review`를 추가해 현재 **6개**다. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
 | **배치** | `.agents/skills/` — Codex REPO scope 탐색 경로다. V1의 `skills/`는 이 경로가 아니었다. | ✅ |
 | **판단 축** (공식) | 공식이 제시하는 축은 셋이다 — *"Split workflows when they have different **triggers, inputs, or success criteria**."* **`or`다.** 셋 중 **하나만 달라도** 공식 기준으로는 분할 근거가 된다. | — |
 | **분할 게이트** (OwnHands) | **공식보다 엄격하게 쓴다.** 세 축이 **모두** 뚜렷하게 다를 때만 새 Skill 후보로 본다. (`verify`는 Trigger: 구현 후 검증, Input: Spec/Plan/Evidence, Success: PASS/FAIL/UNOBSERVED 판정으로 3축 모두 상이하여 분할 충족). 근거는 10,000 토큰 천장과 description 상호 모순 위험이며, **공식이 요구하는 것이 아니라 우리가 과분할을 막으려고 좁힌 것이다.** | — |
 | **`build` 분할 근거** (OwnHands) | Trigger: 승인된 spec/plan 기반 구현. Input: `spec.md` + `plan.md` + Task. Success: 구현 + Fresh Evidence + `verify` 연결. 세 축이 기존 Skill과 모두 달라 OwnHands 분할 게이트를 충족한다. | ✅ `build` |
+| **`review` 분할 근거** (OwnHands) | Trigger: `verify/verifier` 완료 뒤 외부 Git 결정 전. Input: 최종 diff + Spec/Plan + Fresh Evidence + Finding. Success: 독립 Review 완료 + diff-bound Review Evidence + 해당 Human Gate 결정. 세 축이 `build`와 달라 별도 Process Skill로 둔다. | ✅ `review` |
 | **분할 게이트의 비용** | ⚠️ **과소분할을 감수하는 선택이다.** 트리거는 같은데 재료·판정이 다른 2/3 사례에서 공식은 나누라 하고 이 게이트는 말린다. 그런 사례가 실제로 오면 게이트를 재검토한다. | — |
 | **추가 근거** | ① 위 게이트를 통과하거나, ② Eval에서 관측한 뒤 **description → 본문** 순으로 고쳐도 안 잡힐 때. **빈도는 근거가 아니다.** | — |
 | **삭제·병합** | 두 Skill이 서로의 영역에서 오발하면 합치고, 쓰이지 않으면 지운다. 늘리는 규칙만 두지 않는다. | — |
@@ -125,11 +126,11 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **Build 종료 흐름** | `verify/verifier PASS → 기존 read-only reviewer → Finding 판정 → Final Review → Review Evidence → Human Gate` 순서로 연결한다. | ✅ [#148](https://github.com/taejung3852/OwnHands/issues/148) |
+| **Build·Verify·Review 흐름** | `build`는 구현·Fresh Evidence 후 `verify`로 인계하고, 별도 `review`가 `verify/verifier PASS 또는 해당 Gate의 명시적 UNOBSERVED override → 기존 read-only reviewer → Finding 판정 → Final Review → Review Evidence → Human Gate`를 담당한다. `FAIL`은 override하지 않는다. | ✅ [#148](https://github.com/taejung3852/OwnHands/issues/148) |
 | **Finding Source of Truth** | 상세 판단은 `plan.md`에 `Status / Resolution / Reviewer claim / Reason / Evidence`로 보존하고 JSON에는 count만 둔다. | ✅ |
 | **Review Evidence** | 마지막 Reviewer가 본 fingerprint와 현재 diff가 같을 때만 Git 내부 checkout별 로컬 상태에 PASS Evidence를 기록한다. | ✅ |
 | **좁은 Hook** | repo-local `PreToolUse`는 `git push`, `gh pr create`, `gh pr merge`만 검사하며 일반 응답·명령에는 개입하지 않는다. 완전한 보안 경계로 주장하지 않는다. | ✅ 설정·스크립트 / 실제 Hook trust `UNOBSERVED` |
-| **Human Gate** | `Push + PR`, Merge, Deploy, Cleanup 승인은 서로 독립적이며 자동 실행하지 않는다. | ✅ |
+| **Human Gate** | `Push + PR`, Merge, Deploy, Cleanup 승인과 `UNOBSERVED` override는 Gate마다 독립적이며 다음 Gate로 승계하지 않는다. `FAIL`은 override하지 않는다. | ✅ |
 | **CI 경계** | deterministic checks와 M5 `--static-only`를 기본 후보로 두고 Codex Action/API 과금 Runtime CI·Managed Policy는 도입하지 않는다. | — |
 
 ### grill-spec 인터뷰 도우미 설계 — 2026-09-18 확정, 2026-09-20 보강 ([#119](https://github.com/taejung3852/OwnHands/issues/119), [#142](https://github.com/taejung3852/OwnHands/issues/142), [ADR-0006](adr/0006-grill-spec-orchestration-tradeoffs.md))
@@ -189,7 +190,7 @@
 |---|---|---|
 | *(현재 열린 결정 항목 없음)* | 2026-09-19: M5 Continuous Evals 체계 및 Task Set 규격(ADR-0009) 사용자 승인으로 확정. | ✅ [ADR-0009](adr/0009-continuous-evals-task-set-and-runner.md) |
 
-> ⚠️ `write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`는 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
+> ⚠️ `write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`·`review`는 **확정된 Skill 이름**, `verifier`·`reviewer`·`researcher`는 **확정된 Subagent 이름**이다.
 > 그 밖에 문서에 보이는 `intent`, `design` 같은 표현은
 > **역할 설명 또는 후보이지 확정된 이름이 아니다.**
 

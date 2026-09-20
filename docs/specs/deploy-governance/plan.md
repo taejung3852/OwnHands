@@ -3,21 +3,26 @@
 - **기반 Spec**: [`spec.md`](spec.md)
 - **작성 주체**: Codex (사용자 승인된 Spec 기반)
 - **일자**: 2026-09-20
-- **상태**: Approved — 사용자 확인 (2026-09-20)
+- **상태**: Approved — 사용자 재확인 (2026-09-20; Decision A/B/C)
 - **관련 Issue**: [#148](https://github.com/taejung3852/OwnHands/issues/148)
 
 ---
 
 ## 1. 구현 맥락 및 대상 파일 (Context & Target Files)
 
-- **구현 목표 요약**: 기존 `build → verify → verifier` 뒤에 기존 read-only `reviewer`, diff-bound Review Evidence, 좁은 `PreToolUse` Gate, 분리된 Human Gate 계약을 연결한다.
+- **구현 목표 요약**: `build → verify/verifier → review`의 책임을 분리하고, Review 단계에서 기존 read-only `reviewer`, diff-bound Review Evidence, 좁은 `PreToolUse` Gate, 분리된 Human Gate 계약을 연결한다.
 - **구현 원칙**:
   - GitHub CI는 deterministic check만 담당한다.
   - Reviewer와 선택 Runtime Eval은 로그인된 로컬 Codex 세션에서 실행한다.
   - Hook은 Review Evidence만 검사하며 Human 승인을 대체하거나 완전한 보안 경계로 주장하지 않는다.
+  - **Decision A**: `UNOBSERVED` override는 Push+PR·Merge·Deploy Gate마다 별도로 받고 승계하지 않으며, `FAIL`은 override하지 않는다.
+  - **Decision B**: Finding의 판단 `Status`와 처리 상태 `Resolution: open | resolved`을 분리하고 해결 이력을 보존한다.
+  - **Decision C**: 대상 외부 Git 명령이 복합 shell command에 포함되면 Evidence가 있어도 차단하고 독립 command로 다시 실행한다.
 - **대상 파일 목록 및 책임 경계 (Blast Radius Guard)**:
-  - `[MODIFY]` `.agents/skills/build/SKILL.md`: `verify/verifier` PASS 이후 Reviewer와 Human Gate로 연결하는 짧은 진입 규칙
-  - `[NEW]` `.agents/skills/build/references/review-governance.md`: Review Packet, Finding 판정, targeted re-review, Human Gate 상세 계약
+  - `[MODIFY]` `.agents/skills/build/SKILL.md`: 구현과 applicable Fresh Evidence 확보 후 기존 `verify`로 인계하는 경계로 축소
+  - `[DELETE/MOVE]` `.agents/skills/build/references/review-governance.md`: Build가 소유하던 Review 계약 제거
+  - `[NEW]` `.agents/skills/review/SKILL.md`: 검증 완료 뒤 Reviewer·Review Evidence·Human Gate를 실행하는 얇은 Process Skill
+  - `[NEW/MOVE]` `.agents/skills/review/references/review-governance.md`: Review Packet, Finding 판정, targeted re-review, Human Gate 상세 계약
   - `[NEW]` `.codex/hooks.json`: `Bash` 경로의 repo-local `PreToolUse` Hook 등록
   - `[NEW]` `scripts/review-gate.js`: Evidence fingerprint·기록·검사·폐기와 Hook deny 출력
   - `[NEW]` `scripts/review-gate.test.js`: Node `node:test` 기반 단위·임시 Git 저장소 통합 테스트
@@ -25,6 +30,7 @@
   - `[NEW]` `docs/adr/0010-review-human-ci-governance.md`: M6 Review/Human/CI 책임 경계와 트레이드오프 기록
   - `[MODIFY]` `docs/decisions.md`: 승인된 M6 계약과 보류 항목 동기화
   - `[MODIFY]` `docs/roadmap.md`: Step ② 설계·구현 상태와 #146 링크 최소 동기화
+  - `[MODIFY]` `docs/specs/deploy-governance/spec.md`: 재승인된 Decision A/B/C와 Build·Verify·Review 책임 경계 반영
   - `[MODIFY]` `docs/specs/deploy-governance/plan.md`: Task별 Fresh Evidence와 최종 판정 기록
   - ⚠️ 위 목록 밖 파일 변경이 필요하면 구현을 멈추고 Spec/Plan 범위를 다시 승인받는다.
 - **명시적 비대상**:
@@ -141,9 +147,10 @@ node scripts/review-gate.js clear
   - `.codex/hooks.json`에 `^Bash$` matcher, repo root 기반 script 경로, 10초 timeout, 짧은 status message를 등록한다.
   - Hook의 `agent` handler, `Stop`, `PostToolUse`, network/Secret 권한은 추가하지 않는다.
 
-- [x] **Task 3: Build Review Loop와 Human Gate 계약 연결**
-  - `review-governance.md`에 Review Packet 3종, finding 3-state, `plan.md` Review Results 형식, final reviewed fingerprint, targeted re-review, Review Evidence 기록, `Push + PR / Keep`, Merge·Deploy·Cleanup 별도 승인 규칙을 작성한다.
-  - `build/SKILL.md`에는 `verify`의 필수 AC PASS 후 해당 Reference를 읽고 기존 reviewer를 호출한다는 짧은 단계만 추가한다.
+- [x] **Task 3: Review Skill과 Human Gate 계약 연결**
+  - `review/references/review-governance.md`에 Review Packet 3종, finding 3-state + Resolution, `plan.md` Review Results 형식, final reviewed fingerprint, targeted re-review, Review Evidence 기록, Gate별 `UNOBSERVED` override와 별도 승인 규칙을 작성한다.
+  - `review/SKILL.md`를 검증 완료 뒤 Reviewer·Review Evidence·Human Gate를 수행하는 얇은 Process Skill로 추가한다.
+  - `build/SKILL.md`는 구현과 applicable Fresh Evidence 후 `verify`로 인계하고 Review/Governance를 소유하지 않도록 축소한다.
   - `UNOBSERVED` override는 누락 Evidence·확보 불가 사유·수용 위험을 제시하고 사용자에게 반드시 질문하도록 명시한다.
   - `docs/specs/README.md`의 기존 Fresh Evidence Checklist에 Finding별 Status·Reviewer claim·Reason·Evidence를 보존하는 `Review Results` 항목과 diff fingerprint·finding summary 항목만 추가한다.
 
@@ -166,7 +173,7 @@ node scripts/review-gate.js clear
 
 | AC ID | 검증 전략 | 관측 증거 | 통과 기준 |
 |---|---|---|---|
-| `AC-01` | 정적 흐름 감사 + verifier | `build`와 Reference의 순서 | `verify/verifier → reviewer → Human Gate` 명시 |
+| `AC-01` | 정적 흐름 감사 + verifier | `build`·`verify`·`review`의 책임과 순서 | `build → verify/verifier → review → reviewer → Human Gate` 분리 명시 |
 | `AC-02` | 정적 계약 검사 | Review Packet 항목 | 필수 Context 포함, 전체 대화 제외 |
 | `AC-03` | 정적 계약 + parser test | plan Finding 상세와 re-review 분기 | 3-state, 기각 Reason·Evidence, 제한 조건 모두 관측 |
 | `AC-04` | `node:test` Git fixture | reviewer 관측 fingerprint와 record 시점 fingerprint 비교 | 동일 시만 기록, 변경 시 거부·stale |
@@ -189,7 +196,11 @@ node scripts/review-gate.js clear
   - Hook command 판정·deny schema·valid/stale Evidence를 위 17개 테스트에서 관측
   - JSON: `node -e "JSON.parse(require('fs').readFileSync('.codex/hooks.json','utf8'))"` exit code `0`
 - [x] **Task 3 Evidence**
-  - `review-governance.md`에 3종 Review Packet, 3-state + Resolution, targeted re-review, Human Gate, `UNOBSERVED` override 계약 연결
+  - `review/SKILL.md`를 별도 Process Skill로 두고 `review-governance.md`에 3종 Review Packet, 3-state + Resolution, targeted re-review, Gate별 Human Gate·`UNOBSERVED` override 계약 연결
+  - `build/SKILL.md`는 구현·Fresh Evidence 뒤 `verify` 인계에서 종료
+  - 구조 기준선: 수정 전 old Build Reference 부재 검사와 new Review Skill 존재 검사가 각각 exit code `1`
+  - 구조 Green: old Build Reference 제거, Review Skill·Reference 존재, Build의 Review/Governance 소유 문구 부재를 정적 검사해 exit code `0`
+  - Skill frontmatter: Ruby 표준 YAML parser와 필수 키 검사 PASS; `skill-creator`의 Python validator는 로컬 `PyYAML` 부재로 `UNOBSERVED`
 - [x] **Task 4 Evidence**
   - ADR-0010·decisions·roadmap에서 #146 계약과 #148 구현 추적성, Runtime CI·Managed Policy 보류 상태 대조
 - [x] **회귀 검증 게이트**
@@ -198,14 +209,16 @@ node scripts/review-gate.js clear
   - `node --test scripts/review-gate.test.js` → 18개 PASS, 실패 `0`, exit code `0`
   - `node scripts/run-evals.js --static-only` → EVAL-0004 PASS, 회귀 `0`, Runtime 항목은 의도대로 `UNOBSERVED`
   - 전체 Runtime Eval Suite는 실행하지 않음
+  - 2026-09-20 책임 분리 수정 후 `node --test scripts/review-gate.test.js` → 18개 PASS, 실패 `0`, exit code `0`
+  - 2026-09-20 책임 분리 수정 후 `git diff --check`와 `node scripts/run-evals.js --static-only` → exit code `0`, 정적 회귀 `0`
 - [ ] **Hook 실제 관측 — `UNOBSERVED`**
   - Evidence 없는 `git push --dry-run origin HEAD`가 exit code `0`으로 진행되어 현재 세션에서 새 repo Hook의 trust/reload가 적용되지 않았음을 관측
   - Hook deny·PASS의 실제 Codex 표면 동작은 `UNOBSERVED`; 우회 자동화는 추가하지 않음
   - 스크립트 직접 실행 경계는 `node:test`에서 missing/valid/stale Evidence로 검증됨
-  - **사용자 override (2026-09-20)**: 현재 세션에서 실제 Hook 차단이 입증되지 않은 위험을 제시한 뒤 Push + PR 진행을 명시적으로 승인받음
+  - **이전 사용자 override (2026-09-20; 비승계)**: 최초 구현의 Push + PR에만 적용됐다. 이번 재승인 Spec의 새 Push + PR Gate에는 자동 승계하지 않는다.
 - [x] **독립 Verifier Gate**
-  - 판정: AC-01~04·AC-06~12 `PASS`, AC-05 `UNOBSERVED`
-  - Overall: 실제 Hook trust/reload 미관측으로 `UNOBSERVED`; 위 사용자 override 없이는 Push/PR 금지
+  - 책임 분리 수정 후 재감사 판정: AC-01~04·AC-06~12 `PASS`, AC-05 `UNOBSERVED`
+  - Overall: 실제 Hook trust/reload 미관측으로 `UNOBSERVED`; 새 명시적 override 없이는 현재 Push+PR Gate 진행 불가
 - [ ] **독립 Reviewer Gate**
   - Review Packet: 승인된 Spec/Plan, `origin/main...HEAD` 및 working tree, Fresh Evidence·관련 baseline, known constraints, 최종 diff fingerprint
   - 모든 Finding의 `accepted / rejected-with-evidence / needs-human` 판정과 해결 기록
@@ -236,9 +249,9 @@ node scripts/review-gate.js clear
 - **Status**: `accepted`
 - **Resolution**: `resolved`
 - **Reviewer claim**: 사용자가 명시적으로 승인한 `UNOBSERVED` override가 있어도 Build 계약 문구상 Review/Human Gate 단계에 도달할 수 없다.
-- **Reason**: `build/SKILL.md`와 Review Reference는 필수 AC 전부 PASS만 다음 단계 조건으로 쓰지만 Spec `REQ-22`는 명시적 Human override를 허용한다.
+- **Reason**: 당시 `build/SKILL.md`와 Review Reference는 필수 AC 전부 PASS만 다음 단계 조건으로 썼지만 Spec `REQ-22`는 명시적 Human override를 허용했다.
 - **Evidence**:
-  - `.agents/skills/build/SKILL.md` 5단계와 `references/review-governance.md` 첫 문단이 `PASS 또는 명시적 UNOBSERVED override`로 정렬됨
+  - 현재 `.agents/skills/review/SKILL.md`와 `references/review-governance.md`가 `PASS 또는 현재 Gate의 명시적 UNOBSERVED override`로 정렬됨
   - `spec.md` `REQ-01`·`REQ-22` 및 본 Plan의 2026-09-20 사용자 override 기록
 
 ### Finding `F-03`
