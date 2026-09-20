@@ -1,6 +1,6 @@
 # Review Governance
 
-필수 AC가 `verify`와 read-only `verifier`에서 모두 `PASS`일 때만 이 절차를 시작한다. `FAIL`은 구현 루프로 돌리고, 필수 Evidence가 `UNOBSERVED`이면 누락 항목·확보 불가 사유·수용 위험을 보여준 뒤 사용자에게 override를 반드시 묻는다.
+필수 AC가 `verify`와 read-only `verifier`에서 모두 `PASS`이거나, 필수 `UNOBSERVED`의 누락 항목·확보 불가 사유·수용 위험을 보여준 뒤 사용자가 명시적으로 override했을 때만 이 절차를 시작한다. `FAIL`은 override하지 않고 구현 루프로 돌린다.
 
 ## Review Packet
 

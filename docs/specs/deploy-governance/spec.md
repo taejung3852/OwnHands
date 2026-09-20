@@ -13,7 +13,7 @@
 
 ### 1.1 Review Loop
 
-- `REQ-01` — 필수 AC가 `verify → verifier`에서 모두 `PASS`가 된 뒤, `Push + PR` Human Gate를 제시하기 전에 기존 read-only `reviewer`를 1회 호출한다.
+- `REQ-01` — 필수 AC가 `verify → verifier`에서 모두 `PASS`이거나 필수 `UNOBSERVED`가 `REQ-22` 절차로 명시적 override된 뒤, `Push + PR` Human Gate를 제시하기 전에 기존 read-only `reviewer`를 1회 호출한다. `FAIL`은 이 경로로 진행하지 않는다.
 - `REQ-02` — 기본 Reviewer는 `.codex/agents/reviewer.toml`이며 새 Reviewer Agent, 네이티브 `/review`, GitHub `@codex review`를 기본 흐름에 추가하지 않는다.
 - `REQ-03` — Reviewer에는 다음 최소 Review Packet만 전달한다.
   1. 변경 목표와 승인된 `spec.md`·`plan.md`
@@ -220,7 +220,7 @@ Hook은 Review Evidence만 확인한다. 대화 transcript는 안정적인 Hook 
 | 최종 Review에서 새 Finding 없음 | 이 결과를 남기려고 tracked `plan.md`를 다시 수정하지 않는다. 로컬 Review Evidence가 마지막 관측과 PASS를 나타낸다. |
 | 마지막 Reviewer 관측 후 문서·코드 한 글자라도 변경 | `record`의 fingerprint 비교가 거부하거나 기존 Evidence를 stale 처리하며, 변경된 최종 diff를 다시 Review한다. |
 | 일반 질문이나 파일 읽기 | Hook 대상 command가 아니므로 추가 처리 없이 통과한다. |
-| 복합 shell command 안에 외부 Git 명령 포함 | command token을 보수적으로 판정하여 Review Gate 대상에 포함한다. |
+| 복합 shell command 안에 외부 Git 명령 포함 | 검사 뒤 diff가 바뀌는 우회를 막기 위해 Evidence 유무와 관계없이 deny하고 외부 Git 명령을 독립 command로 다시 실행하게 한다. |
 | Hook 파일이 새로 변경됨 | Codex의 Hook trust review를 거치기 전에는 실행됐다고 가정하지 않는다. |
 | Hook 오류·미지원 tool path | 완전한 강제 성공으로 주장하지 않고 `UNOBSERVED`로 보고한다. Main Agent의 Human Gate 계약은 계속 적용한다. |
 | 원격 PR head가 로컬 Evidence 이후 변경됨 | 로컬 Hook만으로 안전을 증명하지 않는다. Merge 전 PR head와 로컬 reviewed head를 확인하며 불일치 시 재검토한다. |

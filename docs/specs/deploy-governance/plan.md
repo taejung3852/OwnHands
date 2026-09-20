@@ -109,6 +109,7 @@ node scripts/review-gate.js clear
   - `gh pr create`
   - `gh pr merge`
   - `&&`, `;`, `||`, 줄바꿈으로 연결된 복합 command 내부의 위 명령
+- 대상 외부 Git 명령이 복합 command에 포함되면 검사 뒤 diff 변경 우회를 막기 위해 Evidence 유무와 관계없이 deny하고 독립 command로 다시 실행하게 한다.
 - 대상이 아니면 stdout 없이 exit code `0`으로 통과한다.
 - 차단 시 exit code `0`과 아래 JSON을 stdout에 반환한다.
 
@@ -218,8 +219,24 @@ node scripts/review-gate.js clear
 - 마지막 Reviewer 관측 뒤 tracked file이 변경되면 Evidence 기록을 멈추고 새 fingerprint의 최종 Review로 돌아간다.
 - 원격 PR head를 로컬 Hook만으로 증명해야 하는 요구가 생기면 Spec으로 돌아간다.
 - Codex Action/API key, Managed Policy, 새 Agent, 새 Eval Task가 필요해지면 이번 Plan 범위를 확장하지 않고 사용자 승인을 요청한다.
-- Hook trust를 확보하지 못해 실제 차단을 관측하지 못하면 `UNOBSERVED`로 남기고 Push/PR 단계로 진행하지 않는다.
+- Hook trust를 확보하지 못해 실제 차단을 관측하지 못하면 `UNOBSERVED`로 남기고, `REQ-22`의 명시적 사용자 override 없이는 Push/PR 단계로 진행하지 않는다.
 
 ## 7. Review Results
 
-현재 기록된 Finding 없음.
+### Finding `F-01`
+- **Status**: `accepted`
+- **Resolution**: `resolved`
+- **Reviewer claim**: 유효한 Evidence 확인 뒤 같은 shell command에서 diff를 변경하고 `git push`를 실행하면 Reviewer가 보지 않은 변경을 Push할 수 있다.
+- **Reason**: `PreToolUse`는 command 실행 전에 한 번만 검사하므로 `git commit ... && git push`의 중간 변경을 다시 fingerprint하지 않는다.
+- **Evidence**:
+  - `scripts/review-gate.js`의 `checkHook()`이 대상 외부 Git 명령을 포함한 복합 command를 Evidence 유무와 관계없이 deny하도록 수정됨
+  - `node --test --test-name-pattern='allows valid evidence' scripts/review-gate.test.js` → 수정 전 FAIL, 수정 후 PASS
+
+### Finding `F-02`
+- **Status**: `accepted`
+- **Resolution**: `resolved`
+- **Reviewer claim**: 사용자가 명시적으로 승인한 `UNOBSERVED` override가 있어도 Build 계약 문구상 Review/Human Gate 단계에 도달할 수 없다.
+- **Reason**: `build/SKILL.md`와 Review Reference는 필수 AC 전부 PASS만 다음 단계 조건으로 쓰지만 Spec `REQ-22`는 명시적 Human override를 허용한다.
+- **Evidence**:
+  - `.agents/skills/build/SKILL.md` 5단계와 `references/review-governance.md` 첫 문단이 `PASS 또는 명시적 UNOBSERVED override`로 정렬됨
+  - `spec.md` `REQ-01`·`REQ-22` 및 본 Plan의 2026-09-20 사용자 override 기록

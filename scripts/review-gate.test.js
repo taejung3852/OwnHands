@@ -290,6 +290,8 @@ test('check-hook allows valid evidence and denies it after the diff changes', ()
   assert.equal(allowed.status, 0, allowed.stderr);
   assert.equal(allowed.stdout, '');
 
+  assertDenied(hook(repo, 'git commit --allow-empty -m late && git push'));
+
   fs.writeFileSync(path.join(repo, 'later.txt'), 'change\n');
   assertDenied(hook(repo, 'gh pr create --fill'));
 });

@@ -236,6 +236,10 @@ function checkHook() {
   }
   const command = input?.tool_input?.command;
   if (input?.tool_name !== 'Bash' || typeof command !== 'string' || !targetsExternalGit(command)) return;
+  if (/&&|;|\|\||[\r\n]/.test(command)) {
+    deny();
+    return;
+  }
   let repo;
   try {
     repo = repository();
