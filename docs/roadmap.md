@@ -115,6 +115,8 @@ flowchart LR
 - **선행**: V2-M4 (검증), V2-M5 (평가 기준)
 - **남겨둔 결정**: 실행 환경·승인·Hook 배치의 상세
 - **Research Gate**: Codex review·sandboxing/approvals·non-interactive/CI·managed policy·Hooks 공식 기능과 OwnHands 공백을 확인함. 내부 연결 방식은 아직 미정 → [M6 Research](research/m6-deploy-governance.md), [#144](https://github.com/taejung3852/OwnHands/issues/144)
+- **Step ② 계약**: 기존 Reviewer, diff-bound Review Evidence, 분리된 Human Gate, deterministic CI 경계를 확정함 → [ADR-0010](adr/0010-review-human-ci-governance.md), [#146](https://github.com/taejung3852/OwnHands/issues/146)
+- **Step ③ 구현**: `build → verify/verifier → review` 책임을 분리하고 별도 Review Skill과 좁은 Local Review Gate로 연결함. 실제 repo Hook trust 관측은 `UNOBSERVED`이며 M6 전체 완료는 아님 → [#148](https://github.com/taejung3852/OwnHands/issues/148)
 
 ### [V2-M7 — Maintain & Closed Loop](https://github.com/taejung3852/OwnHands/milestone/20)
 

@@ -1,10 +1,11 @@
 # Spec: Review Loop · Human Gate · CI Governance
 
 - **기반 Intent**: [`intent.md`](intent.md)
-- **작성 주체**: Codex 분석 (사람 검토 및 승인 필요)
+- **작성 주체**: Codex 분석 (사용자 재승인 반영)
 - **일자**: 2026-09-20
-- **상태**: Approved — 사용자 확인 (2026-09-20)
+- **상태**: Approved — 사용자 재확인 (2026-09-20; Decision A/B/C)
 - **관련 Issue**: [#146](https://github.com/taejung3852/OwnHands/issues/146)
+- **구현 Issue**: [#148](https://github.com/taejung3852/OwnHands/issues/148)
 
 ---
 
@@ -12,7 +13,7 @@
 
 ### 1.1 Review Loop
 
-- `REQ-01` — 필수 AC가 `verify → verifier`에서 모두 `PASS`가 된 뒤, `Push + PR` Human Gate를 제시하기 전에 기존 read-only `reviewer`를 1회 호출한다.
+- `REQ-01` — `build`는 구현과 applicable Fresh Evidence 확보 후 `verify`로 인계하고, 필수 AC가 `verify → verifier`에서 모두 `PASS`이거나 필수 `UNOBSERVED`가 `REQ-22` 절차로 명시적 override된 뒤 `review` Skill이 기존 read-only `reviewer` 호출, Review Evidence, Human Gate를 담당한다. `FAIL`은 이 경로로 진행하지 않는다.
 - `REQ-02` — 기본 Reviewer는 `.codex/agents/reviewer.toml`이며 새 Reviewer Agent, 네이티브 `/review`, GitHub `@codex review`를 기본 흐름에 추가하지 않는다.
 - `REQ-03` — Reviewer에는 다음 최소 Review Packet만 전달한다.
   1. 변경 목표와 승인된 `spec.md`·`plan.md`
@@ -35,6 +36,7 @@
 ```markdown
 ### Finding `F-01`
 - **Status**: `rejected-with-evidence`
+- **Resolution**: `resolved`
 - **Reviewer claim**: `foo()`가 `null`을 반환할 수 있음
 - **Reason**: 승인된 contract와 회귀 테스트가 non-null 동작을 보장함
 - **Evidence**:
@@ -42,7 +44,8 @@
   - `foo.test.ts` null-path test PASS
 ```
 
-- `rejected-with-evidence`에는 Reviewer claim, 기각 이유, 코드·Spec·Test 중 하나 이상의 구체적 Evidence가 모두 있어야 한다. 개수만 기록한 항목은 유효한 기각이 아니다.
+- `Resolution`은 `open / resolved` 중 하나다. 해결된 `accepted`·`needs-human` Finding은 기록에서 지우지 않고 `resolved`로 남기며, Gate는 `open`인 항목만 미해결로 계산한다.
+- `rejected-with-evidence`에는 `Resolution: resolved`, Reviewer claim, 기각 이유, 코드·Spec·Test 중 하나 이상의 구체적 Evidence가 모두 있어야 한다. 개수만 기록한 항목은 유효한 기각이 아니다.
 - `REQ-06` — Reviewer의 의견을 자동 수정 명령이나 최종 Decision으로 취급하지 않는다.
 - `REQ-07` — Finding 판정과 `plan.md` 기록, `accepted` 수정, Fresh Evidence 갱신이 끝난 최종 diff를 Reviewer가 한 번 확인해야 한다. 마지막 Reviewer 관측 뒤 tracked diff가 바뀌면 해당 관측은 유효하지 않으며, 변경 범위를 다시 확인해야 한다. 중간 단계에서는 `accepted` Finding의 대상 영역을 수정했거나 위험 경계가 바뀐 경우에만 targeted re-review한다.
 
@@ -69,7 +72,7 @@
 ```
 
 - `REQ-09` — Review Evidence는 Git tracked artifact가 아니라 현재 checkout의 로컬 상태로 보관한다. Evidence 기록 자체가 diff를 바꾸거나 PR에 포함돼서는 안 된다.
-- `REQ-10` — `record`는 Reviewer에게 전달되어 최종 관측된 fingerprint를 필수 입력으로 받고, 현재 diff fingerprint를 다시 계산해 둘이 정확히 같을 때만 Evidence를 기록한다. 현재 diff fingerprint가 관측값 또는 저장된 Evidence와 다르거나 `accepted`·`needs-human` Finding이 미해결이면 유효한 PASS로 취급하지 않는다. `record`는 `plan.md`의 `Review Results`를 검증해 count를 계산해야 하며, Reason이나 Evidence가 비어 있는 `rejected-with-evidence`가 하나라도 있으면 PASS 기록을 거부한다.
+- `REQ-10` — `record`는 Reviewer에게 전달되어 최종 관측된 fingerprint를 필수 입력으로 받고, 현재 diff fingerprint를 다시 계산해 둘이 정확히 같을 때만 Evidence를 기록한다. 현재 diff fingerprint가 관측값 또는 저장된 Evidence와 다르거나 `Resolution: open`인 `accepted`·`needs-human` Finding이 있으면 유효한 PASS로 취급하지 않는다. `record`는 `plan.md`의 `Review Results`를 검증해 미해결 count를 계산해야 하며, `Resolution: resolved`나 Reason·Evidence가 비어 있는 `rejected-with-evidence`가 하나라도 있으면 PASS 기록을 거부한다.
 - `REQ-11` — repo-local `PreToolUse` Hook은 shell command가 `git push`, `gh pr create`, `gh pr merge`에 해당할 때만 Review Evidence를 확인한다. 그 외 명령과 일반 응답에는 개입하지 않는다.
 - `REQ-12` — Hook은 누락·stale·미해결 Evidence를 발견하면 해당 외부 명령을 막고 짧은 이유를 반환한다. Hook 오류나 미지원 tool path를 완전한 보안 경계로 과장하지 않는다.
 - `REQ-13` — Hook은 파일·네트워크를 변경하거나 Secret을 읽지 않는 read-only 검사여야 한다. 실제 Reviewer 호출은 Hook이 아니라 현재 Codex 앱 세션의 Main Agent가 수행한다.
@@ -96,7 +99,7 @@
 - `REQ-19` — GitHub CI의 기본 required check는 deterministic check로 제한한다. 전체 Runtime Eval Suite와 Codex review를 매 PR 기본 검사로 두지 않는다.
 - `REQ-20` — Codex Action, OpenAI API key, 별도 API 과금 기반 Runtime CI를 도입하지 않는다. Reviewer와 선택 Runtime Eval은 로그인된 Codex 앱/로컬 CLI 인증 범위에서 실행한다.
 - `REQ-21` — required check 또는 필수 AC의 `FAIL`은 수정 전까지 Merge를 차단한다.
-- `REQ-22` — `UNOBSERVED`는 자동 통과가 아니다. 예외 Merge는 누락 Evidence, 확보 불가 사유, 수용 위험을 제시한 뒤 사용자의 명시적 override를 받아야 한다.
+- `REQ-22` — `UNOBSERVED`는 자동 통과가 아니다. 해당 Human Gate에서 예외 진행하려면 누락 Evidence, 확보 불가 사유, 수용 위험을 제시한 뒤 사용자의 명시적 override를 받아야 한다. 한 Gate의 override는 다른 Gate 승인이나 override를 대신하지 않는다.
 - `REQ-23` — Main Agent는 사용자 응답이 없거나 애매하면 `UNOBSERVED` override로 해석하지 않는다.
 
 ### 1.6 Permission Boundary와 보류 항목
@@ -118,13 +121,13 @@
 ### 2.1 책임 흐름
 
 ```text
-build Task 완료
+build: 구현 Task + applicable Fresh Evidence 완료
   ↓
 verify + verifier
   ├─ FAIL / required UNOBSERVED → 구현 루프 또는 Human 판단
-  └─ required AC PASS
+  └─ required AC PASS 또는 현재 Gate의 명시적 UNOBSERVED override
         ↓
-existing read-only reviewer + Review Packet
+review Skill → existing read-only reviewer + Review Packet
   ↓
 Finding adjudication을 plan.md Review Results에 기록
   ├─ accepted → 최소 수정 → Fresh Evidence
@@ -156,8 +159,9 @@ Human Gate: Merge
 
 | 구분 | 후보 경로 | 책임 |
 |---|---|---|
-| MODIFY | `.agents/skills/build/SKILL.md` | `verify` 이후 Reviewer와 Human Gate 연결 |
-| NEW | `.agents/skills/build/references/review-governance.md` | Review Packet, Finding, re-review, Human Gate 상세 |
+| MODIFY | `.agents/skills/build/SKILL.md` | 구현과 applicable Fresh Evidence 후 `verify`로 인계 |
+| NEW | `.agents/skills/review/SKILL.md` | Reviewer·Review Evidence·Human Gate의 얇은 Process 진입점 |
+| NEW | `.agents/skills/review/references/review-governance.md` | Review Packet, Finding, re-review, Human Gate 상세 |
 | NEW | `.codex/hooks.json` | 외부 Git command에만 좁게 적용되는 `PreToolUse` 등록 |
 | NEW | `scripts/review-gate.js` | Review Evidence 기록·현재 diff 비교·Hook 판정 |
 | MODIFY | `docs/specs/README.md` | 기존 Plan 규격과 Review Evidence 연결 안내 |
@@ -217,7 +221,7 @@ Hook은 Review Evidence만 확인한다. 대화 transcript는 안정적인 Hook 
 | 최종 Review에서 새 Finding 없음 | 이 결과를 남기려고 tracked `plan.md`를 다시 수정하지 않는다. 로컬 Review Evidence가 마지막 관측과 PASS를 나타낸다. |
 | 마지막 Reviewer 관측 후 문서·코드 한 글자라도 변경 | `record`의 fingerprint 비교가 거부하거나 기존 Evidence를 stale 처리하며, 변경된 최종 diff를 다시 Review한다. |
 | 일반 질문이나 파일 읽기 | Hook 대상 command가 아니므로 추가 처리 없이 통과한다. |
-| 복합 shell command 안에 외부 Git 명령 포함 | command token을 보수적으로 판정하여 Review Gate 대상에 포함한다. |
+| 복합 shell command 안에 외부 Git 명령 포함 | 검사 뒤 diff가 바뀌는 우회를 막기 위해 Evidence 유무와 관계없이 deny하고 외부 Git 명령을 독립 command로 다시 실행하게 한다. |
 | Hook 파일이 새로 변경됨 | Codex의 Hook trust review를 거치기 전에는 실행됐다고 가정하지 않는다. |
 | Hook 오류·미지원 tool path | 완전한 강제 성공으로 주장하지 않고 `UNOBSERVED`로 보고한다. Main Agent의 Human Gate 계약은 계속 적용한다. |
 | 원격 PR head가 로컬 Evidence 이후 변경됨 | 로컬 Hook만으로 안전을 증명하지 않는다. Merge 전 PR head와 로컬 reviewed head를 확인하며 불일치 시 재검토한다. |
@@ -230,7 +234,7 @@ Hook은 Review Evidence만 확인한다. 대화 transcript는 안정적인 Hook 
 
 ### 4.1 수용성 기준
 
-- [ ] `AC-01` — `verify/verifier → reviewer → Human Gate` 순서와 각 역할의 책임이 단일 계약으로 정의된다.
+- [ ] `AC-01` — `build → verify/verifier → review → reviewer → Human Gate` 순서와 각 역할의 책임이 분리된 계약으로 정의된다.
 - [ ] `AC-02` — Review Packet이 Spec/Plan, diff scope, Fresh Evidence·관련 baseline, known constraints를 포함하고 전체 대화는 제외한다.
 - [ ] `AC-03` — Finding이 `accepted / rejected-with-evidence / needs-human`으로 판정되고 상세 판단이 `plan.md`에 보존되며 targeted re-review 조건이 정의된다.
 - [ ] `AC-04` — Review Evidence가 마지막 Reviewer가 관측한 fingerprint와 현재 diff가 동일할 때만 기록되고, 이후 변경 시 stale 처리된다.
