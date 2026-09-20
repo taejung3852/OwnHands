@@ -99,7 +99,7 @@
 - `REQ-19` — GitHub CI의 기본 required check는 deterministic check로 제한한다. 전체 Runtime Eval Suite와 Codex review를 매 PR 기본 검사로 두지 않는다.
 - `REQ-20` — Codex Action, OpenAI API key, 별도 API 과금 기반 Runtime CI를 도입하지 않는다. Reviewer와 선택 Runtime Eval은 로그인된 Codex 앱/로컬 CLI 인증 범위에서 실행한다.
 - `REQ-21` — required check 또는 필수 AC의 `FAIL`은 수정 전까지 Merge를 차단한다.
-- `REQ-22` — `UNOBSERVED`는 자동 통과가 아니다. 예외 Merge는 누락 Evidence, 확보 불가 사유, 수용 위험을 제시한 뒤 사용자의 명시적 override를 받아야 한다.
+- `REQ-22` — `UNOBSERVED`는 자동 통과가 아니다. 해당 Human Gate에서 예외 진행하려면 누락 Evidence, 확보 불가 사유, 수용 위험을 제시한 뒤 사용자의 명시적 override를 받아야 한다. 한 Gate의 override는 다른 Gate 승인이나 override를 대신하지 않는다.
 - `REQ-23` — Main Agent는 사용자 응답이 없거나 애매하면 `UNOBSERVED` override로 해석하지 않는다.
 
 ### 1.6 Permission Boundary와 보류 항목

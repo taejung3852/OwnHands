@@ -108,7 +108,7 @@ node scripts/review-gate.js clear
   - `git push` 및 `git -C <path> push`
   - `gh pr create`
   - `gh pr merge`
-  - `&&`, `;`, `||`, 줄바꿈으로 연결된 복합 command 내부의 위 명령
+  - `&&`, `;`, `||`, 단일 `|`·`&`, 괄호, 줄바꿈으로 연결된 복합 command 내부의 위 명령
 - 대상 외부 Git 명령이 복합 command에 포함되면 검사 뒤 diff 변경 우회를 막기 위해 Evidence 유무와 관계없이 deny하고 독립 command로 다시 실행하게 한다.
 - 대상이 아니면 stdout 없이 exit code `0`으로 통과한다.
 - 차단 시 exit code `0`과 아래 JSON을 stdout에 반환한다.
@@ -240,3 +240,20 @@ node scripts/review-gate.js clear
 - **Evidence**:
   - `.agents/skills/build/SKILL.md` 5단계와 `references/review-governance.md` 첫 문단이 `PASS 또는 명시적 UNOBSERVED override`로 정렬됨
   - `spec.md` `REQ-01`·`REQ-22` 및 본 Plan의 2026-09-20 사용자 override 기록
+
+### Finding `F-03`
+- **Status**: `accepted`
+- **Resolution**: `resolved`
+- **Reviewer claim**: 유효한 Evidence 상태에서 단일 `|`·`&`로 선행 mutation과 Push를 연결하면 복합 command 차단을 우회할 수 있다.
+- **Reason**: 대상 command 탐지와 복합 command 판정이 서로 다른 shell separator 집합을 사용했다.
+- **Evidence**:
+  - `scripts/review-gate.js`가 공통 `SHELL_CONTROL` 집합을 target boundary와 복합 판정에 함께 사용함
+  - 유효 Evidence 상태의 단일 `|`·`&` 회귀 테스트가 수정 전 FAIL, 수정 후 PASS
+
+### Finding `F-04`
+- **Status**: `accepted`
+- **Resolution**: `resolved`
+- **Reviewer claim**: `REQ-22`가 예외 Merge만 언급해 Push+PR의 `UNOBSERVED` override 근거가 영구 계약에서 불명확하다.
+- **Reason**: `REQ-01`과 Build 계약은 `REQ-22`를 일반 override 절차로 참조하지만 본문 범위는 Merge로 좁혀져 있었다.
+- **Evidence**:
+  - `spec.md` `REQ-22`가 해당 Human Gate의 예외 진행으로 일반화되고 Gate 간 승인·override 비승계가 명시됨

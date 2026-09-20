@@ -18,6 +18,7 @@ const DENY = {
     permissionDecisionReason: 'OwnHands Review Gate: valid review evidence is missing or stale.',
   },
 };
+const SHELL_CONTROL = '[;&|()\\r\\n]';
 
 class UsageError extends Error {}
 
@@ -196,7 +197,7 @@ function record(flags) {
 }
 
 function targetsExternalGit(command) {
-  const boundary = '(?:^|[;&|()\\n]\\s*|\\s+)';
+  const boundary = `(?:^|${SHELL_CONTROL}\\s*|\\s+)`;
   const gitPush = "git(?:\\s+-C\\s+(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]+))?\\s+push\\b";
   const ghPr = 'gh\\s+pr\\s+(?:create|merge)\\b';
   return new RegExp(`${boundary}(?:${gitPush}|${ghPr})`).test(command);
@@ -236,7 +237,7 @@ function checkHook() {
   }
   const command = input?.tool_input?.command;
   if (input?.tool_name !== 'Bash' || typeof command !== 'string' || !targetsExternalGit(command)) return;
-  if (/&&|;|\|\||[\r\n]/.test(command)) {
+  if (new RegExp(SHELL_CONTROL).test(command)) {
     deny();
     return;
   }
