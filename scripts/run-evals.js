@@ -24,10 +24,15 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
 
-const REPO_ROOT = path.resolve(__dirname, '..');
-const TASK_SET_PATH = path.join(REPO_ROOT, 'docs', 'evals', 'task-set.json');
-const BASELINE_DIR = path.join(REPO_ROOT, 'docs', 'evals', 'baselines');
-const BASELINE_PATH = path.join(BASELINE_DIR, 'current.json');
+const REPO_ROOT = path.resolve(process.env.OWNHANDS_EVAL_ROOT || path.resolve(__dirname, '..'));
+const TASK_SET_PATH = path.resolve(
+  process.env.OWNHANDS_EVAL_TASK_SET || path.join(REPO_ROOT, 'docs', 'evals', 'task-set.json')
+);
+const BASELINE_PATH = path.resolve(
+  process.env.OWNHANDS_EVAL_BASELINE || path.join(REPO_ROOT, 'docs', 'evals', 'baselines', 'current.json')
+);
+const BASELINE_DIR = path.dirname(BASELINE_PATH);
+const isBaselineReadOnly = process.env.OWNHANDS_EVAL_BASELINE_READ_ONLY === '1';
 
 // ─── CLI 인자 파싱 ──────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -36,9 +41,17 @@ const isUpdateBaseline = args.includes('--update-baseline');
 const isJsonOutput = args.includes('--json');
 const taskFilterIdx = args.indexOf('--task');
 const targetTaskId = taskFilterIdx !== -1 ? args[taskFilterIdx + 1] : null;
+const humanLog = (...values) => {
+  if (!isJsonOutput) console.log(...values);
+};
 
 if (isStaticOnly && isUpdateBaseline) {
   console.error('Error: --static-only cannot update the runtime baseline.');
+  process.exit(1);
+}
+
+if (isUpdateBaseline && isBaselineReadOnly) {
+  console.error('Error: installed baseline is read-only.');
   process.exit(1);
 }
 
@@ -631,11 +644,11 @@ function evaluateTask(task, codexAvailable) {
 function main() {
   const startTime = performance.now();
 
-  console.log('================================================================');
-  console.log('   OwnHands Continuous Evals Runner (ADR-0009 Orchestrator)');
-  console.log(`   Source of Truth: docs/evals/task-set.json`);
-  console.log(`   Execution Mode : ${isStaticOnly ? 'Static Preflight Only' : 'Static Preflight + Runtime Execution & Judge'}`);
-  console.log('================================================================\n');
+  humanLog('================================================================');
+  humanLog('   OwnHands Continuous Evals Runner (ADR-0009 Orchestrator)');
+  humanLog(`   Source of Truth: ${path.relative(REPO_ROOT, TASK_SET_PATH) || path.basename(TASK_SET_PATH)}`);
+  humanLog(`   Execution Mode : ${isStaticOnly ? 'Static Preflight Only' : 'Static Preflight + Runtime Execution & Judge'}`);
+  humanLog('================================================================\n');
 
   // 1. 단일 Source of Truth 로드
   if (!fs.existsSync(TASK_SET_PATH)) {
@@ -664,7 +677,7 @@ function main() {
   // 2. 환경 점검: Codex CLI 사용 가능 여부
   const codexAvailable = isCodexCliAvailable();
   if (!codexAvailable && !isStaticOnly) {
-    console.log('ℹ️  Codex CLI (which codex) 미감지: 런타임 과제는 "지침 존재 ≠ 동작 관측" 원칙에 따라 UNOBSERVED로 판정됩니다.\n');
+    humanLog('ℹ️  Codex CLI (which codex) 미감지: 런타임 과제는 "지침 존재 ≠ 동작 관측" 원칙에 따라 UNOBSERVED로 판정됩니다.\n');
   }
 
   // 3. 기준선 (Baseline) 로드
@@ -690,18 +703,18 @@ function main() {
     runDetails[t.id] = { status, details, phase, elapsedMs: tElapsed };
 
     const icon = status === 'PASS' ? '✅ PASS' : (status === 'UNOBSERVED' ? '👁️  UNOBSERVED' : '❌ FAIL');
-    console.log(`[${t.id}] ${t.name} (${t.execution_mode})`);
-    console.log(`  상태: ${icon} (${tElapsed}ms)`);
+    humanLog(`[${t.id}] ${t.name} (${t.execution_mode})`);
+    humanLog(`  상태: ${icon} (${tElapsed}ms)`);
     for (const d of details) {
-      console.log(`    • ${d}`);
+      humanLog(`    • ${d}`);
     }
-    console.log('');
+    humanLog('');
   }
 
   // 5. 3-State Delta Matrix 판정
-  console.log('----------------------------------------------------------------');
-  console.log('   3-State Delta Matrix (기준선 대비 회귀 감지)');
-  console.log('----------------------------------------------------------------');
+  humanLog('----------------------------------------------------------------');
+  humanLog('   3-State Delta Matrix (기준선 대비 회귀 감지)');
+  humanLog('----------------------------------------------------------------');
 
   let regressionsCount = 0;
   const deltaMatrix = [];
@@ -732,13 +745,13 @@ function main() {
 
     deltaMatrix.push({ id: t.id, prev: prevStatus, curr: currStatus, delta });
     const deltaIcon = delta.startsWith('REGRESSION') ? '🚨' : (delta === 'UNCHANGED' ? '✓' : 'ℹ️');
-    console.log(`  ${deltaIcon} ${t.id.padEnd(10)}: ${prevStatus.padEnd(11)} ➔ ${currStatus.padEnd(11)} [${delta}]`);
+    humanLog(`  ${deltaIcon} ${t.id.padEnd(10)}: ${prevStatus.padEnd(11)} ➔ ${currStatus.padEnd(11)} [${delta}]`);
   }
 
   const totalElapsedMs = (performance.now() - startTime).toFixed(1);
-  console.log('----------------------------------------------------------------');
-  console.log(`   총 실행 시간: ${totalElapsedMs}ms | 회귀(Regression): ${regressionsCount}건`);
-  console.log('================================================================\n');
+  humanLog('----------------------------------------------------------------');
+  humanLog(`   총 실행 시간: ${totalElapsedMs}ms | 회귀(Regression): ${regressionsCount}건`);
+  humanLog('================================================================\n');
 
   // 6. 기준선 갱신 옵션 (Baseline Merge 보호)
   if (isUpdateBaseline && regressionsCount > 0) {
@@ -760,23 +773,23 @@ function main() {
       results: mergedResults
     };
     fs.writeFileSync(BASELINE_PATH, JSON.stringify(newBaseline, null, 2), 'utf8');
-    console.log(`💾 기준선이 성공적으로 갱신되었습니다 (Merged): ${BASELINE_PATH}\n`);
+    humanLog(`💾 기준선이 성공적으로 갱신되었습니다 (Merged): ${BASELINE_PATH}\n`);
   }
 
   if (isJsonOutput) {
-    console.log(JSON.stringify({
+    process.stdout.write(`${JSON.stringify({
       elapsedMs: totalElapsedMs,
       results,
       regressionsCount,
       deltaMatrix
-    }, null, 2));
+    }, null, 2)}\n`);
   }
 
   if (regressionsCount > 0) {
     console.error(`🚨 Critical: ${regressionsCount}건의 회귀가 감지되었습니다. 커밋/머지가 차단됩니다.`);
     process.exit(1);
   } else {
-    console.log('✨ 모든 과제가 기준선 계약을 만족하며 침묵하는 회귀가 없습니다.');
+    humanLog('✨ 모든 과제가 기준선 계약을 만족하며 침묵하는 회귀가 없습니다.');
     process.exit(0);
   }
 }

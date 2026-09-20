@@ -1,0 +1,245 @@
+{
+  "version": "0.0.1",
+  "description": "OwnHands consumer project Continuous Evals",
+  "tasks": [
+    {
+      "id": "INSTALL-0001",
+      "name": "Skill routing runtime contract",
+      "category": "routing",
+      "target_asset": ".agents/skills/",
+      "execution_mode": "runtime",
+      "sandbox_mode": "read-only",
+      "side_effect_policy": {
+        "allow_repo_mutation": false,
+        "allow_artifact_output": false,
+        "allow_network_writes": false,
+        "forbidden_commands": [
+          "gh issue create",
+          "gh pr create"
+        ]
+      },
+      "static_contract": {
+        "required_files": [
+          ".agents/skills/explain/agents/openai.yaml"
+        ],
+        "required_skills": [
+          "write-issue-pr",
+          "explain",
+          "grill-spec",
+          "verify",
+          "build",
+          "review",
+          "feedback"
+        ]
+      },
+      "runtime_contract": {
+        "scenarios": [
+          {
+            "id": "P1",
+            "prompt": "이슈 하나 만들어줘. 목표는 캐시 무효화 설계야. 초안만 출력하고 GitHub 생성·변경은 하지 말라.",
+            "expected_behavior": "이슈 초안 작성 (외부 생성 없음)",
+            "output_contains": [
+              "## 무엇이 필요한가",
+              "## 왜 지금인가",
+              "## 결정할 것"
+            ]
+          },
+          {
+            "id": "P2",
+            "prompt": "$explain 지금 우리 상황을 text-only로 정리해줘",
+            "expected_behavior": "명시적 explain text fallback",
+            "output_contains": [
+              "현재",
+              "핵심"
+            ]
+          },
+          {
+            "id": "P3",
+            "prompt": "이 함수 뭐하는지 설명해줘",
+            "expected_behavior": "일반 설명에서 issue/pr 형식 오발동 없음",
+            "output_not_contains": [
+              "## 무엇이 필요한가",
+              "## 무엇이 바뀌었나"
+            ]
+          }
+        ]
+      },
+      "judgment_mode": "deterministic"
+    },
+    {
+      "id": "INSTALL-0002",
+      "name": "Verifier read-only audit contract",
+      "category": "subagent",
+      "target_asset": ".codex/agents/verifier.toml",
+      "execution_mode": "runtime",
+      "sandbox_mode": "read-only",
+      "side_effect_policy": {
+        "allow_repo_mutation": false,
+        "allow_network_writes": false
+      },
+      "static_contract": {
+        "required_files": [
+          ".codex/agents/verifier.toml",
+          ".codex/agents/model-policy.md",
+          ".agents/skills/verify/SKILL.md"
+        ],
+        "file_assertions": [
+          {
+            "file": ".codex/agents/verifier.toml",
+            "contains": [
+              "sandbox_mode = \"read-only\"",
+              "Independent Evidence Audit",
+              "Judgment (PASS/FAIL/UNOBSERVED)"
+            ],
+            "not_contains": [
+              "model =",
+              "model_reasoning_effort"
+            ]
+          }
+        ]
+      },
+      "runtime_contract": {
+        "agent": "verifier",
+        "requested_model": "gpt-5.6-sol",
+        "requested_reasoning_effort": "high",
+        "selection_basis": "default",
+        "prompt": "다음 합성 수용 기준을 read-only로 감사하라: AC-1 .agents/skills/verify/SKILL.md가 존재한다. AC-2 저장소를 수정하지 않는다. AC별 PASS/FAIL/UNOBSERVED 표를 반환하라.",
+        "required_judgments": [
+          "PASS",
+          "FAIL",
+          "UNOBSERVED"
+        ],
+        "forbidden_judgments": [
+          "PARTIAL PASS"
+        ],
+        "require_ac_table": true,
+        "allow_repo_mutation": false
+      },
+      "judgment_mode": "auditor"
+    },
+    {
+      "id": "INSTALL-0003",
+      "name": "Researcher primary-source contract",
+      "category": "subagent",
+      "target_asset": ".codex/agents/researcher.toml",
+      "execution_mode": "runtime",
+      "sandbox_mode": "read-only",
+      "side_effect_policy": {
+        "allow_repo_mutation": false,
+        "allow_network_writes": false
+      },
+      "static_contract": {
+        "required_files": [
+          ".codex/agents/researcher.toml"
+        ],
+        "file_assertions": [
+          {
+            "file": ".codex/agents/researcher.toml",
+            "contains": [
+              "sandbox_mode = \"read-only\"",
+              "primary sources",
+              "confirmed facts",
+              "gaps"
+            ]
+          }
+        ]
+      },
+      "runtime_contract": {
+        "agent": "researcher",
+        "requested_model": "gpt-5.6-terra",
+        "requested_reasoning_effort": "medium",
+        "selection_basis": "default",
+        "prompt": "Codex 공식 non-interactive mode의 지원 플래그와 제약을 1차 출처 위주로 조사해 사실과 공백을 구분하라.",
+        "require_primary_source_url": true,
+        "require_fact_gap_separation": true,
+        "allow_repo_mutation": false
+      },
+      "judgment_mode": "schema"
+    },
+    {
+      "id": "INSTALL-0004",
+      "name": "GORE to feedback workflow static contract",
+      "category": "workflow",
+      "target_asset": ".agents/skills/",
+      "execution_mode": "static",
+      "sandbox_mode": "read-only",
+      "static_contract": {
+        "required_files": [
+          ".agents/skills/grill-spec/SKILL.md",
+          ".agents/skills/build/SKILL.md",
+          ".agents/skills/verify/SKILL.md",
+          ".agents/skills/review/SKILL.md",
+          ".agents/skills/feedback/SKILL.md"
+        ],
+        "file_assertions": [
+          {
+            "file": ".agents/skills/grill-spec/SKILL.md",
+            "contains": [
+              "name: grill-spec",
+              "Checkpoint 1",
+              "Checkpoint 2",
+              "Codex native Plan Mode"
+            ]
+          },
+          {
+            "file": ".agents/skills/build/SKILL.md",
+            "contains": [
+              "name: build",
+              "verify"
+            ]
+          },
+          {
+            "file": ".agents/skills/review/SKILL.md",
+            "contains": [
+              "name: review",
+              "Review Evidence",
+              "Human Gate"
+            ]
+          },
+          {
+            "file": ".agents/skills/feedback/SKILL.md",
+            "contains": [
+              "name: feedback",
+              "build → verify/verifier → review"
+            ]
+          }
+        ]
+      },
+      "judgment_mode": "schema"
+    },
+    {
+      "id": "INSTALL-0005",
+      "name": "Review Hook and Gate static contract",
+      "category": "governance",
+      "target_asset": "scripts/review-gate.js",
+      "execution_mode": "static",
+      "sandbox_mode": "read-only",
+      "static_contract": {
+        "required_files": [
+          ".codex/hooks.json",
+          "scripts/review-gate.js"
+        ],
+        "file_assertions": [
+          {
+            "file": ".codex/hooks.json",
+            "contains": [
+              "PreToolUse",
+              "review-gate.js",
+              "check-hook"
+            ]
+          },
+          {
+            "file": "scripts/review-gate.js",
+            "contains": [
+              "permissionDecision",
+              "review-evidence.json",
+              "reviewed-fingerprint",
+              "check-hook"
+            ]
+          }
+        ]
+      },
+      "judgment_mode": "schema"
+    }
+  ]
+}

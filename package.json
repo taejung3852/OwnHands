@@ -1,8 +1,8 @@
 {
   "name": "ownhands",
-  "version": "0.0.0-development",
+  "version": "0.0.1",
   "description": "Thin bootstrap CLI for connecting OwnHands assets to a Codex project",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/taejung3852/OwnHands.git"
@@ -19,11 +19,13 @@
     ".codex/agents/",
     ".codex/hooks.json",
     "scripts/review-gate.js",
+    "scripts/run-evals.js",
+    "assets/evals/",
     "AGENTS.md"
   ],
   "ownhands": {
     "sourceRepository": "https://github.com/taejung3852/OwnHands",
-    "sourceRevision": "package:0.0.0-development"
+    "sourceRevision": "tag:v0.0.1"
   },
   "scripts": {
     "test": "node --test"

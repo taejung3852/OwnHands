@@ -5,7 +5,8 @@
 <h1 align="center">OwnHands</h1>
 
 <p align="center">
-  <a href="#현재-상태"><img src="https://img.shields.io/badge/Status-Pre--release-F59E0B" alt="Status: Pre-release" /></a>
+  <a href="https://www.npmjs.com/package/ownhands"><img src="https://img.shields.io/npm/v/ownhands?label=npm" alt="npm version" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2563EB" alt="License: MIT" /></a>
   <a href="#시작하기"><img src="https://img.shields.io/badge/Environment-Codex-111827?logo=openai&amp;logoColor=white" alt="Environment: Codex" /></a>
   <a href="#스킬"><img src="https://img.shields.io/badge/Skills-7-2563EB" alt="Skills: 7" /></a>
   <a href="#독립-검토"><img src="https://img.shields.io/badge/Subagents-3-0F766E" alt="Subagents: 3" /></a>
@@ -70,48 +71,25 @@ OwnHands는 이 질문에 답할 근거를 개발 과정에 남기는 **개발 �
 
 ## 시작하기
 
-> **현재는 공개 npm 배포 전입니다.** 아래는 구현된 소스를 로컬 패키지로 만들어 연결하는 방법입니다. 공개 레지스트리의 `npx ownhands` 설치가 검증됐다는 뜻은 아닙니다.
-
 현재 CLI의 선언된 요구 조건은 **Node.js 18 이상, Git 저장소, 대상 프로젝트의 파일 쓰기 권한**입니다. 스킬을 사용하는 단계에서는 Codex 실행 환경도 필요합니다.
 
-### 1. OwnHands 패키지 준비
+### 1. 사용할 프로젝트에 연결
 
-`bin/ownhands.js`와 `package.json`이 포함된 OwnHands 체크아웃의 루트에서 실행합니다.
-
-```bash
-npm pack
-```
-
-현재 개발용 메타데이터 기준으로 `ownhands-0.0.0-development.tgz`가 생성됩니다. 이 이름은 정식 릴리스 버전을 뜻하지 않습니다.
-
-### 2. 사용할 프로젝트에 연결
-
-**연결할 프로젝트의 Git 저장소 안에서** 실행합니다. 아래 경로는 앞에서 만든 패키지의 실제 절대 경로로 바꿉니다.
+**연결할 프로젝트의 Git 저장소 안에서** 실행합니다.
 
 ```bash
-OWNHANDS_PACKAGE="/절대/경로/ownhands-0.0.0-development.tgz"
-
-npx --package "$OWNHANDS_PACKAGE" ownhands init
-npx --package "$OWNHANDS_PACKAGE" ownhands doctor
+npx --yes ownhands@0.0.1 init
+npx --yes ownhands@0.0.1 doctor
+npx --yes ownhands@0.0.1 eval --static-only
 ```
 
-`init`은 스킬·에이전트·검사 스크립트를 추가하고, 기존 `AGENTS.md`와 훅 설정에는 OwnHands 항목을 병합합니다. **같은 경로에 다른 내용이 있으면 덮어쓰지 않고 중단합니다.**
+`init`은 스킬·에이전트·Review Hook/Gate·소비자용 Eval을 추가하고, 기존 `AGENTS.md`와 훅 설정에는 OwnHands 항목을 병합합니다. **같은 경로에 다른 내용이 있으면 덮어쓰지 않고 중단합니다.**
 
 `doctor`는 설치 파일과 설정을 읽기 전용으로 검사합니다. 정상으로 나와도 **Codex가 훅을 신뢰하고 실제 실행했는지까지 확인한 것은 아닙니다.**
 
-<details>
-<summary>공개 배포 후 사용할 명령</summary>
+`eval --static-only`는 설치 계약만 확인하고 모델을 호출하지 않습니다. `eval`을 옵션 없이 명시적으로 실행할 때만 Codex Runtime 항목을 관측합니다.
 
-공개 npm 패키지의 배포·설치 검증을 마친 뒤에는 다음 진입점을 사용하도록 구성했습니다. 현재 실행 방법과 구분합니다.
-
-```bash
-npx ownhands init
-npx ownhands doctor
-```
-
-</details>
-
-### 3. Codex에서 첫 작업 시작
+### 2. Codex에서 첫 작업 시작
 
 설치한 프로젝트를 Codex로 열고, 만들고 싶은 기능부터 설명합니다.
 
@@ -122,7 +100,7 @@ $grill-spec 이 프로젝트에 추가할 기능의 목표와 범위를 함께 �
 
 설계를 승인한 뒤에는 Codex 계획 모드에서 구현 순서와 검증 방법을 정합니다. 계획까지 승인하면 `$build`로 구현을 시작합니다.
 
-설치 자산, 충돌 처리, 안전한 수동 제거는 [설치 계약](docs/installation.md)에 정리했습니다. 현재 CLI는 `init`과 `doctor`만 제공하며, 자동 업데이트·마이그레이션·제거 명령은 제공하지 않습니다.
+설치 자산, 충돌 처리, Eval 경계와 안전한 수동 제거는 [설치 계약](docs/installation.md)에 정리했습니다. 현재 CLI는 `init`, `doctor`, `eval`만 제공하며, 자동 업데이트·마이그레이션·제거 명령은 제공하지 않습니다.
 
 <a id="스킬"></a>
 
@@ -255,10 +233,10 @@ Superpowers를 그대로 복제하거나 Playbook의 모든 자동화를 구현�
 
 | 구분 | 현재 확인한 범위 |
 |---|---|
-| **구현** | 7개 스킬, 3개 독립 역할, 계획 모드 인계, 평가·리뷰 검사, `init`·`doctor` |
-| **로컬 검증 기록** | 관련 테스트 48개 통과, 정적 평가 회귀 0건, 로컬 패키지를 통한 설치·진단 확인 |
+| **구현** | 7개 스킬, 3개 독립 역할, 계획 모드 인계, 평가·리뷰 검사, `init`·`doctor`·`eval` |
+| **로컬 검증 기록** | 결정론적 테스트, 정적 평가, 로컬 tarball의 설치·진단·소비자 정적 Eval 결과를 해당 작업 Plan에 기록 |
 | **실제 환경 미확인** | 이번 변경의 모델 실행 평가, Codex 훅의 실제 신뢰·실행, 프로젝트 전체 흐름, 피드백 개선·적용의 운영 순환 |
-| **배포** | 개발용 패키지 소스가 있으며, 공개 npm 배포와 첫 릴리스는 아직 진행하지 않음 |
+| **배포 확인** | 공개 registry 상태는 [`ownhands@0.0.1`](https://www.npmjs.com/package/ownhands)과 GitHub Release에서 확인 |
 
 검증 수치는 [릴리스 준비 작업의 실행 기록](docs/specs/release-readiness-hardening/plan.md)에 남긴 로컬 결과입니다. **코딩 에이전트의 실제 동작이나 전체 흐름의 통과를 대신하지 않습니다.**
 
@@ -276,6 +254,7 @@ Superpowers를 그대로 복제하거나 Playbook의 모든 자동화를 구현�
 | `AGENTS.md` | 기존 지침에 병합되는 OwnHands 작업 안내 |
 | `.codex/hooks.json` · `scripts/review-gate.js` | 로컬 리뷰 증거 검사 연결 |
 | `.ownhands/installation.json` | 설치 출처·자산 목록·파일 해시 기록 |
+| `.ownhands/evals/` | 소비자용 Runner·Task Set·read-only baseline |
 
 작업하면서 만드는 `intent.md`·`spec.md`·`plan.md`와 피드백 기록은 프로젝트의 산출물입니다. 설치 시 완성된 작업 문서를 미리 만들어 넣는 구조가 아닙니다.
 

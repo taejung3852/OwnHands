@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -11,11 +11,13 @@ const MANIFEST_PATH = '.ownhands/installation.json';
 const HELP = `Usage:
   ownhands init
   ownhands doctor
+  ownhands eval [--static-only] [--task <id>] [--json]
   ownhands --help
   ownhands --version
 
 init connects packaged OwnHands assets to the current Git repository.
-doctor checks the installation without changing files.`;
+doctor checks the installation without changing files.
+eval explicitly runs the installed OwnHands evaluation set.`;
 
 function fail(message) {
   throw new Error(message);
@@ -51,11 +53,17 @@ function relativeFiles(directory, prefix) {
   return files;
 }
 
-function assetPaths() {
-  return [
+function assetEntries() {
+  const direct = [
     ...relativeFiles(path.join(PACKAGE_ROOT, '.agents', 'skills'), '.agents/skills'),
     ...relativeFiles(path.join(PACKAGE_ROOT, '.codex', 'agents'), '.codex/agents'),
     'scripts/review-gate.js',
+  ].map((relative) => ({ source: relative, target: relative }));
+  return [
+    ...direct,
+    { source: 'scripts/run-evals.js', target: '.ownhands/evals/run-evals.js' },
+    { source: 'assets/evals/task-set.json', target: '.ownhands/evals/task-set.json' },
+    { source: 'assets/evals/baseline.json', target: '.ownhands/evals/baseline.json' },
   ];
 }
 
@@ -89,9 +97,9 @@ function sameJson(left, right) {
 }
 
 function manifest() {
-  const assets = assetPaths().map((relative) => ({
-    path: relative,
-    sha256: sha256(sourceContent(relative)),
+  const assets = assetEntries().map((entry) => ({
+    path: entry.target,
+    sha256: sha256(sourceContent(entry.source)),
   }));
   const block = routingBlock();
   const hook = sourceHook();
@@ -137,13 +145,13 @@ function assertSafePath(root, relative) {
 
 function plannedAssetWrites(root) {
   const writes = [];
-  for (const relative of assetPaths()) {
-    const target = assertSafePath(root, relative);
-    const content = sourceContent(relative);
+  for (const entry of assetEntries()) {
+    const target = assertSafePath(root, entry.target);
+    const content = sourceContent(entry.source);
     const stat = lstatIfPresent(target);
     if (!stat) writes.push({ target, content });
     else if (!stat.isFile() || !fs.readFileSync(target).equals(content)) {
-      fail(`Owned asset conflict; refusing to overwrite: ${relative}`);
+      fail(`Owned asset conflict; refusing to overwrite: ${entry.target}`);
     }
   }
   return writes;
@@ -258,9 +266,7 @@ function init() {
   process.stdout.write(`OwnHands initialized at ${root}.\n`);
 }
 
-function doctor() {
-  const root = gitRoot();
-  const expected = manifest();
+function installationProblems(root, expected) {
   const problems = [];
   let installed = null;
 
@@ -311,9 +317,17 @@ function doctor() {
     problems.push('AGENTS.md routing is missing');
   }
 
+  return [...new Set(problems)];
+}
+
+function doctor() {
+  const root = gitRoot();
+  const expected = manifest();
+  const problems = installationProblems(root, expected);
+
   if (problems.length) {
     process.stdout.write('OwnHands installation is unhealthy:\n');
-    for (const problem of [...new Set(problems)]) process.stdout.write(`- ${problem}\n`);
+    for (const problem of problems) process.stdout.write(`- ${problem}\n`);
     process.stdout.write('Hook runtime trust: UNOBSERVED (doctor checks configuration only).\n');
     process.exitCode = 1;
   } else {
@@ -323,19 +337,61 @@ function doctor() {
   }
 }
 
-function main(argument) {
+function validateEvalArgs(args) {
+  const forwarded = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === '--static-only' || argument === '--json') {
+      forwarded.push(argument);
+      continue;
+    }
+    if (argument === '--task' && args[index + 1] && !args[index + 1].startsWith('-')) {
+      forwarded.push(argument, args[index + 1]);
+      index += 1;
+      continue;
+    }
+    fail(`Unsupported eval option: ${argument}\n\n${HELP}`);
+  }
+  return forwarded;
+}
+
+function runEval(args) {
+  const root = gitRoot();
+  const expected = manifest();
+  if (installationProblems(root, expected).length) {
+    fail('OwnHands installation is unhealthy or not initialized; run ownhands doctor.');
+  }
+  const forwarded = validateEvalArgs(args);
+  const evalDir = path.join(root, '.ownhands', 'evals');
+  const result = spawnSync(process.execPath, [path.join(evalDir, 'run-evals.js'), ...forwarded], {
+    cwd: root,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      OWNHANDS_EVAL_ROOT: root,
+      OWNHANDS_EVAL_TASK_SET: path.join(evalDir, 'task-set.json'),
+      OWNHANDS_EVAL_BASELINE: path.join(evalDir, 'baseline.json'),
+      OWNHANDS_EVAL_BASELINE_READ_ONLY: '1',
+    },
+  });
+  if (result.error) fail(`Eval runner failed to start: ${result.error.message}`);
+  process.exitCode = result.status ?? 1;
+}
+
+function main(args) {
   if (Number(process.versions.node.split('.')[0]) < 18) fail('OwnHands requires Node.js 18 or newer.');
-  if (argument === '--help' || argument === '-h') return process.stdout.write(`${HELP}\n`);
-  if (argument === '--version' || argument === '-v') return process.stdout.write(`${PACKAGE.version}\n`);
-  if (argument === 'init') return init();
-  if (argument === 'doctor') return doctor();
+  const [command, ...rest] = args;
+  if ((command === '--help' || command === '-h') && rest.length === 0) return process.stdout.write(`${HELP}\n`);
+  if ((command === '--version' || command === '-v') && rest.length === 0) return process.stdout.write(`${PACKAGE.version}\n`);
+  if (command === 'init' && rest.length === 0) return init();
+  if (command === 'doctor' && rest.length === 0) return doctor();
+  if (command === 'eval') return runEval(rest);
   process.stderr.write(`${HELP}\n`);
   process.exitCode = 1;
 }
 
 try {
-  if (process.argv.length !== 3) main('');
-  else main(process.argv[2]);
+  main(process.argv.slice(2));
 } catch (error) {
   process.stderr.write(`OwnHands: ${error.message}\n`);
   process.exitCode = 1;

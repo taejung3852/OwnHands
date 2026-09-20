@@ -252,3 +252,71 @@ test('runtime JSONL larger than the Node default buffer is still judged', () => 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /출력 계약 충족/);
 });
+
+test('installed eval paths can target a consumer repository without internal docs', () => {
+  const root = createFixture({
+    id: 'INTERNAL-FAIL',
+    name: 'internal task must not run',
+    execution_mode: 'static',
+    target_asset: 'missing-internal.txt'
+  });
+  const evalDir = path.join(root, '.ownhands', 'evals');
+  fs.mkdirSync(evalDir, { recursive: true });
+  fs.writeFileSync(path.join(root, 'installed.txt'), 'installed\n');
+  fs.writeFileSync(path.join(evalDir, 'task-set.json'), JSON.stringify({
+    version: '0.0.1',
+    tasks: [{
+      id: 'INSTALL-STATIC',
+      name: 'installed static contract',
+      execution_mode: 'static',
+      target_asset: 'installed.txt'
+    }]
+  }, null, 2));
+  fs.writeFileSync(path.join(evalDir, 'baseline.json'), JSON.stringify({
+    generated_at: 'fixture',
+    results: { 'INSTALL-STATIC': 'PASS' }
+  }, null, 2));
+
+  const result = runFixture(root, ['--static-only'], '', {
+    OWNHANDS_EVAL_ROOT: root,
+    OWNHANDS_EVAL_TASK_SET: path.join(evalDir, 'task-set.json'),
+    OWNHANDS_EVAL_BASELINE: path.join(evalDir, 'baseline.json'),
+    OWNHANDS_EVAL_BASELINE_READ_ONLY: '1'
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /INSTALL-STATIC/);
+  assert.doesNotMatch(result.stdout, /INTERNAL-FAIL/);
+});
+
+test('installed eval baseline is immutable even when update is requested directly', () => {
+  const root = createFixture({
+    id: 'INTERNAL',
+    name: 'internal task',
+    execution_mode: 'static'
+  });
+  const evalDir = path.join(root, '.ownhands', 'evals');
+  fs.mkdirSync(evalDir, { recursive: true });
+  const taskSetPath = path.join(evalDir, 'task-set.json');
+  const baselinePath = path.join(evalDir, 'baseline.json');
+  fs.writeFileSync(taskSetPath, JSON.stringify({
+    version: '0.0.1',
+    tasks: [{ id: 'INSTALL-STATIC', name: 'installed task', execution_mode: 'static' }]
+  }, null, 2));
+  fs.writeFileSync(baselinePath, JSON.stringify({
+    generated_at: 'fixture',
+    results: { 'INSTALL-STATIC': 'PASS' }
+  }, null, 2));
+  const before = fs.readFileSync(baselinePath);
+
+  const result = runFixture(root, ['--update-baseline'], '', {
+    OWNHANDS_EVAL_ROOT: root,
+    OWNHANDS_EVAL_TASK_SET: taskSetPath,
+    OWNHANDS_EVAL_BASELINE: baselinePath,
+    OWNHANDS_EVAL_BASELINE_READ_ONLY: '1'
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /baseline.*read-only/i);
+  assert.deepEqual(fs.readFileSync(baselinePath), before);
+});
