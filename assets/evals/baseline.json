@@ -1,0 +1,11 @@
+{
+  "generated_at": "2026-09-21T00:00:00.000Z",
+  "updated_by": "OwnHands 0.0.1 release candidate static observation",
+  "results": {
+    "INSTALL-0001": "UNOBSERVED",
+    "INSTALL-0002": "UNOBSERVED",
+    "INSTALL-0003": "UNOBSERVED",
+    "INSTALL-0004": "PASS",
+    "INSTALL-0005": "PASS"
+  }
+}

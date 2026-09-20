@@ -13,8 +13,9 @@ OwnHands가 공식 지원하는 사용자-facing 진입점은 `npx ownhands` 하
 대상 프로젝트 안에서 실행한다.
 
 ```bash
-npx ownhands init
-npx ownhands doctor
+npx --yes ownhands@0.0.1 init
+npx --yes ownhands@0.0.1 doctor
+npx --yes ownhands@0.0.1 eval --static-only
 ```
 
 `init`은 현재 Git 저장소의 top-level을 찾고 다음 자산을 연결한다.
@@ -25,12 +26,30 @@ npx ownhands doctor
 - `.codex/hooks.json`의 OwnHands `PreToolUse` entry
 - `AGENTS.md`의 `<!-- ownhands:start -->` / `<!-- ownhands:end -->` routing block
 - `.ownhands/installation.json`의 package/revision, 설치 asset 경로, SHA-256 provenance
+- `.ownhands/evals/`의 소비자용 Runner·Task Set·read-only baseline
 
 CLI는 외부 Skills installer를 연쇄 호출하지 않고 runtime dependency도 설치하지 않는다. Plugin, 별도 daemon, OwnHands Runtime을 만들거나 실행하지 않는다.
 
 Codex Plugin은 Skills·Hooks의 향후 bundle 후보지만 이번 설치 방식에는 사용하지 않는다. project-local agent와 `AGENTS.md` 병합, Hook script 배포와 trust 경계는 별도로 남아 현재 bootstrap보다 단순해지지 않기 때문이다.
 
-> 이 저장소의 `0.0.0-development` package는 local pack 검증용이다. 공개 npm registry의 `npx ownhands` 설치와 package name 소유권은 publish/release Human Gate 전까지 `UNOBSERVED`다.
+`init`은 Hook을 신뢰시키거나 Runtime Eval을 실행하지 않는다. 이 두 동작은 설치와 분리된 명시적 관측이다.
+
+## Eval 실행
+
+비용 없는 설치 계약 검사만 실행한다.
+
+```bash
+npx --yes ownhands@0.0.1 eval --static-only
+```
+
+단일 항목이나 기계 판독 출력을 선택할 수 있다.
+
+```bash
+npx --yes ownhands@0.0.1 eval --static-only --task INSTALL-0004
+npx --yes ownhands@0.0.1 eval --static-only --json
+```
+
+옵션 없는 `eval`은 Codex Runtime 항목까지 명시적으로 실행하므로 시간과 사용량이 들 수 있다. `--static-only`에서 생략된 Runtime 항목은 `UNOBSERVED`이며 PASS로 간주하지 않는다. baseline은 package가 제공하는 read-only 비교 기준이고 설치 프로젝트에서 갱신하지 않는다. 이 Eval은 OwnHands Agent System을 확인하며 프로젝트 자체의 test·lint·build를 대신하지 않는다.
 
 ## 병합과 충돌 규칙
 
@@ -56,6 +75,7 @@ Codex Plugin은 Skills·Hooks의 향후 bundle 후보지만 이번 설치 방식
 - Review Gate script와 manifest hash
 - AGENTS routing block의 존재와 내용
 - manifest에서 package version과 source revision 식별 가능 여부
+- 소비자 Eval Runner·Task Set·Baseline의 존재와 hash
 
 `doctor`는 Hook 설정의 존재를 확인할 뿐 Codex가 그 Hook을 신뢰·reload해 실제 실행했는지는 확인하지 않는다. 이 runtime 경계는 출력에서 `UNOBSERVED`로 표시한다.
 
@@ -73,4 +93,4 @@ Codex Plugin은 Skills·Hooks의 향후 bundle 후보지만 이번 설치 방식
 
 ## 제공하지 않는 기능
 
-`init`, `doctor`, 표준 `--help`/`--version` 이외 command는 없다. update, migrate, uninstall, GUI, daemon, Runtime, npm publish는 이 bootstrap의 책임이 아니다.
+`init`, `doctor`, `eval`, 표준 `--help`/`--version` 이외 command는 없다. update, migrate, uninstall, GUI, daemon, 별도 Runtime은 이 bootstrap의 책임이 아니다.

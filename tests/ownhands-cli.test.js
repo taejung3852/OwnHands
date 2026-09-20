@@ -80,13 +80,21 @@ test('init preserves user config, installs native assets, and is idempotent', ()
   }
   assert.equal(fs.existsSync(path.join(repo, '.codex', 'agents', 'model-policy.md')), true);
   assert.equal(fs.existsSync(path.join(repo, 'scripts', 'review-gate.js')), true);
+  for (const file of ['run-evals.js', 'task-set.json', 'baseline.json']) {
+    assert.equal(fs.existsSync(path.join(repo, '.ownhands', 'evals', file)), true, file);
+  }
 
   const manifest = readJson(path.join(repo, '.ownhands', 'installation.json'));
   assert.equal(manifest.schema_version, 1);
-  assert.equal(manifest.package_version, '0.0.0-development');
+  assert.equal(manifest.package_version, '0.0.1');
   assert.equal(manifest.source_repository, 'https://github.com/taejung3852/OwnHands');
-  assert.match(manifest.source_revision, /0\.0\.0-development/);
+  assert.equal(manifest.source_revision, 'tag:v0.0.1');
   assert.ok(manifest.assets.length > 10);
+  for (const asset of [
+    '.ownhands/evals/run-evals.js',
+    '.ownhands/evals/task-set.json',
+    '.ownhands/evals/baseline.json',
+  ]) assert.ok(manifest.assets.some((entry) => entry.path === asset), asset);
 
   const installed = snapshot(repo);
   const second = run(repo, 'init');
@@ -118,6 +126,15 @@ test('init preflight never overwrites owned conflicts, symlinks, or routing drif
     const repo = makeRepo();
     fs.mkdirSync(path.join(repo, 'scripts'));
     fs.writeFileSync(path.join(repo, 'scripts', 'review-gate.js'), 'user file\n');
+    const before = snapshot(repo);
+    assert.equal(run(repo, 'init').status, 1);
+    assert.deepEqual(snapshot(repo), before);
+  });
+
+  await t.test('eval asset conflict', () => {
+    const repo = makeRepo();
+    fs.mkdirSync(path.join(repo, '.ownhands', 'evals'), { recursive: true });
+    fs.writeFileSync(path.join(repo, '.ownhands', 'evals', 'task-set.json'), '{"user":true}\n');
     const before = snapshot(repo);
     assert.equal(run(repo, 'init').status, 1);
     assert.deepEqual(snapshot(repo), before);
@@ -175,6 +192,12 @@ test('doctor is read-only and reports each required installation drift', async (
     'missing manifest'(repo) {
       fs.rmSync(path.join(repo, '.ownhands', 'installation.json'));
     },
+    'missing eval runner'(repo) {
+      fs.rmSync(path.join(repo, '.ownhands', 'evals', 'run-evals.js'));
+    },
+    'eval task set drift'(repo) {
+      fs.appendFileSync(path.join(repo, '.ownhands', 'evals', 'task-set.json'), '\n');
+    },
     'null manifest'(repo) {
       fs.writeFileSync(path.join(repo, '.ownhands', 'installation.json'), 'null\n');
     },
@@ -204,10 +227,81 @@ test('init and doctor fail outside Git while help and version remain information
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /ownhands init/);
   assert.match(help.stdout, /ownhands doctor/);
+  assert.match(help.stdout, /ownhands eval/);
 
   const version = run(directory, '--version');
   assert.equal(version.status, 0, version.stderr);
-  assert.equal(version.stdout.trim(), '0.0.0-development');
+  assert.equal(version.stdout.trim(), '0.0.1');
+});
+
+test('eval requires a healthy installation and supports only the public read-only options', () => {
+  const repo = makeRepo();
+
+  const beforeInit = run(repo, 'eval', '--static-only');
+  assert.equal(beforeInit.status, 1);
+  assert.match(beforeInit.stderr, /initialized|installation/i);
+
+  assert.equal(run(repo, 'init').status, 0);
+
+  const staticOnly = run(repo, 'eval', '--static-only');
+  assert.equal(staticOnly.status, 0, staticOnly.stderr);
+  assert.match(staticOnly.stdout, /INSTALL-0004/);
+  assert.match(staticOnly.stdout, /INSTALL-0005/);
+  assert.match(staticOnly.stdout, /UNOBSERVED/);
+
+  const single = run(repo, 'eval', '--static-only', '--task', 'INSTALL-0004');
+  assert.equal(single.status, 0, single.stderr);
+  assert.match(single.stdout, /INSTALL-0004/);
+  assert.doesNotMatch(single.stdout, /INSTALL-0005/);
+
+  const json = run(repo, 'eval', '--static-only', '--json');
+  assert.equal(json.status, 0, json.stderr);
+  const parsed = JSON.parse(json.stdout);
+  assert.equal(parsed.results['INSTALL-0004'], 'PASS');
+  assert.equal(parsed.results['INSTALL-0001'], 'UNOBSERVED');
+
+  for (const args of [
+    ['eval', '--update-baseline'],
+    ['eval', '--task'],
+    ['eval', '--unknown'],
+  ]) {
+    const rejected = run(repo, ...args);
+    assert.equal(rejected.status, 1, args.join(' '));
+    assert.match(rejected.stderr, /Usage:/, args.join(' '));
+  }
+});
+
+test('runtime routing passes the issue draft no-write boundary to Codex', () => {
+  const repo = makeRepo();
+  assert.equal(run(repo, 'init').status, 0);
+  const binDir = path.join(repo, 'fake-bin');
+  const argsPath = path.join(repo, 'codex-args.txt');
+  fs.mkdirSync(binDir);
+  const codex = path.join(binDir, 'codex');
+  fs.writeFileSync(codex, `#!/bin/sh
+printf '%s\\n' "$*" >> "$FAKE_CODEX_ARGS_PATH"
+case "$*" in
+  *"이슈 하나"*) printf '%s\\n' '{"type":"item.completed","item":{"type":"agent_message","text":"## 무엇이 필요한가\\n## 왜 지금인가\\n## 결정할 것"}}' ;;
+  *"text-only"*) printf '%s\\n' '{"type":"item.completed","item":{"type":"agent_message","text":"현재 핵심"}}' ;;
+  *) printf '%s\\n' '{"type":"item.completed","item":{"type":"agent_message","text":"인라인 설명"}}' ;;
+esac
+`);
+  fs.chmodSync(codex, 0o755);
+
+  const result = spawnSync(process.execPath, [CLI, 'eval', '--task', 'INSTALL-0001'], {
+    cwd: repo,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+      FAKE_CODEX_ARGS_PATH: argsPath,
+    },
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const invoked = fs.readFileSync(argsPath, 'utf8');
+  assert.match(invoked, /초안만 출력/);
+  assert.match(invoked, /GitHub 생성·변경은 하지 말라/);
 });
 
 test('npm package contains only the CLI and required native assets', () => {
@@ -220,16 +314,44 @@ test('npm package contains only the CLI and required native assets', () => {
 
   for (const required of [
     'bin/ownhands.js',
+    'LICENSE',
     '.agents/skills/explain/SKILL.md',
     '.codex/agents/reviewer.toml',
     '.codex/agents/model-policy.md',
     '.codex/hooks.json',
     'scripts/review-gate.js',
+    'scripts/run-evals.js',
+    'assets/evals/task-set.json',
+    'assets/evals/baseline.json',
     'AGENTS.md',
     'package.json',
   ]) assert.ok(files.includes(required), required);
 
   assert.equal(files.some((file) => file.startsWith('tests/')), false);
   assert.equal(files.some((file) => file.startsWith('docs/')), false);
-  assert.equal(files.some((file) => file.includes('baselines/')), false);
+  const pack = JSON.parse(result.stdout)[0];
+  assert.equal(pack.version, '0.0.1');
+  assert.equal(pack.name, 'ownhands');
+});
+
+test('local npm tarball supports init, doctor, and installed static eval', () => {
+  const packageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ownhands-package-'));
+  tempDirs.push(packageDir);
+  const packed = spawnSync('npm', ['pack', '--pack-destination', packageDir, '--json'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  assert.equal(packed.status, 0, packed.stderr);
+  const tarball = path.join(packageDir, JSON.parse(packed.stdout)[0].filename);
+  const repo = makeRepo();
+  const npx = (...args) => spawnSync('npx', ['--yes', '--package', tarball, 'ownhands', ...args], {
+    cwd: repo,
+    encoding: 'utf8',
+  });
+
+  assert.equal(npx('init').status, 0);
+  assert.equal(npx('doctor').status, 0);
+  const evalResult = npx('eval', '--static-only');
+  assert.equal(evalResult.status, 0, evalResult.stderr);
+  assert.match(evalResult.stdout, /INSTALL-0004/);
 });

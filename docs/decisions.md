@@ -26,6 +26,17 @@
 
 ---
 
+## OwnHands 0.0.1 공개 baseline — 2026-09-21 사용자 승인
+
+- 첫 공개 실험판은 npm package `ownhands@0.0.1`, MIT License로 배포한다.
+- `init`은 7개 Skill, 3개 Agent와 model policy, AGENTS routing, Review Hook/Gate, 소비자용 Continuous Eval Runner·Task Set·Baseline을 기본 설치한다.
+- 소비자용 Eval은 `.ownhands/evals/`에 두고 내부 OwnHands ADR·Spec에 의존하지 않는다. `eval --static-only`는 Runtime을 생략하고 `UNOBSERVED`로 남긴다.
+- 설치는 Hook trust/reload 또는 Runtime Eval 실행을 자동화하지 않는다. 사용자 프로젝트의 native test도 대신하지 않는다.
+- npm publish, tag, GitHub Release는 서로 다른 외부 상태이며 각 Human Gate와 실제 관측을 따로 기록한다.
+- 구현 계약: [승인된 Spec](specs/public-npm-release/spec.md), 실행 계획과 Evidence: [Plan](specs/public-npm-release/plan.md). registry 게시·tag·Release는 각 Gate 전까지 `UNOBSERVED`다.
+
+---
+
 ## M7 피드백 순환 — 2026-09-20 사용자 승인
 
 - 다른 프로젝트에서 OwnHands를 사용하며 나온 사용자 교정·Eval 실패·Reviewer Finding을 해당 프로젝트의 `docs/ownhands/feedback/` Markdown으로 보존한다. 신호와 확정 결함은 구분한다.
