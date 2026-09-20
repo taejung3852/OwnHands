@@ -197,7 +197,7 @@ function record(flags) {
 }
 
 function targetsExternalGit(command) {
-  const boundary = `(?:^|${SHELL_CONTROL}\\s*|\\s+)`;
+  const boundary = `(?:^|${SHELL_CONTROL})\\s*`;
   const gitPush = "git(?:\\s+-C\\s+(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]+))?\\s+push\\b";
   const ghPr = 'gh\\s+pr\\s+(?:create|merge)\\b';
   return new RegExp(`${boundary}(?:${gitPush}|${ghPr})`).test(command);

@@ -262,9 +262,11 @@ test('linked worktrees keep review evidence in separate git directories', () => 
 
 test('check-hook ignores ordinary commands and gates only external Git actions', () => {
   const repo = makeRepo();
-  const ordinary = hook(repo, 'node --test');
-  assert.equal(ordinary.status, 0);
-  assert.equal(ordinary.stdout, '');
+  for (const command of ['node --test', 'echo git push', 'rg git push docs']) {
+    const ordinary = hook(repo, command);
+    assert.equal(ordinary.status, 0);
+    assert.equal(ordinary.stdout, '');
+  }
 
   for (const command of [
     'git push',

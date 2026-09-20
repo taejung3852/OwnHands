@@ -257,3 +257,12 @@ node scripts/review-gate.js clear
 - **Reason**: `REQ-01`과 Build 계약은 `REQ-22`를 일반 override 절차로 참조하지만 본문 범위는 Merge로 좁혀져 있었다.
 - **Evidence**:
   - `spec.md` `REQ-22`가 해당 Human Gate의 예외 진행으로 일반화되고 Gate 간 승인·override 비승계가 명시됨
+
+### Finding `F-05`
+- **Status**: `accepted`
+- **Resolution**: `resolved`
+- **Reviewer claim**: target regex가 임의의 공백 뒤 `git push`도 실행 명령으로 간주해 `echo git push`, `rg git push docs` 같은 일반 명령을 차단한다.
+- **Reason**: command boundary에 shell 실행 위치가 아닌 일반 `\s+` 대안을 포함했다.
+- **Evidence**:
+  - `scripts/review-gate.js`의 target boundary를 command 시작 또는 공통 `SHELL_CONTROL` 직후로 제한함
+  - `echo git push`, `rg git push docs` negative regression이 수정 전 FAIL, 수정 후 PASS
