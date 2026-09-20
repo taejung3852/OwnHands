@@ -122,7 +122,9 @@ flowchart LR
 
 - **목적·완료 결과**: 운영/사용 피드백이 다음 Intent와 Eval로 이어짐
 - **선행**: V2-M6
-- **남겨둔 결정**: 실제 signal·자동/수동 경계
+- **남겨둔 운영 검증**: 실제 사용 프로젝트·사례 지정 및 개선 채택/적용 관측
+- **Step ① Research Gate**: 피드백의 Intent/Eval 전환과 기존 자산 재사용 조사 기록 → [#150](https://github.com/taejung3852/OwnHands/issues/150), [M7 Research](research/m7-maintain-closed-loop.md)
+- **설계·구현 상태**: [승인된 Spec](specs/self-improvement-loop/spec.md)에 따라 Thin `feedback` Skill/Reference와 최소 라우팅 작성. 검증 결과는 [Plan](specs/self-improvement-loop/plan.md)에 기록한다. 실제 프로젝트의 신호 → Issue → 개선/평가 → 채택/적용은 `UNOBSERVED`; M7 완료 아님.
 
 ---
 

@@ -21,10 +21,18 @@
 | 🚧 미구현 | V2에서 아직 만들지 않았다. |
 | 📦 V1 구현 기록 있음 | V1에 구현·검증 기록이 있으나 **V2로 자동 승계되지 않는다.** |
 
-> **2026-09-20 기준 V2에 존재하는 실행 자산은 Skill 6개(`write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`·`review`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.**
+> **2026-09-20 기준 V2에 존재하는 실행 자산은 Skill 7개(`write-issue-pr`·`explain`·`grill-spec`·`verify`·`build`·`review`·`feedback`)와 커스텀 Subagent 3개(`verifier`·`reviewer`·`researcher`)다.** `feedback`의 실제 사용 프로젝트 운영 순환은 아직 `UNOBSERVED`다.
 > 그 외 제품 기능은 🚧 미구현이다. 이 문서는 방향 문서이지 완료 보고가 아니다.
 
 ---
+
+## M7 피드백 순환 — 2026-09-20 사용자 승인
+
+- 다른 프로젝트에서 OwnHands를 사용하며 나온 사용자 교정·Eval 실패·Reviewer Finding을 해당 프로젝트의 `docs/ownhands/feedback/` Markdown으로 보존한다. 신호와 확정 결함은 구분한다.
+- 작업·PR 종료 시 선별해 OwnHands Issue로 연결한다. 원본은 사용 프로젝트에 남기고 공개 가능한 최소 요약만 전달한다. 정보 분리 불가·공개 여부 불명확 시 사용자 판단 전 보류한다.
+- Issue 등록은 개선 착수 승인이 아니다. 사용자의 명시 요청 후 기존 Build/Verify/Review로 수정·평가하고, 채택 및 적용 버전을 연결한다.
+- 새 Hook·Runner·DB 없이 feedback Skill과 최소 라우팅을 사용한다. 지침 존재는 자동 호출 보장이 아니다. 기록도 일반 diff이므로 기존 Review fingerprint와 단계별 Human Gate를 따른다.
+- 구현 계약: [승인된 Spec](specs/self-improvement-loop/spec.md), 실행 및 미관측 범위: [Plan](specs/self-improvement-loop/plan.md). 실제 프로젝트 순환은 `UNOBSERVED`이며 M7 완료로 간주하지 않는다. 이는 OwnHands의 결정이지 플랫폼 공식 요구가 아니다.
 
 ## 1. 확정된 방향
 
@@ -49,12 +57,13 @@
 
 | 주제 | 결정 내용 | 구현 |
 |---|---|---|
-| **이름과 개수** | 초기 구성은 `write-issue-pr`, `explain`, `grill-spec`, `verify` **4개**다. V2-M3에서 `build`, V2-M6에서 `review`를 추가해 현재 **6개**다. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
+| **이름과 개수** | 초기 구성은 `write-issue-pr`, `explain`, `grill-spec`, `verify` **4개**다. V2-M3에서 `build`, V2-M6에서 `review`, V2-M7에서 `feedback`을 추가해 현재 **7개**다. 이름은 고유하게 짓는다 — 이름이 겹칠 때 어느 것이 선택되는지는 공식 문서에 없다(`미확인`). | ✅ |
 | **배치** | `.agents/skills/` — Codex REPO scope 탐색 경로다. V1의 `skills/`는 이 경로가 아니었다. | ✅ |
 | **판단 축** (공식) | 공식이 제시하는 축은 셋이다 — *"Split workflows when they have different **triggers, inputs, or success criteria**."* **`or`다.** 셋 중 **하나만 달라도** 공식 기준으로는 분할 근거가 된다. | — |
 | **분할 게이트** (OwnHands) | **공식보다 엄격하게 쓴다.** 세 축이 **모두** 뚜렷하게 다를 때만 새 Skill 후보로 본다. (`verify`는 Trigger: 구현 후 검증, Input: Spec/Plan/Evidence, Success: PASS/FAIL/UNOBSERVED 판정으로 3축 모두 상이하여 분할 충족). 근거는 10,000 토큰 천장과 description 상호 모순 위험이며, **공식이 요구하는 것이 아니라 우리가 과분할을 막으려고 좁힌 것이다.** | — |
 | **`build` 분할 근거** (OwnHands) | Trigger: 승인된 spec/plan 기반 구현. Input: `spec.md` + `plan.md` + Task. Success: 구현 + Fresh Evidence + `verify` 연결. 세 축이 기존 Skill과 모두 달라 OwnHands 분할 게이트를 충족한다. | ✅ `build` |
 | **`review` 분할 근거** (OwnHands) | Trigger: `verify/verifier` 완료 뒤 외부 Git 결정 전. Input: 최종 diff + Spec/Plan + Fresh Evidence + Finding. Success: 독립 Review 완료 + diff-bound Review Evidence + 해당 Human Gate 결정. 세 축이 `build`와 달라 별도 Process Skill로 둔다. | ✅ `review` |
+| **`feedback` 분할 근거** (OwnHands) | Trigger: OwnHands 신호 관측 또는 작업·PR 종료. Input: 관측 근거 + 사용 프로젝트 피드백 기록. Success: 근거 보존 + Issue 연결 또는 보류 이유 기록. 구현·검증·Review와 세 축이 달라 별도 Skill로 둔다. | ✅ Skill/Reference 작성; 운영 순환 미관측 |
 | **분할 게이트의 비용** | ⚠️ **과소분할을 감수하는 선택이다.** 트리거는 같은데 재료·판정이 다른 2/3 사례에서 공식은 나누라 하고 이 게이트는 말린다. 그런 사례가 실제로 오면 게이트를 재검토한다. | — |
 | **추가 근거** | ① 위 게이트를 통과하거나, ② Eval에서 관측한 뒤 **description → 본문** 순으로 고쳐도 안 잡힐 때. **빈도는 근거가 아니다.** | — |
 | **삭제·병합** | 두 Skill이 서로의 영역에서 오발하면 합치고, 쓰이지 않으면 지운다. 늘리는 규칙만 두지 않는다. | — |
