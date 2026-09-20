@@ -20,6 +20,7 @@
   - **Decision C**: 대상 외부 Git 명령이 복합 shell command에 포함되면 Evidence가 있어도 차단하고 독립 command로 다시 실행한다.
 - **대상 파일 목록 및 책임 경계 (Blast Radius Guard)**:
   - `[MODIFY]` `.agents/skills/build/SKILL.md`: 구현과 applicable Fresh Evidence 확보 후 기존 `verify`로 인계하는 경계로 축소
+  - `[MODIFY]` `AGENTS.md`: 검증 완료 변경의 독립 Review·외부 Git 결정에 `review` Skill을 사용하는 최소 라우팅 추가
   - `[DELETE/MOVE]` `.agents/skills/build/references/review-governance.md`: Build가 소유하던 Review 계약 제거
   - `[NEW]` `.agents/skills/review/SKILL.md`: 검증 완료 뒤 Reviewer·Review Evidence·Human Gate를 실행하는 얇은 Process Skill
   - `[NEW/MOVE]` `.agents/skills/review/references/review-governance.md`: Review Packet, Finding 판정, targeted re-review, Human Gate 상세 계약
@@ -201,6 +202,7 @@ node scripts/review-gate.js clear
   - 구조 기준선: 수정 전 old Build Reference 부재 검사와 new Review Skill 존재 검사가 각각 exit code `1`
   - 구조 Green: old Build Reference 제거, Review Skill·Reference 존재, Build의 Review/Governance 소유 문구 부재를 정적 검사해 exit code `0`
   - Skill frontmatter: Ruby 표준 YAML parser와 필수 키 검사 PASS; `skill-creator`의 Python validator는 로컬 `PyYAML` 부재로 `UNOBSERVED`
+  - root `AGENTS.md`에 검증 완료 변경의 독립 Review·외부 Git 결정용 `review` Skill 라우팅을 한 문장으로 연결
 - [x] **Task 4 Evidence**
   - ADR-0010·decisions·roadmap에서 #146 계약과 #148 구현 추적성, Runtime CI·Managed Policy 보류 상태 대조
 - [x] **회귀 검증 게이트**

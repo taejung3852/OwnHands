@@ -60,7 +60,7 @@
 | **삭제·병합** | 두 Skill이 서로의 영역에서 오발하면 합치고, 쓰이지 않으면 지운다. 늘리는 규칙만 두지 않는다. | — |
 | **지식의 배치** | 깊이는 Skill이 아니라 `references/`로 늘린다. `references/`는 카탈로그 예산을 먹지 않는다. 단 `SKILL.md`가 가리키고 언제 읽을지 적어야 로드된다. | ✅ |
 | **공통 규율의 자리** | 기본은 **각 Skill 안**이다. `AGENTS.md`에는 반복해서 고쳐야 했던 규칙뿐 아니라, 공통 저장소 진입 규칙처럼 여러 Build 작업에 적용돼야 하는 **최소 라우팅**을 둘 수 있다. 이는 OwnHands의 결정이며 공식 요구가 아니다. | ✅ |
-| **`AGENTS.md`의 현재 내용** | 공식 결정과 OwnHands 결정을 분리하는 규칙, GORE와 `docs/specs/` 규약, 승인된 spec/plan 기반 Build 작업의 `build` Skill 라우팅을 둔다. Build 라우팅은 반복 실패가 아니라 여러 Build 작업에 적용되는 공통 진입점으로 사용자 승인됐다. | ✅ |
+| **`AGENTS.md`의 현재 내용** | 공식 결정과 OwnHands 결정을 분리하는 규칙, GORE와 `docs/specs/` 규약, 승인된 구현의 `build` 라우팅과 검증 완료 변경의 `review` 라우팅을 둔다. 두 문장은 여러 작업에 적용되는 공통 진입점으로 사용자 승인됐다. | ✅ |
 | **Claude Code 대응** | `CLAUDE.md`는 `@AGENTS.md` **한 줄 import**다. 공식이 제시한 패턴이고, 내용을 두 벌로 관리하지 않는다. Claude Code는 `AGENTS.md`를 직접 읽지 않는다. | ✅ |
 | **Explain의 출력 형태** | 명시적으로 선택된 `explain`은 우선 대화에서 큰 그림·비유·짧은 단계로 설명한다. 사용자가 HTML이나 별도 아티팩트를 요청한 경우에만 ELI5 시각 모델을 적용한다 ([ADR-0002](adr/0002-explain-visual-story-cards.md)). | ✅ `shape.md` |
 | **링크 전달 방식** | 스킴을 고정하지 않는다. 표면이 정한다 — Codex는 `file_opener`(기본 `vscode`)로 정하고, 렌더링하는 표면은 직접 표시한다. | ✅ |
