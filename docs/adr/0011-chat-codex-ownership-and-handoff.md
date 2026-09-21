@@ -4,6 +4,7 @@
 - 일자: 2026-09-22
 - 관련: [#154](https://github.com/taejung3852/OwnHands/issues/154), 사용자 피드백 9-2·10·15
 - 조정 대상: [ADR-0004](0004-intent-spec-specification.md), [ADR-0006](0006-grill-spec-orchestration-tradeoffs.md), [ADR-0007](0007-plan-artifact-and-build-feedback-loop.md)
+- 후속 결정: [ADR-0019](0019-github-centered-sdlc-and-stage-commits.md) — GitHub 중심 Source of Truth, Work Item/Branch, Stage 승인 Commit 경계
 
 ## Context
 
@@ -22,9 +23,10 @@
 ## 인계 설계 제안
 
 - 기존 `docs/specs/<feature>/intent.md`, `spec.md`, `plan.md` 구분을 유지하고 ADR은 `docs/adr/`에 둔다. 문서 경로의 최종 규격은 후속 Spec에서 고정한다.
-- Chat에서 승인한 문서를 지정 브랜치에 저장한 뒤 저장소·브랜치·commit SHA·관련 문서 경로를 Codex에 전달한다.
+- Chat에서 승인한 문서를 지정 브랜치에 저장하고 Codex가 승인 산출물과 필요한 결정 이유를 찾을 수 있도록 인계한다.
 - 전체 대화의 재전달보다 승인된 산출물과 필요한 결정 이유를 전달한다. 문서에 없는 중요한 승인을 추측하지 않는다.
-- 동시에 같은 파일을 수정하거나 기준 브랜치가 전진했을 때 기존 결정을 덮어쓰지 않도록 revision 충돌 처리를 둔다.
+- Handoff를 현재 단계에서 고정 필드가 많은 Manifest로 강제하지 않는다. 좋은 Handoff 작성 규칙은 후속 Spec에서 reference/template 형태를 우선 검토한다.
+- 동시에 같은 파일을 수정하거나 기준 브랜치가 전진했을 때 기존 결정을 덮어쓰지 않도록 충돌 처리를 둔다.
 - Chat의 설계 문서 저장과 구현 결과의 외부 배포는 서로 다른 승인 대상이다. 아직 Build하지 않은 Intent를 저장하기 위해 Build 검증 완료를 요구하는 순환 구조를 만들지 않는다.
 
 ## 대안과 선택 이유
@@ -39,4 +41,6 @@
 
 ## 미결정 상세
 
-승인 상태의 저장 방식, 브랜치 생성 시점, 동시 작성 규칙, 공백 문서의 처리, Chat에서 읽어야 할 코드 범위는 후속 설계 대상이다. 이번 ADR로 새 플랫폼 기능이나 실제 연결 성공을 주장하지 않는다.
+승인 산출물의 저장 경계와 Branch 생성/재사용의 기본 방향은 ADR-0019에서 결정했다.
+
+아직 남은 상세는 동시 작성 충돌 처리, 공백 문서·중단 처리, Chat에서 읽어야 할 코드 범위, Handoff reference의 정확한 형식과 필수 정보다. 이번 ADR로 새 플랫폼 기능이나 실제 연결 성공을 주장하지 않는다.
