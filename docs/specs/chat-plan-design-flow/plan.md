@@ -159,3 +159,17 @@ T1~T4 체크는 승인된 로컬 구현·검증 범위의 수행 완료다. 실�
 - 미관측 runtime AC, AC-38 및 Overall UNOBSERVED는 유지한다. 변경을 원격에 보존해도 실제 Chat 동작·Stage 저장·재인터뷰 방지의 성공을 보증하지 않는다.
 - 앞의 NOT DONE/commit 전 중단 기록은 각 보고 시점의 사실이다. 실제 commit·push 결과는 실행 후 세션에서 보고한다.
 - 푸시 직전 최종 committed diff와 fingerprint를 기존 Reviewer가 확인한 뒤 로컬 Review Evidence를 기록한다. 이 Evidence는 diff 검토 결과이며 AC Overall PASS를 뜻하지 않는다.
+
+### 현재 Git 상태 — PR #155
+
+- Implementation: DONE
+- Local verification: DONE
+- Commit: DONE (`b8b8f6b`)
+- Push: DONE
+- PR: DONE (#155)
+- Current PR review: DONE — actionable implementation blocker 없음
+- Merge: NOT DONE
+- npm publish: NOT DONE
+- Plugin publish: NOT DONE
+- Post-change Chat runtime E2E: UNOBSERVED (platform-blocked)
+- Overall AC verdict: UNOBSERVED
