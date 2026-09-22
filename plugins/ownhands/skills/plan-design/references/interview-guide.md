@@ -1,6 +1,6 @@
-# grill-spec 인터뷰 및 오케스트레이션 가이드
+# plan-design 인터뷰 및 오케스트레이션 가이드
 
-이 문서는 `grill-spec` Skill이 실행될 때 참조하는 세부 프로토콜, 라우팅 규칙, Fallback 계약, 추적성 가이드입니다.
+이 문서는 `plan-design` Skill이 실행될 때 참조하는 세부 프로토콜, 라우팅 규칙, Fallback 계약, 추적성 가이드입니다.
 
 ---
 
@@ -103,15 +103,9 @@ Artifact 전체를 작성하기 전에, 현재 Frontier에서 사용자의 선�
 
 ---
 
-## 4. 2단계 Human Checkpoint (Default Barrier)
+## 4. Stage Checkpoints
 
-1. **Checkpoint 1 (`intent.md` 승인)**:
-   - `intent.md` 초안을 작성한 뒤 기본적으로 사용자에게 검토를 요청하고 대기합니다.
-   - 사용자가 "intent만 잡자"고 요청한 경우 즉시 작업을 종료합니다.
-   - **승인되지 않은 Intent를 확정된 근거로 삼아 `spec.md` 작성을 직행하지 않습니다.**
-2. **Checkpoint 2 (`spec.md` 승인)**:
-   - `intent.md`가 승인되면, 팩트와 의도를 바탕으로 `spec.md` 초안을 작성합니다.
-   - 요구사항, 아키텍처, 엣지케이스, 수용성 기준에 대해 사람의 최종 기술 검토를 받습니다.
+Checkpoint 1은 [Intent](intent-guide.md), Checkpoint 2는 [Spec](spec-guide.md)의 전체 내용 승인이다. Section Review는 이를 대체하지 않는다. 각 Stage 전체 완성 후 ELI5를 한 번 제공하고 Content Approval을 받는다. 저장은 별도 Persistence Approval 후 Stage 단위로 수행한다. intent-only도 승인·저장 선택과 상태 안내 후 종료한다.
 
 ---
 

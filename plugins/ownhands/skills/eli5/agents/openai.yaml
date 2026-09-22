@@ -1,0 +1,5 @@
+interface:
+  display_name: "ELI5"
+  short_description: "Explain a topic with big pictures and few words."
+policy:
+  products: [CHAT, CODEX]

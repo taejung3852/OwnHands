@@ -1,6 +1,6 @@
 # OwnHands 설치 계약
 
-OwnHands가 공식 지원하는 사용자-facing 진입점은 `npx ownhands` 하나다. 이 CLI는 새 Runtime이 아니라 프로젝트에 Codex native 자산을 연결하고 상태를 확인하는 얇은 bootstrap이다.
+OwnHands의 Codex bootstrap 진입점은 `npx ownhands`다. Chat Plugin은 별도 배포 표면이다. 이 CLI는 새 Runtime이 아니라 프로젝트에 Codex native 자산을 연결하고 상태를 확인하는 얇은 bootstrap이다.
 
 ## 전제조건
 
@@ -10,7 +10,7 @@ OwnHands가 공식 지원하는 사용자-facing 진입점은 `npx ownhands` 하
 
 ## 설치와 확인
 
-대상 프로젝트 안에서 실행한다.
+아래 `ownhands@0.0.1` 명령은 기존 공개 릴리스 설치 예시이며 대상 프로젝트 안에서 실행한다. 이 문서의 새 6개 Skill 구성은 아직 게시하지 않은 현재 Branch의 로컬 패키지 기준이다. 공개 0.0.1 설치로 이번 변경이 적용된다고 해석하지 않는다.
 
 ```bash
 npx --yes ownhands@0.0.1 init
@@ -18,9 +18,11 @@ npx --yes ownhands@0.0.1 doctor
 npx --yes ownhands@0.0.1 eval --static-only
 ```
 
-`init`은 현재 Git 저장소의 top-level을 찾고 다음 자산을 연결한다.
+현재 Branch를 확인하려면 OwnHands checkout에서 `npm pack --pack-destination <임시 디렉터리>`로 만든 tarball을 사용한다. 별도 임시 Git 프로젝트에서 `npx --yes --package <tarball의 절대경로> ownhands init`을 실행하고 같은 `--package`로 `doctor`, `eval --static-only`를 확인한다. 기존 공개 패키지와 버전 문자열이 같으므로 검증 시 tarball 출처를 함께 기록한다.
 
-- `.agents/skills/`의 OwnHands Skills와 References 7개
+현재 Branch의 `init`은 Git 저장소의 top-level을 찾고 다음 자산을 연결한다.
+
+- `.agents/skills/`의 OwnHands Skills와 References 6개
 - `.codex/agents/`의 researcher, verifier, reviewer와 model policy
 - `scripts/review-gate.js`
 - `.codex/hooks.json`의 OwnHands `PreToolUse` entry
@@ -69,7 +71,7 @@ npx --yes ownhands@0.0.1 eval --static-only --json
 
 `doctor`는 파일을 변경하지 않는다. 정상은 exit 0, 누락·충돌·drift는 exit 1이다.
 
-- 7개 Skills와 각 Reference의 설치 hash
+- 실행 중인 패키지가 제공하는 Skills와 각 Reference의 설치 hash (현재 Branch 로컬 패키지: 6개)
 - 세 agent 정의의 package hash, 필수 필드, `sandbox_mode = "read-only"`, model pin 부재
 - OwnHands Hook entry의 정확한 단일 연결
 - Review Gate script와 manifest hash
@@ -94,3 +96,7 @@ npx --yes ownhands@0.0.1 eval --static-only --json
 ## 제공하지 않는 기능
 
 `init`, `doctor`, `eval`, 표준 `--help`/`--version` 이외 command는 없다. update, migrate, uninstall, GUI, daemon, 별도 Runtime은 이 bootstrap의 책임이 아니다.
+
+## Chat Plugin과 설치 경계
+
+`plugins/ownhands/`는 npm pack 및 init 대상이 아닙니다. plan-design과 Companion ELI5는 Plugin에만 포함되며 기존 grill-spec shim은 없습니다. 기존 설치를 자동 migration하거나 충돌 자산을 덮어쓰지 않습니다. 별도 업데이트 계약은 후속입니다. [Plugin 안내](../plugins/ownhands/README.md)의 플랫폼 차단과 AC UNOBSERVED를 참고하세요.

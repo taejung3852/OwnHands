@@ -30,15 +30,15 @@
  [🛡️ Checkpoint 3 (필수)] ➔  신선한 검증 증거(Fresh Evidence) & Verifier Subagent Gate
  ```
 
-Stage 1·2에서 사용자 선택에 따라 결과가 달라지는 주요 Decision은 Artifact 초안에 반영하기 전에 `grill-spec`의 Section Review로 확인합니다. 코드베이스 Fact는 승인 대상으로 만들지 않으며, Section Review는 완성된 Artifact 전체를 검토하는 Checkpoint 1·2를 대체하지 않습니다.
+Stage 1·2에서 사용자 선택에 따라 결과가 달라지는 주요 Decision은 Artifact 초안에 반영하기 전에 Chat Plugin `plan-design`의 Section Review로 확인합니다. 코드베이스 Fact는 승인 대상으로 만들지 않으며, Section Review는 완성된 Artifact 전체를 검토하는 Checkpoint 1·2를 대체하지 않습니다.
  
 > ⚠️ **적용 범위 안내**: 오타 수정, 단순 버그 픽스 등 사소한 작업까지 intent/spec/plan 아티팩트 작성을 의무 강제하지 않습니다.
-> 개발 시스템이 무거워지지 않도록 "어떤 작업에 이 흐름을 적용할 것인가"의 세부 기준은 후속으로 정립합니다.
+> Build는 구현 판단 필요성과 위험으로 Light/Planned를 구분합니다. Light는 현재 요청·diff·검사 결과를 세션 Verification Summary로 제공하며 plan.md/verification.md를 강제하지 않습니다. PR이 있으면 Summary를 본문에 반영합니다.
 
-Heavy flow에서 Agent가 Plan Mode로 직접 전환할 수 없으면 사용자에게 `/plan` 또는 `Shift+Tab` 전환을 안내하고 중단합니다. Plan Mode를 사용한 척 `plan.md`를 먼저 쓰거나 승인 전에 Build를 시작하지 않습니다. `plan.md`는 승인된 native Plan Mode 결과를 보존하는 저장소 아티팩트이지 Plan Mode의 대체 기능이 아닙니다.
+Heavy flow에서 Agent가 Plan Mode로 직접 전환할 수 없으면 “Plan Mode로 전환해주세요. 현재 환경에서 필요한 전환 방법은 사용자에게 안내해주세요.”라고 안내합니다. Handoff에는 특정 단축키를 고정하지 않습니다. Plan Mode를 사용한 척 `plan.md`를 먼저 쓰거나 승인 전에 Build를 시작하지 않습니다. `plan.md`는 승인된 native Plan Mode 결과를 보존하는 저장소 아티팩트이지 Plan Mode의 대체 기능이 아닙니다.
 
 ### 저장 위치 규칙
-모든 작업 문서는 `docs/specs/<feature-name>/` 아래에 영구 보존합니다:
+Planned Flow의 작업 문서는 `docs/specs/<feature-name>/` 아래에 영구 보존합니다:
 ```text
 docs/specs/
 └── <feature-name>/
@@ -221,3 +221,7 @@ npm test / pytest / gh 명령어 등
 - [ ] **Before Baseline (ADR-0008)**: 버그 수정이나 성능 개선 주장 시 코드 수정 전 실패/측정 기록이 확보되었는가? (미확보 시 UNOBSERVED)
 - [ ] **회귀 방어선 & 기준선 테스트 보존**: 기존 테스트는 시스템 동작의 기준선(Baseline)이며, 단순 실패 은폐를 위한 임의 수정/삭제/완화가 없었는가?
 - [ ] **독립 Verifier 판정 (ADR-0008)**: 독립 감사관(Verifier)이 Fresh Evidence와 AC를 대조하여 `PASS` 판정을 내렸는가?
+
+## Chat Stage 승인과 저장
+
+Intent/Spec 각각 전체 내용 → ELI5 → Content Approval → 별도 Persistence Approval → 관련 ADR과 Stage commit 순서입니다. Approved는 내용 승인이며 저장 대기/성공/실패는 별도로 안내합니다. Issue는 선택 사항입니다. 정상 Handoff는 대화로 제공하고 작업별 handoff.md는 만들지 않습니다.

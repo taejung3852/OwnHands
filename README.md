@@ -8,7 +8,7 @@
   <a href="https://www.npmjs.com/package/ownhands"><img src="https://img.shields.io/npm/v/ownhands?label=npm" alt="npm version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2563EB" alt="License: MIT" /></a>
   <a href="#시작하기"><img src="https://img.shields.io/badge/Environment-Codex-111827?logo=openai&amp;logoColor=white" alt="Environment: Codex" /></a>
-  <a href="#스킬"><img src="https://img.shields.io/badge/Skills-7-2563EB" alt="Skills: 7" /></a>
+  <a href="#스킬"><img src="https://img.shields.io/badge/Codex_Skills-6-2563EB" alt="Codex Skills: 6" /></a>
   <a href="#독립-검토"><img src="https://img.shields.io/badge/Subagents-3-0F766E" alt="Subagents: 3" /></a>
 </p>
 
@@ -53,7 +53,7 @@ OwnHands는 이 질문에 답할 근거를 개발 과정에 남기는 **개발 �
   <img src="assets/readme/workflow.svg" width="100%" alt="Intent에서 Spec, Codex Plan Mode, 승인된 plan.md, Build, Verify, Review, Human Gate, Git 작업으로 이어지고 Feedback이 다음 Intent로 돌아가는 흐름" />
 </p>
 
-### 문서 세 개, 서로 다른 질문
+### Planned Flow의 문서 세 개, 서로 다른 질문
 
 | 산출물 | 담는 내용 |
 |---|---|
@@ -75,7 +75,7 @@ OwnHands는 이 질문에 답할 근거를 개발 과정에 남기는 **개발 �
 
 ### 1. 사용할 프로젝트에 연결
 
-**연결할 프로젝트의 Git 저장소 안에서** 실행합니다.
+**연결할 프로젝트의 Git 저장소 안에서** 실행합니다. 아래 명령은 기존 공개 릴리스 설치 예시입니다. 이번 Branch의 Plugin/Skill 변경은 아직 게시하지 않았으며 로컬 tarball로 검증했습니다.
 
 ```bash
 npx --yes ownhands@0.0.1 init
@@ -91,20 +91,20 @@ npx --yes ownhands@0.0.1 eval --static-only
 
 ### 2. Codex에서 첫 작업 시작
 
-설치한 프로젝트를 Codex로 열고, 만들고 싶은 기능부터 설명합니다.
+설치한 프로젝트를 Codex로 열고, 명확한 작은 요청이나 승인된 설계를 전달합니다. 기획·설계가 필요하면 별도 Chat Plugin의 plan-design을 사용합니다.
 
 ```text
-$grill-spec 이 프로젝트에 추가할 기능의 목표와 범위를 함께 정리해줘.
+$build 승인된 작업 기준을 읽고 구현 계획 필요성을 판단해줘.
 현재 구현에서 확인할 수 있는 사실과 내가 결정해야 할 것을 구분해줘.
 ```
 
-설계를 승인한 뒤에는 Codex 계획 모드에서 구현 순서와 검증 방법을 정합니다. 계획까지 승인하면 `$build`로 구현을 시작합니다.
+Build는 판단 필요성과 위험에 따라 Light/Planned를 선택합니다. Light는 바로 구현·검증하고, Planned는 실제 Plan Mode에서 계획을 승인받은 뒤 구현합니다.
 
 설치 자산, 충돌 처리, Eval 경계와 안전한 수동 제거는 [설치 계약](docs/installation.md)에 정리했습니다. 현재 CLI는 `init`, `doctor`, `eval`만 제공하며, 자동 업데이트·마이그레이션·제거 명령은 제공하지 않습니다.
 
 <a id="스킬"></a>
 
-## 필요한 순간에 쓰는 7가지 스킬
+## Codex 스킬과 별도 Chat Plugin
 
 스킬은 작업의 진입점이고, 자세한 방법과 정책은 각 스킬의 참고 문서에 둡니다. 모든 지침을 매번 한꺼번에 읽히는 대신, 해당 작업에 필요한 내용을 연결합니다.
 
@@ -112,9 +112,9 @@ $grill-spec 이 프로젝트에 추가할 기능의 목표와 범위를 함께 �
 
 | 스킬 | 사용할 때 | 남기는 결과 |
 |---|---|---|
-| [`grill-spec`](.agents/skills/grill-spec/SKILL.md) | 목표·범위·설계를 함께 정할 때 | 의도와 명세, 사용자 결정, 계획 모드 인계 |
-| [`build`](.agents/skills/build/SKILL.md) | 승인된 계획을 구현할 때 | 작업별 구현과 검증 근거, `verify` 인계 |
-| [`verify`](.agents/skills/verify/SKILL.md) | 요구사항을 충족했는지 확인할 때 | 수용 기준별 근거와 독립 감사 결과 |
+| [`plan-design`](plugins/ownhands/skills/plan-design/SKILL.md) — 별도 Chat Plugin | 목표·범위·설계를 함께 정할 때 | Intent·Spec·승인·저장·대화 Handoff |
+| [`build`](.agents/skills/build/SKILL.md) | 명확한 요청 또는 승인된 설계를 구현할 때 | Light/Planned 판단, 구현과 검증 근거, `verify` 인계 |
+| [`verify`](.agents/skills/verify/SKILL.md) | 요구사항을 충족했는지 확인할 때 | Light Summary 또는 Planned 수용 기준별 근거·독립 감사 |
 | [`review`](.agents/skills/review/SKILL.md) | 검증된 변경을 독립적으로 검토할 때 | 리뷰 지적의 처리 기록, 검토 증거, 사람의 승인 요청 |
 
 ### 이해·기록·개선
@@ -233,7 +233,7 @@ Superpowers를 그대로 복제하거나 Playbook의 모든 자동화를 구현�
 
 | 구분 | 현재 확인한 범위 |
 |---|---|
-| **구현** | 7개 스킬, 3개 독립 역할, 계획 모드 인계, 평가·리뷰 검사, `init`·`doctor`·`eval` |
+| **구현** | 6개 Codex 스킬 + 별도 Chat Plugin, 3개 독립 역할, 계획 모드 인계, 평가·리뷰 검사, `init`·`doctor`·`eval` |
 | **로컬 검증 기록** | 결정론적 테스트, 정적 평가, 로컬 tarball의 설치·진단·소비자 정적 Eval 결과를 해당 작업 Plan에 기록 |
 | **실제 환경 미확인** | 이번 변경의 모델 실행 평가, Codex 훅의 실제 신뢰·실행, 프로젝트 전체 흐름, 피드백 개선·적용의 운영 순환 |
 | **배포 확인** | 공개 registry 상태는 [`ownhands@0.0.1`](https://www.npmjs.com/package/ownhands)과 GitHub Release에서 확인 |
@@ -292,3 +292,5 @@ node scripts/run-evals.js --static-only
   <strong>더 많이 맡기기 위해, 무엇을 맡겼는지 더 잘 이해하는 도구.</strong><br />
   OwnHands는 그 경험을 쌓으며 함께 성장합니다.
 </p>
+
+Chat Plan & Design Plugin의 구조·설치 경계·미검증 상태는 [Plugin 안내](plugins/ownhands/README.md)를 참고하세요. 개인 계정 private Web Chat 설치는 platform-blocked이며 실제 Chat AC는 UNOBSERVED입니다.
