@@ -27,3 +27,7 @@
 - [ELI5 원본·revision·라이선스](skills/eli5/UPSTREAM.md)
 
 metadata는 정책 의도를 선언합니다. 현재 호스트의 실제 적용 범위는 관측 전까지 UNOBSERVED입니다. OwnHands 승인·저장·인계 규칙은 프로젝트 결정이며 플랫폼 공식 정책으로 주장하지 않습니다.
+
+## Secure MCP Tunnel 연결 준비
+
+canonical Skills를 그대로 읽는 별도 [Skill Provider](../../tools/ownhands-skill-provider/README.md)를 추가한다. 이는 [ADR-0020](../../docs/adr/0020-private-chat-skill-provider.md)의 제한된 후속 전달 경로이며, 기존 npm 경로와 분리된다. Tunnel runtime·개인 일반 Chat Skill 노출은 사용자 연결 후 별도 관측한다.

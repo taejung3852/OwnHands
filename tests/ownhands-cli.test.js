@@ -75,7 +75,7 @@ test('init preserves user config, installs native assets, and is idempotent', ()
   for (const skill of ['build', 'explain', 'feedback', 'review', 'verify', 'write-issue-pr']) {
     assert.equal(fs.existsSync(path.join(repo, '.agents', 'skills', skill, 'SKILL.md')), true, skill);
   }
-  for (const excluded of ['plugins/ownhands', '.agents/skills/plan-design', '.agents/skills/grill-spec', '.agents/skills/eli5']) {
+  for (const excluded of ['plugins/ownhands', 'tools/ownhands-skill-provider', 'node_modules', '.agents/skills/plan-design', '.agents/skills/grill-spec', '.agents/skills/eli5']) {
     assert.equal(fs.existsSync(path.join(repo, excluded)), false, excluded);
   }
   for (const agent of ['researcher', 'verifier', 'reviewer']) {
@@ -332,7 +332,7 @@ test('npm package contains only the CLI and required native assets', () => {
 
   assert.equal(files.some((file) => file.startsWith('tests/')), false);
   assert.equal(files.some((file) => file.startsWith('docs/')), false);
-  for (const prefix of ['plugins/', '.agents/skills/plan-design/', '.agents/skills/grill-spec/', '.agents/skills/eli5/']) {
+  for (const prefix of ['plugins/', 'tools/', 'node_modules/', '.agents/skills/plan-design/', '.agents/skills/grill-spec/', '.agents/skills/eli5/']) {
     assert.equal(files.some((file) => file.startsWith(prefix)), false, prefix);
   }
   const pack = JSON.parse(result.stdout)[0];
@@ -357,7 +357,7 @@ test('local npm tarball supports init, doctor, and installed static eval', () =>
 
   assert.equal(npx('init').status, 0);
   assert.equal(npx('doctor').status, 0);
-  for (const excluded of ['plugins/ownhands', '.agents/skills/plan-design', '.agents/skills/grill-spec', '.agents/skills/eli5']) {
+  for (const excluded of ['plugins/ownhands', 'tools/ownhands-skill-provider', 'node_modules', '.agents/skills/plan-design', '.agents/skills/grill-spec', '.agents/skills/eli5']) {
     assert.equal(fs.existsSync(path.join(repo, excluded)), false, excluded);
   }
   const evalResult = npx('eval', '--static-only');

@@ -78,3 +78,7 @@ GitHub는 승인 산출물의 durable Source of Truth다. Issue는 선택 사항
 [Intent](../specs/chat-plan-design-flow/intent.md)의 최상위 목표와 후속 변경 안내, [승인 Spec](../specs/chat-plan-design-flow/spec.md), 관련 ADR을 함께 읽는다. Spec 11절은 이후 구현 변경 범위이고, 12절은 이번에 제외한 후속 작업이며, 15절은 미검증 플랫폼 항목이다.
 
 이 승인 커밋은 Codex의 구현 계획 작성이나 Build 실행을 완료한 기록이 아니다. 이미 합의한 방향을 다시 질문하지 않되, 구현 시 발견한 미결정·충돌은 추측하지 않는다.
+
+## Private Web Chat 연결 후속
+
+- [ADR-0020: 읽기 전용 Skill Provider](0020-private-chat-skill-provider.md) — ADR-0012의 MCP 제외 범위에 대한 제한된 후속 변경. [Spec](../specs/plugin-tunnel-connect/spec.md). 연결·Skill 노출 성공은 별도 실측 대상이다.

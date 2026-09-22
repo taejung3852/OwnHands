@@ -266,6 +266,7 @@ Superpowers를 그대로 복제하거나 Playbook의 모든 자동화를 구현�
 OwnHands 저장소의 루트에서 실행합니다. 사용 프로젝트의 검사 명령과 구분합니다.
 
 ```bash
+npm ci --prefix tools/ownhands-skill-provider --ignore-scripts
 npm test
 node scripts/run-evals.js --static-only
 ```

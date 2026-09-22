@@ -54,3 +54,7 @@ Plugin 파일 또는 정책 선언이 존재한다는 것만으로 Skill이 실�
 ## 수용 확인
 
 Spec AC-01~11로 Plugin 형식, Chat 명시 호출, 일반 대화 비활성, `grill-spec` 교체와 npm/Codex 미포함을 확인한다. Stage 승인 시 실제 작성 규칙 및 ELI5가 사용됐는지도 별도로 관측한다.
+
+## 후속 결정 (2026-09-23)
+
+[ADR-0020](0020-private-chat-skill-provider.md)은 canonical Skill 제공·연결 진단만 수행하는 최소 MCP adapter를 별도 후속 범위로 허용한다. 본 문서의 과거 결정과 기존 구현 검증 이력은 보존한다.
