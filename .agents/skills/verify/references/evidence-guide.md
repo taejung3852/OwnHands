@@ -8,7 +8,7 @@
 ---
 
 ## 2. 작업 유형별 Fresh Evidence 수집 가이드
-`plan.md`의 `실행 및 신선한 검증 증거` 섹션에는 작업 유형(AC의 성격)에 부합하는 증거를 명확히 기록합니다:
+Planned는 `plan.md`의 `실행 및 신선한 검증 증거` 섹션에, Light는 세션 Verification Summary에 작업 유형(AC의 성격)에 부합하는 증거를 명확히 기록합니다:
 
 | 검증 대상 | 적용 가능한 신선한 증거 (applicable Fresh Evidence) | 충족 기준 |
 |---|---|---|
@@ -33,3 +33,5 @@ Verifier Subagent(`.codex/agents/verifier.toml`)는 `read-only` 샌드박스에�
 | **`UNOBSERVED`** | 해당 AC에 대한 실행 증거가 누락되었거나 직접 관측되지 않음 (버그/성능 Before 부재 포함). |
 
 - 모든 필수 AC가 `PASS`로 판정될 때만 최종 검증 통과(Overall PASS)가 인정됩니다.
+
+Light는 별도 plan.md/verification.md를 만들지 않는다. PR이 있으면 Summary를 본문에 반영한다. 플랫폼 blocker는 사유이며 새 AC 판정값이 아니다. 실행하지 못한 AC는 UNOBSERVED로 유지한다.

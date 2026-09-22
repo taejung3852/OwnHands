@@ -7,7 +7,7 @@
 
 기획 및 설계(Plan & Design) 작업 시 `docs/specs/` 규약(`intent.md`, `spec.md`)을 따른다.
 
-승인된 `spec.md` / `plan.md`를 기반으로 구현하는 Build 작업은 `build` Skill을 사용한다.
+Build 작업은 `build` Skill을 사용한다. 명확하고 저위험인 요청은 Light Flow로, 구현 판단·위험이 있는 작업은 승인된 설계와 실제 Plan Mode의 승인 계획을 사용하는 Planned Flow로 진행한다. Chat 기획·설계는 별도 Plugin의 `plan-design`이 담당하며 npm 설치 자산에 포함하지 않는다.
 
 검증이 완료되어 독립 Review가 필요하거나 외부 Git 결정을 앞둔 작업은 `review` Skill을 사용한다.
 

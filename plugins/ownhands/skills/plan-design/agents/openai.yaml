@@ -1,0 +1,6 @@
+interface:
+  display_name: "Plan & Design"
+  short_description: "Define intent and technical design before implementation."
+policy:
+  products: [CHAT]
+  allow_implicit_invocation: false

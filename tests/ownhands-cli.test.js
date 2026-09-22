@@ -72,8 +72,11 @@ test('init preserves user config, installs native assets, and is idempotent', ()
   assert.equal(hooks.hooks.PreToolUse.length, 2);
   assert.equal(hooks.hooks.PreToolUse.filter((entry) => JSON.stringify(entry).includes('review-gate.js')).length, 1);
 
-  for (const skill of ['build', 'explain', 'feedback', 'grill-spec', 'review', 'verify', 'write-issue-pr']) {
+  for (const skill of ['build', 'explain', 'feedback', 'review', 'verify', 'write-issue-pr']) {
     assert.equal(fs.existsSync(path.join(repo, '.agents', 'skills', skill, 'SKILL.md')), true, skill);
+  }
+  for (const excluded of ['plugins/ownhands', '.agents/skills/plan-design', '.agents/skills/grill-spec', '.agents/skills/eli5']) {
+    assert.equal(fs.existsSync(path.join(repo, excluded)), false, excluded);
   }
   for (const agent of ['researcher', 'verifier', 'reviewer']) {
     assert.equal(fs.existsSync(path.join(repo, '.codex', 'agents', `${agent}.toml`)), true, agent);
@@ -329,6 +332,9 @@ test('npm package contains only the CLI and required native assets', () => {
 
   assert.equal(files.some((file) => file.startsWith('tests/')), false);
   assert.equal(files.some((file) => file.startsWith('docs/')), false);
+  for (const prefix of ['plugins/', '.agents/skills/plan-design/', '.agents/skills/grill-spec/', '.agents/skills/eli5/']) {
+    assert.equal(files.some((file) => file.startsWith(prefix)), false, prefix);
+  }
   const pack = JSON.parse(result.stdout)[0];
   assert.equal(pack.version, '0.0.1');
   assert.equal(pack.name, 'ownhands');
@@ -351,6 +357,9 @@ test('local npm tarball supports init, doctor, and installed static eval', () =>
 
   assert.equal(npx('init').status, 0);
   assert.equal(npx('doctor').status, 0);
+  for (const excluded of ['plugins/ownhands', '.agents/skills/plan-design', '.agents/skills/grill-spec', '.agents/skills/eli5']) {
+    assert.equal(fs.existsSync(path.join(repo, excluded)), false, excluded);
+  }
   const evalResult = npx('eval', '--static-only');
   assert.equal(evalResult.status, 0, evalResult.stderr);
   assert.match(evalResult.stdout, /INSTALL-0004/);

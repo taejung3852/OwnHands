@@ -20,7 +20,7 @@
         "required_files": [
           ".agents/skills/explain/agents/openai.yaml"
         ],
-        "required_skills": ["write-issue-pr", "explain", "grill-spec", "verify", "build", "review", "feedback"],
+        "required_skills": ["write-issue-pr", "explain", "verify", "build", "review", "feedback"],
         "file_assertions": [
           {
             "file": ".agents/skills/write-issue-pr/SKILL.md",
@@ -213,9 +213,9 @@
     },
     {
       "id": "EVAL-0004",
-      "name": "grill-spec GORE 닻 및 정적 적합성 (Static Conformance)",
+      "name": "Chat plan-design static conformance (not Chat runtime)",
       "category": "skill",
-      "target_asset": ".agents/skills/grill-spec/",
+      "target_asset": "plugins/ownhands/skills/plan-design/",
       "execution_mode": "static",
       "sandbox_mode": "read-only",
       "side_effect_policy": {
@@ -225,20 +225,48 @@
       },
       "static_contract": {
         "required_files": [
-          ".agents/skills/grill-spec/SKILL.md",
-          ".agents/skills/grill-spec/references/interview-guide.md",
-          ".agents/skills/build/SKILL.md",
-          "docs/adr/0007-plan-artifact-and-build-feedback-loop.md",
-          "docs/specs/grill-spec/spec.md",
-          "docs/specs/grill-spec/intent.md"
+          "plugins/ownhands/plugin.json",
+          "plugins/ownhands/skills/plan-design/SKILL.md",
+          "plugins/ownhands/skills/plan-design/agents/openai.yaml",
+          "plugins/ownhands/skills/plan-design/references/interview-guide.md",
+          ".agents/skills/build/SKILL.md"
         ],
         "file_assertions": [
-          { "file": ".agents/skills/grill-spec/SKILL.md", "contains": ["name: grill-spec", "Checkpoint 1", "Checkpoint 2", "Decision-bearing section", "Spec Fact & Decision Review", "Codex native Plan Mode", "/plan", "Shift+Tab"] },
-          { "file": ".agents/skills/build/SKILL.md", "contains": ["Codex native Plan Mode", "Approved"] },
-          { "file": "docs/adr/0007-plan-artifact-and-build-feedback-loop.md", "contains": ["Plan Mode", "durable artifact"] },
-          { "file": ".agents/skills/grill-spec/references/interview-guide.md", "contains": ["MIT License", "ROUTE-B", "ROUTE-C", "Fact", "Decision-bearing Section Review Loop", "3-way 응답 계약", "Open Question", "Decision Card", "intent-only", "spec-from-intent", "full-flow"] },
-          { "file": "docs/specs/grill-spec/spec.md", "contains": ["기반 Intent:"] },
-          { "file": "docs/specs/grill-spec/intent.md", "contains": ["Non-goals", "Constraints"] }
+          {
+            "file": "plugins/ownhands/skills/plan-design/SKILL.md",
+            "contains": [
+              "name: plan-design",
+              "Checkpoint 1",
+              "Checkpoint 2",
+              "Content Approval",
+              "Persistence Approval"
+            ]
+          },
+          {
+            "file": "plugins/ownhands/skills/plan-design/references/interview-guide.md",
+            "contains": [
+              "MIT License",
+              "ROUTE-B",
+              "ROUTE-C",
+              "Fact",
+              "Decision-bearing Section Review Loop",
+              "3-way 응답 계약",
+              "Open Question",
+              "Decision Card",
+              "intent-only",
+              "spec-from-intent",
+              "full-flow"
+            ]
+          },
+          {
+            "file": ".agents/skills/build/SKILL.md",
+            "contains": [
+              "Codex native Plan Mode",
+              "Approved",
+              "Light Flow",
+              "Planned Flow"
+            ]
+          }
         ]
       },
       "judgment_mode": "schema"

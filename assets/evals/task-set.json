@@ -25,7 +25,6 @@
         "required_skills": [
           "write-issue-pr",
           "explain",
-          "grill-spec",
           "verify",
           "build",
           "review",
@@ -158,14 +157,13 @@
     },
     {
       "id": "INSTALL-0004",
-      "name": "GORE to feedback workflow static contract",
+      "name": "Codex Build to feedback static contract",
       "category": "workflow",
       "target_asset": ".agents/skills/",
       "execution_mode": "static",
       "sandbox_mode": "read-only",
       "static_contract": {
         "required_files": [
-          ".agents/skills/grill-spec/SKILL.md",
           ".agents/skills/build/SKILL.md",
           ".agents/skills/verify/SKILL.md",
           ".agents/skills/review/SKILL.md",
@@ -173,19 +171,13 @@
         ],
         "file_assertions": [
           {
-            "file": ".agents/skills/grill-spec/SKILL.md",
-            "contains": [
-              "name: grill-spec",
-              "Checkpoint 1",
-              "Checkpoint 2",
-              "Codex native Plan Mode"
-            ]
-          },
-          {
             "file": ".agents/skills/build/SKILL.md",
             "contains": [
               "name: build",
-              "verify"
+              "verify",
+              "Light Flow",
+              "Planned Flow",
+              "Plan Mode로 전환해주세요."
             ]
           },
           {

@@ -21,7 +21,7 @@
 기존 자동화 테스트가 없는 프로젝트나 레거시 모듈에서도 다음 3대 방어선을 준수한다:
 
 1. **변경 반경(Blast Radius) 엄격 통제**:
-   - `plan.md`의 `Target Files`에 선언되지 않은 파일의 무단 수정이 발생하면 결함으로 간주한다.
+   - Planned는 `plan.md`의 `Target Files`, Light는 현재 요청에서 확인한 변경 범위와 diff를 기준으로 무단 범위 확장을 검사한다. Light의 위험·모호성 증가 시 Planned로 승격한다.
 2. **네이티브 프로젝트 검사(Native Project Checks) 실행 증거**:
    - 프로젝트 환경에 존재하는 applicable checks(빌드, 타입 검사, 린트 등)를 실행하고 무에러 통과 로그를 증거로 제출한다.
 3. **명시적 선언 (`[UNOBSERVED]`)**:

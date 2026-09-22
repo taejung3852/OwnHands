@@ -7,7 +7,13 @@ description: Verifies implementation against spec acceptance criteria, ensures r
 
 구현 작업 완료 전 작업 유형에 맞는 신선한 관측 증거(applicable Fresh Evidence)를 확보하고 수용 기준(AC) 만족 여부를 감사할 때 호출한다.
 
-## 작업 절차
+## Light Flow
+
+현재 사용자 요청·diff·applicable native checks를 기준으로 검증한다. plan.md와 verification.md를 강제하지 않고 Verification Summary에 변경 범위, 실행 명령·결과, PASS / FAIL / UNOBSERVED와 한계를 담아 세션에 제공한다. PR이 있으면 그 본문의 검증/Evidence 섹션에 투영한다. PR 생성 권한이나 기존 Review/Hook Gate 면제를 뜻하지 않는다.
+
+독립 Verifier는 Light의 기본 의무가 아니다. 변경 반경 증가, 중요한 인터페이스, 요구 모호성, 고위험 데이터/권한/migration, deterministic check로 판단 불충분이 발견되면 Planned로 승격하고 build의 실제 Plan Mode·승인 절차로 돌아간다. 버그/성능 Before 기준과 회귀 방어선은 Light에도 적용한다.
+
+## Planned Flow 작업 절차
 
 1. **비교 주장(Claim) 확인**:
    - 버그 수정(`bugfix`): 코드 수정 전 결함 재현 로그(Before Evidence) 필수 확인.
