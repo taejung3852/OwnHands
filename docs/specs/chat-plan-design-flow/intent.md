@@ -5,6 +5,9 @@
 - **상태**: Approved — 사용자 승인 (Checkpoint 1)
 - **관련 Issue**: [#154](https://github.com/taejung3852/OwnHands/issues/154)
 - **Source of Truth**: [ADR-0011](../../adr/0011-chat-codex-ownership-and-handoff.md), [ADR-0012](../../adr/0012-authoring-skills-via-ownhands-mcp.md), [ADR-0017](../../adr/0017-guided-planning-and-visual-approval.md), [ADR-0019](../../adr/0019-github-centered-sdlc-and-stage-commits.md)
+- **승인된 후속 Spec**: [`spec.md`](spec.md) — 2026-09-22 사용자 내용·GitHub 저장 승인
+
+> **Spec 단계에서 합의한 변경:** 아래 본문은 최초 Intent 승인 기록으로 보존한다. Issue 필수·자동 생성 기본안은 선택 사항으로 변경했고, Issue가 없으면 Branch 전략을 사용자에게 먼저 묻는다. 작성 Skill은 MCP 서버 대신 Skills-only Agent Plugin으로 제공한다. 내용 승인과 GitHub 저장 승인은 분리하며, 재연결 시 자동 복구 대신 현재 상태를 Reconcile한다. Handoff는 강한 다음 행동 지시가 아니라 권장 진입 안내다. 작은 작업의 Chat/Plan 생략과 검증 기록 경로도 후속 Spec에서 확정했다. 이 변경 항목에는 승인된 Spec 및 갱신된 ADR-0012·0013·0017·0019를 적용한다. 최상위 Goal은 유지한다.
 
 ---
 
