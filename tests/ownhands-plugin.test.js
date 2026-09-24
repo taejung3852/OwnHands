@@ -25,6 +25,18 @@ test('portable skills-only package has exactly the two intended skill entrypoint
   assert.equal(manifest.name, 'ownhands');
 });
 
+test('portable manifest retains the uploaded branding with bundled image paths', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json')));
+  const branding = manifest.extensions?.['com.openai']?.interface;
+  assert.equal(branding?.displayName, 'OwnHands');
+  assert.match(branding?.shortDescription ?? '', /software changes/);
+  assert.equal(branding?.composerIcon, './assets/ownhands.png');
+  assert.equal(branding?.logo, './assets/ownhands.png');
+  for (const asset of [branding.composerIcon, branding.logo]) {
+    assert.ok(fs.existsSync(path.join(root, asset)), `${asset} must be bundled`);
+  }
+});
+
 test('plugin markdown relative links resolve inside this repository', () => {
   const repo = path.resolve(root, '../..');
   for (const file of files(root).filter(file => file.endsWith('.md'))) {
@@ -44,4 +56,35 @@ test('ELI5 skill bytes match the inspected pinned upstream blob', () => {
   const blob = crypto.createHash('sha1').update(`blob ${content.length}\0`).update(content).digest('hex');
   assert.equal(blob, 'ff6b33c9b3277c493e03e47fad327c6ad318e1d5');
   assert.match(fs.readFileSync(path.join(root, 'skills/eli5/LICENSE'), 'utf8'), /Apache License/);
+});
+
+test('plan-design resolves the target repository before repository-specific fact gathering', () => {
+  const skill = fs.readFileSync(path.join(root, 'skills/plan-design/SKILL.md'), 'utf8');
+  const workflow = fs.readFileSync(path.join(root, 'skills/plan-design/references/github-workflow.md'), 'utf8');
+  const interview = fs.readFileSync(path.join(root, 'skills/plan-design/references/interview-guide.md'), 'utf8');
+
+  assert.match(skill, /Target Repository Resolution/);
+  assert.match(workflow, /Plugin source repository.*target repository/);
+  assert.match(workflow, /taejung3852\/OwnHands.*기본값으로.*않는다/);
+  assert.match(workflow, /Repository.*미확정.*repository-specific Fact Gathering.*전에.*선택/);
+  assert.match(interview, /repository-specific Fact Gathering.*Target Repository.*확정.*뒤/);
+});
+
+test('plan-design defers new Issue and Branch topology until persistence approval', () => {
+  const skill = fs.readFileSync(path.join(root, 'skills/plan-design/SKILL.md'), 'utf8');
+  const workflow = fs.readFileSync(path.join(root, 'skills/plan-design/references/github-workflow.md'), 'utf8');
+  const intent = fs.readFileSync(path.join(root, 'skills/plan-design/references/intent-guide.md'), 'utf8');
+
+  assert.match(skill, /새 Issue\/Branch 저장 경로는 Content Approval과 Persistence Approval 뒤에 결정한다/);
+  assert.match(workflow, /## Planning-time read[\s\S]*## Persistence topology/);
+  assert.match(workflow, /Persistence Approval.*Issue.*Branch.*세 경로/);
+  assert.match(intent, /Content Approval[\s\S]*Persistence Approval[\s\S]*Issue\/Branch.*Stage commit/);
+});
+
+test('explicit ELI5 requests do not advance stage completion or approval', () => {
+  const skill = fs.readFileSync(path.join(root, 'skills/plan-design/SKILL.md'), 'utf8');
+  const interview = fs.readFileSync(path.join(root, 'skills/plan-design/references/interview-guide.md'), 'utf8');
+
+  assert.match(skill, /명시적.*ELI5.*언제든.*Stage.*승인.*자동.*않는다/);
+  assert.match(interview, /명시적.*ELI5.*Stage.*완료.*승인.*자동.*않는다/);
 });

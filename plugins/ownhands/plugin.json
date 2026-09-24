@@ -2,5 +2,16 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ownhands",
   "version": "0.0.1",
-  "description": "Chat planning and design with approved GitHub artifacts and Codex handoff."
+  "description": "Chat planning and design with approved GitHub artifacts and Codex handoff.",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "OwnHands",
+        "shortDescription": "Plan and design software changes before handing them to Codex.",
+        "brandColor": "#111111",
+        "composerIcon": "./assets/ownhands.png",
+        "logo": "./assets/ownhands.png"
+      }
+    }
+  }
 }
