@@ -243,7 +243,8 @@
               "Content Approval",
               "Persistence Approval",
               "Target Repository Resolution",
-              "저장 경로"
+              "저장 경로",
+              "선택 자체가 Persistence Approval"
             ]
           },
           {
@@ -256,7 +257,8 @@
               "Planning-time read",
               "Persistence topology",
               "Content Approval",
-              "Persistence Approval"
+              "Persistence Approval",
+              "추가 write 승인을 묻지 않는다"
             ]
           },
           {
@@ -264,7 +266,8 @@
             "contains": [
               "Content Approval",
               "Persistence Approval",
-              "Issue/Branch"
+              "Issue/Branch",
+              "Persistence Decision"
             ]
           },
           {

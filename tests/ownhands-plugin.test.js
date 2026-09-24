@@ -70,15 +70,19 @@ test('plan-design resolves the target repository before repository-specific fact
   assert.match(interview, /repository-specific Fact Gathering.*Target Repository.*확정.*뒤/);
 });
 
-test('plan-design defers new Issue and Branch topology until persistence approval', () => {
+test('plan-design makes the persistence route choice the only write approval', () => {
   const skill = fs.readFileSync(path.join(root, 'skills/plan-design/SKILL.md'), 'utf8');
   const workflow = fs.readFileSync(path.join(root, 'skills/plan-design/references/github-workflow.md'), 'utf8');
   const intent = fs.readFileSync(path.join(root, 'skills/plan-design/references/intent-guide.md'), 'utf8');
+  const spec = fs.readFileSync(path.join(root, 'skills/plan-design/references/spec-guide.md'), 'utf8');
 
-  assert.match(skill, /새 Issue\/Branch 저장 경로는 Content Approval과 Persistence Approval 뒤에 결정한다/);
+  assert.match(skill, /새 Issue\/Branch 저장 경로는 Content Approval 뒤 Persistence Decision에서 결정한다/);
   assert.match(workflow, /## Planning-time read[\s\S]*## Persistence topology/);
-  assert.match(workflow, /Persistence Approval.*Issue.*Branch.*세 경로/);
-  assert.match(intent, /Content Approval[\s\S]*Persistence Approval[\s\S]*Issue\/Branch.*Stage commit/);
+  assert.match(workflow, /1\/2 선택 자체가 Persistence Approval/);
+  assert.match(workflow, /추가 write 승인을 묻지 않는다/);
+  assert.match(workflow, /최신 HEAD.*다시 읽는다/);
+  assert.match(intent, /Content Approval[\s\S]*Persistence Decision[\s\S]*Issue\/Branch[\s\S]*Stage commit/);
+  assert.match(spec, /Persistence Decision[\s\S]*Stage commit/);
 });
 
 test('explicit ELI5 requests do not advance stage completion or approval', () => {

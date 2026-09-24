@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ownhands",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Chat planning and design with approved GitHub artifacts and Codex handoff.",
   "extensions": {
     "com.openai": {

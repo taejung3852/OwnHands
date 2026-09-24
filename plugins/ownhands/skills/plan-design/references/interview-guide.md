@@ -107,7 +107,7 @@ Artifact 전체를 작성하기 전에, 현재 Frontier에서 사용자의 선�
 
 ## 4. Stage Checkpoints
 
-Checkpoint 1은 [Intent](intent-guide.md), Checkpoint 2는 [Spec](spec-guide.md)의 전체 내용 승인이다. Section Review는 이를 대체하지 않는다. 각 Stage 전체 완성 후 자동 ELI5를 한 번 제공하고 Content Approval을 받는다. 사용자의 명시적 ELI5 요청은 인터뷰 중에도 수행할 수 있으나 Stage 완료·승인 상태를 자동 변경하지 않는다. 저장은 별도 Persistence Approval 후 Stage 단위로 수행한다. intent-only도 승인·저장 선택과 상태 안내 후 종료한다.
+Checkpoint 1은 [Intent](intent-guide.md), Checkpoint 2는 [Spec](spec-guide.md)의 전체 내용 승인이다. Section Review는 이를 대체하지 않는다. 각 Stage 전체 완성 후 자동 ELI5를 한 번 제공하고 Content Approval을 받는다. 사용자의 명시적 ELI5 요청은 인터뷰 중에도 수행할 수 있으나 Stage 완료·승인 상태를 자동 변경하지 않는다. 저장은 별도 Persistence Decision에서 승인한 뒤 Stage 단위로 수행한다. Issue가 없을 때 1/2 경로 선택이 Persistence Approval이며 추가 write 승인을 묻지 않는다. intent-only도 승인·저장 선택과 상태 안내 후 종료한다.
 
 ---
 

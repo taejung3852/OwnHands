@@ -18,23 +18,23 @@ Repo-aware 작업에서 대상이 확정되기 전에는 README, package.json, I
 
 ## Persistence topology
 
-Stage 전체 내용의 Content Approval 뒤 별도 Persistence Approval로 GitHub 저장 의사를 확인한다. Persistence Approval 후 Issue가 없고 사용자가 저장을 원하면 Issue/Branch 세 경로를 제시한다:
+Stage 전체 내용의 Content Approval 뒤 Persistence Decision을 한 번 요청한다. Issue가 없으면 대상 Repository, 생성할 Issue 초안·Branch 제안, 저장할 Stage 파일·관련 ADR과 commit 범위를 먼저 보여주고 다음 세 경로를 제시한다:
 
 1. Issue를 생성하고 Issue 기반 Branch로 진행.
 2. Issue 없이 Branch만 생성.
 3. GitHub 저장 없이 계속.
 
-기존 Issue·Branch가 명확하면 재사용을 우선한다. Branch 이름 기본 제안은 Issue가 있으면 `work/<issue-number>-<slug>`, 없으면 `work/<slug>`. 제안과 실제 생성 상태를 구분한다. Issue/Branch 생성은 대상과 내용을 보여주고 별도 write 승인을 받은 뒤 수행한다. 저장 시점에 함께 승인받을 수 있으나 내용 승인만으로 생성하지 않는다.
+1/2 선택 자체가 Persistence Approval이다. 3을 선택하면 GitHub write를 하지 않는다. 기존 Issue·Branch가 명확하면 재사용을 우선하고, Repository·Branch·Stage 파일·관련 ADR·commit 범위를 보여준 뒤 이 경로로 저장할지 한 번만 묻는다. Branch 이름 기본 제안은 Issue가 있으면 `work/<issue-number>-<slug>`, 없으면 `work/<slug>`. 제안과 실제 생성 상태를 구분한다. Content Approval만으로 Issue·Branch·파일을 생성하지 않는다.
 
 ## Stage 저장
 
-1. Content Approval과 별도 Persistence Approval을 확인한다. 필요한 저장 경로를 선택한 뒤 Repository, Branch, Stage 파일과 ADR, 예상 commit 및 새 Issue/Branch 생성 내용을 보여준다. 구체적인 원격 write 승인 전에는 생성·저장하지 않는다.
+1. Content Approval과 별도 Persistence Decision을 확인한다. 위 1/2 선택 또는 기존 경로 저장 선택이 해당 Issue·Branch·Stage 파일·ADR write의 승인이다. 승인된 범위의 저장에 추가 write 승인을 묻지 않는다.
 2. 준비 당시 HEAD와 파일 내용을 기준으로 write 직전 최신 HEAD 및 대상 파일을 다시 읽는다. 연결이 복구됐거나 이전 응답이 불명확했다면 먼저 Reconcile한다.
-3. HEAD가 전진했어도 대상 파일이 같으면 최신 HEAD를 기반으로 계속한다. 같은 artifact가 바뀌면 차이를 보여주고 GitHub 유지 / Chat 적용 / 병합 / 저장 취소를 선택받는다. 선택 전 자동 overwrite하지 않는다.
+3. HEAD가 전진했어도 대상 파일이 같으면 최신 HEAD를 기반으로 계속한다. 선택 당시의 Issue·Branch·대상 파일 상태가 바뀌거나 충돌이 생기면 차이를 보여주고 다시 확인한다. 같은 artifact가 바뀌면 GitHub 유지 / Chat 적용 / 병합 / 저장 취소를 선택받는다. 선택 전 자동 overwrite하지 않는다.
 4. 현재 도구의 다중 파일 commit 기능을 사용하거나 최신 parent/tree 기반으로 승인된 파일들만 tree→commit→non-force ref update한다. 파일별 commit만 가능한 도구라면 Stage 단일 commit 계약을 깨지 말고 수동 fallback을 제공한다. 중간 object 생성은 저장 성공이 아니다.
 5. race로 ref update가 실패하면 최신 상태를 다시 읽고 충돌을 재평가한다. force push나 과거 상태로 되돌리기는 금지한다. 응답 timeout은 실패 확정이 아니므로 ref와 파일을 재조회하여 중복 commit을 피한다.
 6. Branch HEAD와 파일을 다시 읽어 저장 결과를 확인한 뒤 실제 commit 링크와 `GitHub 저장: 성공`을 안내한다. 확인 불가면 저장 성공으로 주장하지 않는다. 실패·대기 사유와 다음 선택을 안내한다.
 
 ## Reconcile
 
-재연결 자체는 Issue/Branch/파일 생성 트리거가 아니다. 현재 Repository·Issue·Branch·파일을 읽고 사용자가 수동으로 저장한 부분을 인정한다. 같으면 재저장하지 않는다. 누락분만 식별하고 필요한 write의 승인을 받은 뒤 적용한다. 충돌은 사용자 선택 전 자동 덮어쓰기하지 않는다.
+재연결 자체는 Issue/Branch/파일 생성 트리거가 아니다. 현재 Repository·Issue·Branch·파일을 읽고 사용자가 수동으로 저장한 부분을 인정한다. 같으면 재저장하지 않는다. 기존 Persistence Decision이 승인한 범위의 누락분만 적용한다. 대상 상태가 바뀌었거나 승인 범위 밖의 write가 필요하면 차이를 보여주고 다시 확인한다. 충돌은 사용자 선택 전 자동 덮어쓰기하지 않는다.
