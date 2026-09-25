@@ -229,6 +229,8 @@
           "plugins/ownhands/skills/plan-design/SKILL.md",
           "plugins/ownhands/skills/plan-design/agents/openai.yaml",
           "plugins/ownhands/skills/plan-design/references/interview-guide.md",
+          "plugins/ownhands/skills/plan-design/references/github-workflow.md",
+          "plugins/ownhands/skills/plan-design/references/intent-guide.md",
           ".agents/skills/build/SKILL.md"
         ],
         "file_assertions": [
@@ -239,7 +241,33 @@
               "Checkpoint 1",
               "Checkpoint 2",
               "Content Approval",
-              "Persistence Approval"
+              "Persistence Approval",
+              "Target Repository Resolution",
+              "저장 경로",
+              "선택 자체가 Persistence Approval"
+            ]
+          },
+          {
+            "file": "plugins/ownhands/skills/plan-design/references/github-workflow.md",
+            "contains": [
+              "Target Repository Resolution",
+              "Plugin source repository",
+              "target repository",
+              "repository-specific Fact Gathering",
+              "Planning-time read",
+              "Persistence topology",
+              "Content Approval",
+              "Persistence Approval",
+              "추가 write 승인을 묻지 않는다"
+            ]
+          },
+          {
+            "file": "plugins/ownhands/skills/plan-design/references/intent-guide.md",
+            "contains": [
+              "Content Approval",
+              "Persistence Approval",
+              "Issue/Branch",
+              "Persistence Decision"
             ]
           },
           {
@@ -253,6 +281,8 @@
               "3-way 응답 계약",
               "Open Question",
               "Decision Card",
+              "repository-specific Fact Gathering",
+              "명시적 ELI5",
               "intent-only",
               "spec-from-intent",
               "full-flow"

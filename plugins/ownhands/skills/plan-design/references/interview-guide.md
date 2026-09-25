@@ -19,6 +19,8 @@
 | **대상 영역** | • 저장소의 기존 디렉터리 및 모듈 구조<br>• 사용 중인 라이브러리 및 언어 버전<br>• 기존 함수 시그니처, 데이터 타입 정의<br>• `AGENTS.md` 및 프로젝트 규칙 문서 | • 이번에 해결하려는 핵심 고통과 사용자 가치<br>• **비목표(Non-goals)**: "절대 하지 않을 것"<br>• 예외 및 장애 발생 시 비즈니스 처리 정책<br>• 기술 대안 중 최종 트레이드오프 선택 |
 | **철칙** | **코드베이스에 이미 존재하는 사실을 사용자에게 되묻지 않는다.** (도구로 직접 탐색) | **사람만이 결정할 수 있는 정책을 에이전트가 자의적으로 상상해 확정하지 않는다.** |
 
+repository-specific Fact Gathering은 [Target Repository](github-workflow.md)가 확정된 뒤에만 수행합니다. 대상이 없거나 여러 후보라면 Repository 선택을 먼저 요청하고, 저장소 없는 아이디어라면 No-Repo로 인터뷰합니다.
+
 ### 2.1 Decision-bearing Section Review Loop
 
 Artifact 전체를 작성하기 전에, 현재 Frontier에서 사용자의 선택에 따라 Goal의 경계, 요구사항, 인터페이스, 실패 정책 또는 수용 기준이 달라지는 Decision만 Review합니다.
@@ -105,7 +107,7 @@ Artifact 전체를 작성하기 전에, 현재 Frontier에서 사용자의 선�
 
 ## 4. Stage Checkpoints
 
-Checkpoint 1은 [Intent](intent-guide.md), Checkpoint 2는 [Spec](spec-guide.md)의 전체 내용 승인이다. Section Review는 이를 대체하지 않는다. 각 Stage 전체 완성 후 ELI5를 한 번 제공하고 Content Approval을 받는다. 저장은 별도 Persistence Approval 후 Stage 단위로 수행한다. intent-only도 승인·저장 선택과 상태 안내 후 종료한다.
+Checkpoint 1은 [Intent](intent-guide.md), Checkpoint 2는 [Spec](spec-guide.md)의 전체 내용 승인이다. Section Review는 이를 대체하지 않는다. 각 Stage 전체 완성 후 자동 ELI5를 한 번 제공하고 Content Approval을 받는다. 사용자의 명시적 ELI5 요청은 인터뷰 중에도 수행할 수 있으나 Stage 완료·승인 상태를 자동 변경하지 않는다. 저장은 별도 Persistence Decision에서 승인한 뒤 Stage 단위로 수행한다. Issue가 없을 때 1/2 경로 선택이 Persistence Approval이며 추가 write 승인을 묻지 않는다. intent-only도 승인·저장 선택과 상태 안내 후 종료한다.
 
 ---
 
