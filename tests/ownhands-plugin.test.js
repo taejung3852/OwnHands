@@ -23,6 +23,7 @@ test('portable skills-only package has exactly the two intended skill entrypoint
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json')));
   assert.equal(manifest.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
   assert.equal(manifest.name, 'ownhands');
+  assert.equal(manifest.version, '0.0.3');
 });
 
 test('portable manifest retains the uploaded branding with bundled image paths', () => {
@@ -58,16 +59,17 @@ test('ELI5 skill bytes match the inspected pinned upstream blob', () => {
   assert.match(fs.readFileSync(path.join(root, 'skills/eli5/LICENSE'), 'utf8'), /Apache License/);
 });
 
-test('plan-design resolves the target repository before repository-specific fact gathering', () => {
+test('plan-design routes by resolved target repository state before fact gathering', () => {
   const skill = fs.readFileSync(path.join(root, 'skills/plan-design/SKILL.md'), 'utf8');
   const workflow = fs.readFileSync(path.join(root, 'skills/plan-design/references/github-workflow.md'), 'utf8');
-  const interview = fs.readFileSync(path.join(root, 'skills/plan-design/references/interview-guide.md'), 'utf8');
 
-  assert.match(skill, /Target Repository Resolution/);
-  assert.match(workflow, /Plugin source repository.*target repository/);
-  assert.match(workflow, /taejung3852\/OwnHands.*기본값으로.*않는다/);
-  assert.match(workflow, /Repository.*미확정.*repository-specific Fact Gathering.*전에.*선택/);
-  assert.match(interview, /repository-specific Fact Gathering.*Target Repository.*확정.*뒤/);
+  assert.match(skill, /target_repository = unresolved/);
+  assert.match(skill, /target_repository = owner\/repository/);
+  assert.match(skill, /unresolved[\s\S]*사용자.*확인/);
+  assert.match(skill, /owner\/repository[\s\S]*github-workflow\.md/);
+  assert.match(workflow, /전제:[^\n]*target_repository = owner\/repository/);
+  assert.match(workflow, /Planning-time read[\s\S]*Persistence topology/);
+  assert.ok(skill.split('\n').length <= 45, 'root skill should remain a small router');
 });
 
 test('plan-design makes the persistence route choice the only write approval', () => {
@@ -76,7 +78,7 @@ test('plan-design makes the persistence route choice the only write approval', (
   const intent = fs.readFileSync(path.join(root, 'skills/plan-design/references/intent-guide.md'), 'utf8');
   const spec = fs.readFileSync(path.join(root, 'skills/plan-design/references/spec-guide.md'), 'utf8');
 
-  assert.match(skill, /새 Issue\/Branch 저장 경로는 Content Approval 뒤 Persistence Decision에서 결정한다/);
+  assert.match(skill, /Content Approval[\s\S]*Persistence Decision/);
   assert.match(workflow, /## Planning-time read[\s\S]*## Persistence topology/);
   assert.match(workflow, /1\/2 선택 자체가 Persistence Approval/);
   assert.match(workflow, /추가 write 승인을 묻지 않는다/);
@@ -87,8 +89,10 @@ test('plan-design makes the persistence route choice the only write approval', (
 
 test('explicit ELI5 requests do not advance stage completion or approval', () => {
   const skill = fs.readFileSync(path.join(root, 'skills/plan-design/SKILL.md'), 'utf8');
-  const interview = fs.readFileSync(path.join(root, 'skills/plan-design/references/interview-guide.md'), 'utf8');
+  const intent = fs.readFileSync(path.join(root, 'skills/plan-design/references/intent-guide.md'), 'utf8');
+  const spec = fs.readFileSync(path.join(root, 'skills/plan-design/references/spec-guide.md'), 'utf8');
 
   assert.match(skill, /명시적.*ELI5.*언제든.*Stage.*승인.*자동.*않는다/);
-  assert.match(interview, /명시적.*ELI5.*Stage.*완료.*승인.*자동.*않는다/);
+  assert.match(intent, /ELI5 원본/);
+  assert.match(spec, /ELI5 Skill/);
 });
