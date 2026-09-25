@@ -233,27 +233,27 @@
           "plugins/ownhands/skills/plan-design/references/intent-guide.md",
           ".agents/skills/build/SKILL.md"
         ],
+        "line_count_limits": [
+          { "file": "plugins/ownhands/skills/plan-design/SKILL.md", "max_lines": 45 }
+        ],
         "file_assertions": [
           {
             "file": "plugins/ownhands/skills/plan-design/SKILL.md",
             "contains": [
               "name: plan-design",
-              "Checkpoint 1",
-              "Checkpoint 2",
+              "target_repository = unresolved",
+              "target_repository = owner/repository",
+              "사용자에게 작업 대상 Repository를 확인",
+              "github-workflow.md",
+              "지금 필요한 reference만 읽는다",
               "Content Approval",
-              "Persistence Approval",
-              "Target Repository Resolution",
-              "저장 경로",
-              "선택 자체가 Persistence Approval"
+              "Persistence Decision"
             ]
           },
           {
             "file": "plugins/ownhands/skills/plan-design/references/github-workflow.md",
             "contains": [
-              "Target Repository Resolution",
-              "Plugin source repository",
-              "target repository",
-              "repository-specific Fact Gathering",
+              "전제: `target_repository = owner/repository`",
               "Planning-time read",
               "Persistence topology",
               "Content Approval",
@@ -274,18 +274,12 @@
             "file": "plugins/ownhands/skills/plan-design/references/interview-guide.md",
             "contains": [
               "MIT License",
-              "ROUTE-B",
-              "ROUTE-C",
+              "GORE",
               "Fact",
               "Decision-bearing Section Review Loop",
               "3-way 응답 계약",
               "Open Question",
-              "Decision Card",
-              "repository-specific Fact Gathering",
-              "명시적 ELI5",
-              "intent-only",
-              "spec-from-intent",
-              "full-flow"
+              "Decision Card"
             ]
           },
           {
