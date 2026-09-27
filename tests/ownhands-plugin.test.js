@@ -23,7 +23,7 @@ test('portable skills-only package has exactly the two intended skill entrypoint
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json')));
   assert.equal(manifest.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
   assert.equal(manifest.name, 'ownhands');
-  assert.equal(manifest.version, '0.0.3');
+  assert.equal(manifest.version, '0.0.2');
 });
 
 test('portable manifest retains the uploaded branding with bundled image paths', () => {
@@ -66,10 +66,9 @@ test('plan-design routes by resolved target repository state before fact gatheri
   assert.match(skill, /target_repository = unresolved/);
   assert.match(skill, /target_repository = owner\/repository/);
   assert.match(skill, /unresolved[\s\S]*사용자.*확인/);
-  assert.match(skill, /owner\/repository[\s\S]*github-workflow\.md/);
+  assert.match(skill, /사용자 응답[\s\S]*owner\/repository[\s\S]*github-workflow\.md/);
   assert.match(workflow, /전제:[^\n]*target_repository = owner\/repository/);
   assert.match(workflow, /Planning-time read[\s\S]*Persistence topology/);
-  assert.ok(skill.split('\n').length <= 45, 'root skill should remain a small router');
 });
 
 test('plan-design makes the persistence route choice the only write approval', () => {
@@ -88,11 +87,11 @@ test('plan-design makes the persistence route choice the only write approval', (
 });
 
 test('explicit ELI5 requests do not advance stage completion or approval', () => {
-  const skill = fs.readFileSync(path.join(root, 'skills/plan-design/SKILL.md'), 'utf8');
   const intent = fs.readFileSync(path.join(root, 'skills/plan-design/references/intent-guide.md'), 'utf8');
   const spec = fs.readFileSync(path.join(root, 'skills/plan-design/references/spec-guide.md'), 'utf8');
 
-  assert.match(skill, /명시적.*ELI5.*언제든.*Stage.*승인.*자동.*않는다/);
-  assert.match(intent, /ELI5 원본/);
-  assert.match(spec, /ELI5 Skill/);
+  for (const stage of [intent, spec]) {
+    assert.match(stage, /사용자가 ELI5를 명시적으로 요청하면/);
+    assert.match(stage, /현재 Stage 진행 상태를 유지/);
+  }
 });

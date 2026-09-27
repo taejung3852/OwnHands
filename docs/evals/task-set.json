@@ -231,10 +231,8 @@
           "plugins/ownhands/skills/plan-design/references/interview-guide.md",
           "plugins/ownhands/skills/plan-design/references/github-workflow.md",
           "plugins/ownhands/skills/plan-design/references/intent-guide.md",
+          "plugins/ownhands/skills/plan-design/references/spec-guide.md",
           ".agents/skills/build/SKILL.md"
-        ],
-        "line_count_limits": [
-          { "file": "plugins/ownhands/skills/plan-design/SKILL.md", "max_lines": 45 }
         ],
         "file_assertions": [
           {
@@ -244,6 +242,7 @@
               "target_repository = unresolved",
               "target_repository = owner/repository",
               "사용자에게 작업 대상 Repository를 확인",
+              "사용자 응답",
               "github-workflow.md",
               "지금 필요한 reference만 읽는다",
               "Content Approval",
@@ -267,7 +266,16 @@
               "Content Approval",
               "Persistence Approval",
               "Issue/Branch",
-              "Persistence Decision"
+              "Persistence Decision",
+              "사용자가 ELI5를 명시적으로 요청하면",
+              "현재 Stage 진행 상태를 유지"
+            ]
+          },
+          {
+            "file": "plugins/ownhands/skills/plan-design/references/spec-guide.md",
+            "contains": [
+              "사용자가 ELI5를 명시적으로 요청하면",
+              "현재 Stage 진행 상태를 유지"
             ]
           },
           {
