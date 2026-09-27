@@ -4,6 +4,8 @@
 
 `docs/specs/<feature-name>/spec.md` 후보 상단에 `- 기반 Intent: [intent.md](intent.md)`와 Draft / Approved 상태를 둔다. Requirements, Architecture, Interfaces, State / Data Flow, Failure Handling, Edge Cases, Acceptance Criteria, Validation Strategy, 변경 범위와 제외 범위를 작성한다. 요구사항은 Intent Goal/Constraint 또는 확인된 Fact에 추적 가능해야 한다. 플랫폼 지원 추정은 Fact로 승격하지 않는다.
 
+사용자가 ELI5를 명시적으로 요청하면 [ELI5 원본](../../eli5/SKILL.md)으로 현재까지 정의된 Spec과 열린 결정을 설명한다. 설명 후 현재 Stage 진행 상태를 유지하고 사용자가 요청한 다음 작업으로 이어간다.
+
 ## Checkpoint 2
 
 1. Spec 전체를 검토 가능한 상태로 제시한다.

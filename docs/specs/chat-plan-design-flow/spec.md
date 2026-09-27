@@ -5,6 +5,7 @@
 - **일자**: 2026-09-22
 - **상태**: Approved — 사용자 내용 승인 및 GitHub 저장 승인 (2026-09-22)
 - **2026-09-25 Dogfooding 반영**: 사용자 후속 결정에 따라 Target Repository Resolution, 단일 Persistence Decision, 명시적 ELI5 요청 예외를 추가한다. 2026-09-22 최초 승인 기록은 유지한다.
+- **2026-09-25 Astra 재설계**: Plugin 0.0.2의 런타임 재현을 반영해 `target_repository` 상태를 root router가 확정하고, 필요한 reference만 읽도록 정렬한다. 이전 승인 이력은 유지한다.
 - **관련 Issue**: #154
 - **기반 ADR**: ADR-0011, ADR-0012, ADR-0013, ADR-0017, ADR-0018, ADR-0019
 
@@ -87,7 +88,7 @@ plugins/ownhands/skills/plan-design/
 
 `plan-design`은 하나의 거대한 Skill이 모든 세부 규칙을 직접 포함하지 않는다.
 
-`SKILL.md`는 전체 Plan → Design 흐름을 오케스트레이션하고, 세부 책임은 Reference로 분리한다.
+`SKILL.md`는 짧은 description과 작은 router로 작업 맥락·`target_repository` 상태·필요한 Stage를 고른다. 관련 reference는 해당 흐름에 들어갈 때만 읽는다. 세부 GitHub 저장, 인터뷰, ADR, Handoff는 각각의 reference가 맡는다. 이는 OwnHands가 [OpenAI의 Astra Skill 작성 글](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra)을 참고해 채택한 구조다.
 
 ```text
 plan-design
@@ -196,7 +197,7 @@ Spec ELI5는 다음을 중심으로 설명한다.
 
 ### 2.1 시작
 
-`plan-design`이 명시적으로 호출되면 먼저 현재 작업이 다음 중 어디에 해당하는지 확인한다.
+`plan-design`이 명시적으로 호출되면 먼저 현재 작업이 다음 중 어디에 해당하는지 확인한다. Root Skill은 이 맥락에서 repo-aware 여부와 필요한 reference를 정한다.
 
 ```text
 아이디어 탐색
@@ -208,13 +209,19 @@ Spec ELI5는 다음을 중심으로 설명한다.
 
 ### REQ-33 — Target Repository Resolution
 
-Plugin의 source Repository와 사용자의 작업 대상 Repository를 구분한다. `plan-design`이 OwnHands Plugin에서 실행됐다는 이유만으로 `taejung3852/OwnHands`를 작업 대상으로 선택하지 않는다.
+Root router가 현재 작업의 `target_repository` 상태를 결정한다.
 
-1. 현재 대화에서 사용자가 Repository를 명시했다면 이를 사용한다.
-2. 그렇지 않으면 기존 작업 문맥에서 하나의 Repository로 명확히 확정된 경우에만 재사용한다.
-3. 대상이 없거나 여러 후보가 있다면 사용자에게 선택을 요청한다. 저장소가 없는 순수 아이디어는 No-Repo 흐름으로 논의할 수 있다.
+```text
+repo-aware 요청
+→ 현재 요청 또는 현재 작업에서 사용자가 확인한 단일 Repository가 있음
+   → target_repository = owner/repository
+   → GitHub workflow → 해당 Repository의 Fact Gathering
+→ 확인된 Repository가 없음
+   → target_repository = unresolved
+   → 사용자에게 Repository 확인 → 확정 후 GitHub workflow
+```
 
-Repo-aware 작업에서는 대상이 확정되기 전 README, package.json, Issue, Branch 등 repository-specific Fact Gathering을 시작하지 않는다. Target Repository 선택은 새 Issue·Branch 저장 경로 선택과 별개의 결정이다.
+Plugin source Repository는 사용자가 현재 작업 대상으로 확인한 Repository가 아니다. 후보가 여러 개여도 `unresolved`로 두고 사용자에게 선택을 요청한다. `unresolved`에서는 README, package.json, Issue, Branch 등 repository-specific Fact Gathering을 시작하지 않는다. 저장소가 필요 없는 아이디어는 No-Repo로 진행한다. Target Repository 확인과 Persistence topology 선택은 별개의 시점에 수행한다.
 
 ---
 
@@ -880,7 +887,7 @@ ADR-0019
 
 ### Dogfooding Regression
 
-- **AC-41**: Repo-aware 요청에서 현재 대화나 확정된 작업 문맥으로 대상 Repository가 하나로 결정되지 않으면 선택을 요청한다. Plugin source Repository를 기본 target으로 삼지 않으며, 대상 확정 전 README·package.json·Issue·Branch 등 repository-specific Fact를 조회하지 않는다.
+- **AC-41**: 새 Chat의 repo-aware 요청에서 사용자가 Repository를 지정하지 않았고 현재 작업에서 확인한 Repository도 없으면 첫 응답의 `target_repository`는 `unresolved`다. 모델은 Repository 확인을 요청하고, 확인 전 README·package.json·Issue·Branch 등 repository-specific Fact를 조회하지 않는다. 확인 후 `owner/repository` 상태에서 GitHub workflow와 Fact Gathering을 진행한다. 정적 계약 통과와 Chat runtime 성공은 별도로 판정한다.
 
 ---
 

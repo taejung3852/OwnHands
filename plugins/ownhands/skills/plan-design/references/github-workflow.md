@@ -1,16 +1,8 @@
 # GitHub Workflow
 
+전제: `target_repository = owner/repository`. Root router에서 사용자가 현재 작업 대상으로 확인한 Repository가 확정된 뒤 이 문서를 읽는다.
+
 GitHub는 durable Source of Truth이며 Plugin은 자체 GitHub 서버/API를 제공하지 않는다. 현재 호스트의 연결 도구를 발견하고 실제 read/write capability를 확인한다. 도구가 안 보임, 인증 실패, repository read 거부, read-only, branch 생성 거부, commit/ref 갱신 실패, 일시 오류를 관측 가능한 범위에서 구분한다. 구분할 수 없으면 원인을 추측하지 않고 미확인으로 표시한다. 권한 metadata는 write 성공의 증거가 아니다.
-
-## Target Repository Resolution
-
-Plugin source repository와 사용자의 작업 target repository는 별개다. OwnHands Plugin을 사용한다는 이유로 `taejung3852/OwnHands`를 기본값으로 사용하지 않는다.
-
-1. 현재 대화에서 사용자가 Repository를 명시했다면 이를 대상으로 사용한다.
-2. 그렇지 않으면 기존 작업 문맥에서 하나의 Repository로 명확하게 확정된 경우에만 재사용한다.
-3. Repository가 미확정이면 repository-specific Fact Gathering 전에 사용자에게 대상 Repository 선택을 요청한다. 후보가 여러 개면 후보를 보여주고 선택받는다. 단일 후보처럼 보여도 확정된 문맥이 아니면 추측하지 않는다.
-
-Repo-aware 작업에서 대상이 확정되기 전에는 README, package.json, Issue, Branch 등 repository-specific 조회를 시작하지 않는다. 저장소가 없는 순수 아이디어는 No-Repo 흐름으로 대화할 수 있으며, 저장소 Fact를 있는 것처럼 만들지 않는다.
 
 ## Planning-time read
 
