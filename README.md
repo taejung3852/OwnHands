@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/ownhands"><img src="https://img.shields.io/npm/v/ownhands?label=npm" alt="npm version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2563EB" alt="License: MIT" /></a>
+  <a href="#요구-사항"><img src="https://img.shields.io/badge/Node.js-18%2B-339933" alt="Node.js 18+" /></a>
   <a href="#시작하기"><img src="https://img.shields.io/badge/Environment-Codex-111827?logo=openai&amp;logoColor=white" alt="Environment: Codex" /></a>
   <a href="#스킬"><img src="https://img.shields.io/badge/Codex_Skills-6-2563EB" alt="Codex Skills: 6" /></a>
   <a href="#독립-검토"><img src="https://img.shields.io/badge/Subagents-3-0F766E" alt="Subagents: 3" /></a>
@@ -71,7 +72,13 @@ OwnHands는 이 질문에 답할 근거를 개발 과정에 남기는 **개발 �
 
 ## 시작하기
 
-현재 CLI의 선언된 요구 조건은 **Node.js 18 이상, Git 저장소, 대상 프로젝트의 파일 쓰기 권한**입니다. 스킬을 사용하는 단계에서는 Codex 실행 환경도 필요합니다.
+<a id="요구-사항"></a>
+
+### 요구 사항
+
+- **Node.js 18+**
+- **Git 저장소**와 대상 프로젝트의 **파일 쓰기 권한**
+- 스킬을 사용하는 단계에서는 **Codex 실행 환경**
 
 ### 1. 사용할 프로젝트에 연결
 

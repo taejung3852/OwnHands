@@ -1,29 +1,19 @@
 # OwnHands Chat Plugin
 
-`skills/plan-design/` Core와 `skills/eli5/` Companion을 포함하는 Agent Plugins 1.0 Skills-only package입니다. 루트 plugin.json과 skills/가 배포 단위이며 자체 MCP 서버는 없습니다. plan-design은 Chat에서 명시적으로 선택해 사용하는 것이 목표입니다.
+이 디렉터리가 ChatGPT용 Skills-only Plugin의 기준본이다. 루트 `plugin.json`에 표시 이름과 로고 설정을 두고, `skills/plan-design/`과 `skills/eli5/`를 포함한다. `assets/ownhands.png`는 Plugin 표시 이미지다. Codex의 `npx ownhands` 배포와는 별개다.
 
-## 배포 경계
+## 확인된 범위
 
-이 디렉터리는 npm package와 `ownhands init` 대상이 아닙니다. Codex에는 Build/Verify 등 기존 6개 Skill이 설치됩니다. ELI5의 별도 Codex/npm 설치·업데이트 계약은 후속입니다.
+사용자 E2E 보고에 따르면 기존 ZIP을 ChatGPT 웹에 업로드했을 때 OwnHands, Plan & Design, ELI5가 노출됐고 두 Skill을 실제로 사용했다. 이 보고에서 plan-design의 대상 Repository 선택과 GitHub 저장 경로 질문 시점에 관한 Finding 두 개가 나왔다. 이번 지침 수정과 로컬 정적 검사는 새 ZIP의 Chat runtime 동작을 증명하지 않는다. 새 ZIP으로 동일 요청을 다시 실행해 확인해야 한다.
 
-웹 일반 Chat의 Plugin Skill 기능 지원과 private 설치 가능성은 별개입니다. 현재 개인 계정 private Web Chat 직접 설치 경로는 확인되지 않았습니다. **Platform blocker: BLOCKED. 관련 미실행 AC: UNOBSERVED (platform-blocked).** 패키지 검증은 Chat picker, implicit activation, 승인 UX, GitHub write, 전체 E2E의 성공 증거가 아닙니다.
+## 패키징
 
-공식 로컬 Plugin 테스트 경로는 데스크톱 local marketplace입니다. 웹 private 배포는 사용 가능한 workspace 게시 경로와 관리 권한이 필요합니다. 공개 게시 또는 사용 가능한 workspace 게시 경로가 확보되면 실제 일반 Chat에서 명시 호출·일반 대화 비활성·Stage 승인/저장·Handoff E2E를 재개합니다. 개인 Skill 업로드나 Work 모드를 Chat E2E로 대체하지 않습니다.
+배포 ZIP에는 루트의 `plugin.json`, `skills/`, `assets/`만 넣는다. 루트 manifest의 `extensions.com.openai`가 표시 설정을 담으므로 호환용 `.codex-plugin/plugin.json`을 중복으로 넣지 않는다. README와 `.DS_Store`는 배포 내용이 아니다. MCP 서버, Tunnel, Hook, npm installer 자산도 포함하지 않는다.
 
-## 검증
+## 로컬 검증
 
-- `npm test`: 로컬 Skill 파일·참조·배포 격리 검사. runtime 증거가 아닙니다.
-- `npm pack --dry-run --json`: Plugin과 plan-design/eli5가 npm에 포함되지 않는지 확인합니다.
-- plugin.json은 아래 공식 JSON Schema로 표준 Draft 2020-12 validator에서 검증합니다. metadata YAML은 실제 YAML parser로 읽어 승인된 값을 확인합니다. 검증 도구는 임시 환경에서 사용하며 운영 의존성·CI 강제 장치를 추가하지 않습니다.
-- 이번 실행 명령·결과와 AC 판정: [plan.md](../../docs/specs/chat-plan-design-flow/plan.md).
+- `node --test tests/ownhands-plugin.test.js`: 구성, 링크, 브랜딩 자산, 정적 지침 계약을 확인한다.
+- `node scripts/run-evals.js --static-only --task EVAL-0004`: Chat plan-design 정적 계약을 확인한다.
+- `npm test`: 저장소 전체 회귀 테스트를 실행한다.
 
-## 출처
-
-- [Agent Plugins 1.0 schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json)
-- [OpenAI Plugin package](https://developers.openai.com/plugins/build/plugins)
-- [Skill metadata validation](https://developers.openai.com/plugins/deploy/submission-errors)
-- [Connect and test](https://developers.openai.com/plugins/deploy/connect-chatgpt)
-- [Workspace plugin management](https://learn.chatgpt.com/docs/enterprise/plugin-management)
-- [ELI5 원본·revision·라이선스](skills/eli5/UPSTREAM.md)
-
-metadata는 정책 의도를 선언합니다. 현재 호스트의 실제 적용 범위는 관측 전까지 UNOBSERVED입니다. OwnHands 승인·저장·인계 규칙은 프로젝트 결정이며 플랫폼 공식 정책으로 주장하지 않습니다.
+정적 검증 결과와 Chat runtime 판정은 별도로 기록한다. 사용자 승인과 GitHub 저장 규칙은 OwnHands의 제품 결정이며 플랫폼 공식 규칙으로 소개하지 않는다.

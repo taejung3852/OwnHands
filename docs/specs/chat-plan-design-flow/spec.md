@@ -4,6 +4,8 @@
 - **작성 주체**: ChatGPT 분석 — 사용자 검토 및 승인 대상
 - **일자**: 2026-09-22
 - **상태**: Approved — 사용자 내용 승인 및 GitHub 저장 승인 (2026-09-22)
+- **2026-09-25 Dogfooding 반영**: 사용자 후속 결정에 따라 Target Repository Resolution, 단일 Persistence Decision, 명시적 ELI5 요청 예외를 추가한다. 2026-09-22 최초 승인 기록은 유지한다.
+- **2026-09-25 Astra 재설계**: Plugin 0.0.2의 런타임 재현을 반영해 `target_repository` 상태를 root router가 확정하고, 필요한 reference만 읽도록 정렬한다. 이전 승인 이력은 유지한다.
 - **관련 Issue**: #154
 - **기반 ADR**: ADR-0011, ADR-0012, ADR-0013, ADR-0017, ADR-0018, ADR-0019
 
@@ -86,7 +88,7 @@ plugins/ownhands/skills/plan-design/
 
 `plan-design`은 하나의 거대한 Skill이 모든 세부 규칙을 직접 포함하지 않는다.
 
-`SKILL.md`는 전체 Plan → Design 흐름을 오케스트레이션하고, 세부 책임은 Reference로 분리한다.
+`SKILL.md`는 짧은 description과 작은 router로 작업 맥락·`target_repository` 상태·필요한 Stage를 고른다. 관련 reference는 해당 흐름에 들어갈 때만 읽는다. 세부 GitHub 저장, 인터뷰, ADR, Handoff는 각각의 reference가 맡는다. 이는 OwnHands가 [OpenAI의 Astra Skill 작성 글](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra)을 참고해 채택한 구조다.
 
 ```text
 plan-design
@@ -157,20 +159,22 @@ Codex용 ELI5 배포·버전·Ponytail과의 패키징 세부사항은 ADR-0018 
 
 ### REQ-06 — ELI5 호출 시점
 
-ELI5는 인터뷰 중 매번 호출하지 않는다.
+자동 ELI5는 인터뷰 중 매번 호출하지 않는다.
 
-각 Stage의 **전체 내용이 검토 가능한 상태가 된 직후, Content Approval 직전​**에만 사용한다.
+각 Stage의 **전체 내용이 검토 가능한 상태가 된 직후, Content Approval 직전**에 한 번 사용한다.
+
+사용자가 ELI5를 명시적으로 요청하면 인터뷰 중 어느 시점이든 실행할 수 있다. 이 호출만으로 Stage 완료·Content Approval·Persistence Approval 상태를 변경하지 않는다.
 
 ```text
 Intent 완성
 → ELI5 큰 그림
 → Content Approval
-→ Persistence Approval
+→ Persistence Decision (선택이 Persistence Approval)
 
 Spec 완성
 → ELI5 구조·흐름
 → Content Approval
-→ Persistence Approval
+→ Persistence Decision (선택이 Persistence Approval)
 ```
 
 Intent ELI5는 다음을 중심으로 설명한다.
@@ -193,7 +197,7 @@ Spec ELI5는 다음을 중심으로 설명한다.
 
 ### 2.1 시작
 
-`plan-design`이 명시적으로 호출되면 먼저 현재 작업이 다음 중 어디에 해당하는지 확인한다.
+`plan-design`이 명시적으로 호출되면 먼저 현재 작업이 다음 중 어디에 해당하는지 확인한다. Root Skill은 이 맥락에서 repo-aware 여부와 필요한 reference를 정한다.
 
 ```text
 아이디어 탐색
@@ -201,7 +205,23 @@ Spec ELI5는 다음을 중심으로 설명한다.
 기존 GitHub Work Item을 이어가는 작업
 ```
 
-저장소에서 직접 확인 가능한 사실은 사용자에게 질문하지 않는다.
+대상 Repository가 확정된 뒤 저장소에서 직접 확인 가능한 사실은 사용자에게 질문하지 않는다.
+
+### REQ-33 — Target Repository Resolution
+
+Root router가 현재 작업의 `target_repository` 상태를 결정한다.
+
+```text
+repo-aware 요청
+→ 현재 요청 또는 현재 작업에서 사용자가 확인한 단일 Repository가 있음
+   → target_repository = owner/repository
+   → GitHub workflow → 해당 Repository의 Fact Gathering
+→ 확인된 Repository가 없음
+   → target_repository = unresolved
+   → 사용자에게 Repository 확인 → 확정 후 GitHub workflow
+```
+
+Plugin source Repository는 사용자가 현재 작업 대상으로 확인한 Repository가 아니다. 후보가 여러 개여도 `unresolved`로 두고 사용자에게 선택을 요청한다. `unresolved`에서는 README, package.json, Issue, Branch 등 repository-specific Fact Gathering을 시작하지 않는다. 저장소가 필요 없는 아이디어는 No-Repo로 진행한다. Target Repository 확인과 Persistence topology 선택은 별개의 시점에 수행한다.
 
 ---
 
@@ -215,19 +235,23 @@ Branch가 없으면 저장 시점에 작업 Branch 생성을 준비한다.
 
 후보 Branch가 여러 개이거나 의미가 불명확하면 임의 선택하지 않고 사용자에게 선택을 요청한다.
 
+Stage 전체의 Content Approval 뒤 기존 Issue·Branch와 저장할 Stage 파일·관련 ADR의 범위를 보여주고, 이 경로로 저장할지 한 번만 묻는다.
+
 ---
 
 ### 2.3 Issue가 없는 경우
 
 Issue는 SDLC의 필수 단계가 아니다.
 
-관련 Issue가 없다면 `plan-design`은 자동으로 Issue 또는 Branch를 만들지 않고 사용자에게 다음 선택을 제시한다.
+대상 Repository가 확정되고 관련 Issue가 없다면 `plan-design`은 기획 중 새 Issue·Branch 생성 방식을 묻거나 자동 생성하지 않는다. Stage 전체의 Content Approval 뒤 대상 Repository, Issue 초안·Branch 제안, 저장할 Stage 파일·관련 ADR과 commit 범위를 보여주고 Persistence Decision으로 다음 선택을 제시한다.
 
 ```text
 1. Issue를 생성하고 Issue 기반 Branch로 진행
 2. Issue 없이 작업 Branch만 생성
 3. 지금은 GitHub 작업 없이 기획·설계 계속
 ```
+
+1 또는 2를 선택한 행위 자체가 Persistence Approval이다. 3을 선택하면 GitHub write를 하지 않는다.
 
 Issue를 만들지 않는다고 해서 GitHub 중심 SDLC 원칙이 깨지는 것은 아니다.
 
@@ -312,17 +336,11 @@ GitHub 저장: 대기
 
 ---
 
-### REQ-10 — Persistence Approval
+### REQ-10 — Persistence Decision과 Approval
 
-Content Approval 후 별도의 저장 승인을 받는다.
+Content Approval 후 별도의 Persistence Decision을 한 번 요청한다. Issue가 없으면 2.3의 세 경로를 제시하며 1/2 선택 자체를 Persistence Approval로 취급한다. 기존 Issue·Branch 경로를 쓰는 경우에는 구체적인 대상과 내용을 보여주고 그 경로로 저장할지 한 번만 묻는다.
 
-예:
-
-```text
-승인된 Intent와 관련 ADR을 GitHub에 저장할까요?
-```
-
-사용자가 저장을 승인하기 전에는 GitHub write를 수행하지 않는다.
+Content Approval만으로 GitHub write를 수행하지 않는다. Persistence Decision에서 승인한 Issue·Branch·Stage 파일·관련 ADR의 동일한 write를 다시 승인받지 않는다. Write 직전 최신 상태를 재조회하고, 대상 상태 변경·충돌·승인 범위 밖 write가 필요할 때만 차이를 보여주고 다시 확인한다.
 
 ---
 
@@ -371,7 +389,7 @@ Spec도 Intent와 동일하게 두 승인 단계로 처리한다.
 Spec 완성
 → ELI5 설명
 → Content Approval
-→ Persistence Approval
+→ Persistence Decision (선택이 Persistence Approval)
 ```
 
 Persistence Approval 후 다음을 한 Stage commit으로 저장한다.
@@ -501,11 +519,10 @@ GitHub write가 불가능하면 사용자가 직접 저장할 수 있도록 다�
 현재 Repository 상태 조회
 → 이미 수동으로 수행된 작업 확인
 → 누락된 것만 식별
-→ 필요한 write에 대해 사용자 승인
-→ 적용
+→ 기존 Persistence Decision의 승인 범위 내 누락 write 적용
 ```
 
-자동 복구 workflow를 실행하지 않는다.
+재연결 자체만으로 자동 복구 workflow를 실행하지 않는다. 기존 Persistence Decision이 없다면 먼저 저장 여부와 경로를 선택받는다. 기존 승인 범위의 누락분은 같은 write를 다시 승인받지 않는다. Issue·Branch·대상 파일 상태가 바뀌었거나 충돌·승인 범위 밖 write가 필요하면 차이를 보여주고 다시 확인한다.
 
 ---
 
@@ -767,7 +784,7 @@ ADR-0013
 - Build가 Light/Planned Flow를 라우팅하도록 반영
 
 ADR-0017
-- ELI5 호출을 Stage 승인 직전으로 확정
+- 자동 ELI5 호출을 Stage Content Approval 직전으로 확정
 
 ADR-0019
 - Issue 필수 규칙 제거
@@ -820,8 +837,8 @@ ADR-0019
 
 ### Plan & Design UX
 
-- **AC-12**: Intent와 Spec 각각에서 ELI5 설명이 Content Approval 직전에 한 번 호출된다.
-- **AC-13**: Content Approval과 Persistence Approval은 별도 사용자 결정으로 처리된다.
+- **AC-12**: Intent와 Spec 각각에서 자동 ELI5 설명이 Content Approval 직전에 한 번 호출된다. 사용자의 명시적 ELI5 요청은 언제든 수행할 수 있으나 Stage 완료·승인 상태를 자동 변경하지 않는다.
+- **AC-13**: Content Approval과 Persistence Decision은 별도 사용자 결정으로 처리하며, Persistence Decision 뒤 동일 write에 대한 세 번째 승인을 요구하지 않는다.
 - **AC-14**: Content Approval 이전에는 승인된 Artifact로 저장하지 않는다.
 - **AC-15**: Persistence Approval 이전에는 GitHub write를 수행하지 않는다.
 - **AC-16**: Stage commit은 Decision별 commit이 아니라 해당 Stage 산출물을 묶어 생성한다.
@@ -829,10 +846,10 @@ ADR-0019
 ### GitHub Workflow
 
 - **AC-17**: Issue가 존재하면 명확한 기존 작업 Branch를 우선 재사용한다.
-- **AC-18**: Issue가 없으면 Issue 생성 / Branch만 생성 / GitHub 없이 계속의 3가지 선택을 사용자에게 제공한다.
+- **AC-18**: Issue가 없으면 Content Approval 뒤 Persistence Decision에서 Issue 생성 / Branch만 생성 / GitHub 없이 계속의 3가지 선택을 제공한다. 1/2 선택 자체가 Persistence Approval이다.
 - **AC-19**: Branch HEAD 변경을 감지하면 write 전에 최신 상태를 다시 읽는다.
 - **AC-20**: 동일 Artifact 충돌 시 자동 overwrite 또는 force push를 하지 않는다.
-- **AC-21**: GitHub가 다시 사용 가능해져도 자동 Recovery action을 실행하지 않고 현재 상태를 Reconcile한다.
+- **AC-21**: GitHub가 다시 사용 가능해져도 자동 Recovery action을 실행하지 않고 현재 상태를 Reconcile한다. 기존 Persistence Decision 범위의 누락 write는 재승인 없이 적용하며 대상 상태 변경·충돌·범위 밖 write만 다시 확인한다.
 
 ### Fallback
 
@@ -868,6 +885,10 @@ ADR-0019
 - **AC-39**: 구현 완료 후 applicable Fresh Evidence를 확인한다.
 - **AC-40**: 이번 사이클에서 검증하지 않은 Plugin/Codex 런타임 동작은 `UNOBSERVED`로 남기고 PASS로 승격하지 않는다.
 
+### Dogfooding Regression
+
+- **AC-41**: 새 Chat의 repo-aware 요청에서 사용자가 Repository를 지정하지 않았고 현재 작업에서 확인한 Repository도 없으면 첫 응답의 `target_repository`는 `unresolved`다. 모델은 Repository 확인을 요청하고, 확인 전 README·package.json·Issue·Branch 등 repository-specific Fact를 조회하지 않는다. 확인 후 `owner/repository` 상태에서 GitHub workflow와 Fact Gathering을 진행한다. 정적 계약 통과와 Chat runtime 성공은 별도로 판정한다.
+
 ---
 
 ## 14. 추적성
@@ -875,7 +896,7 @@ ADR-0019
 | Intent 목표                 | Spec 요구사항           | 주요 AC                |
 | ------------------------- | ------------------- | -------------------- |
 | Chat이 Plan & Design 담당    | REQ-01\~06          | AC-01\~08            |
-| GitHub 중심 Source of Truth | REQ-07\~21          | AC-12\~25            |
+| GitHub 중심 Source of Truth | REQ-07\~21, REQ-33  | AC-12\~25, AC-41     |
 | Codex로 안전한 인계             | REQ-22\~24          | AC-26\~28, AC-37\~38 |
 | 작은 작업 경량 경로               | REQ-25\~32          | AC-29\~36            |
 | 두 배포 표면 분리                | REQ-01\~05, 구조/변경범위 | AC-03, AC-08\~11     |

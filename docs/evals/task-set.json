@@ -229,6 +229,9 @@
           "plugins/ownhands/skills/plan-design/SKILL.md",
           "plugins/ownhands/skills/plan-design/agents/openai.yaml",
           "plugins/ownhands/skills/plan-design/references/interview-guide.md",
+          "plugins/ownhands/skills/plan-design/references/github-workflow.md",
+          "plugins/ownhands/skills/plan-design/references/intent-guide.md",
+          "plugins/ownhands/skills/plan-design/references/spec-guide.md",
           ".agents/skills/build/SKILL.md"
         ],
         "file_assertions": [
@@ -236,26 +239,55 @@
             "file": "plugins/ownhands/skills/plan-design/SKILL.md",
             "contains": [
               "name: plan-design",
-              "Checkpoint 1",
-              "Checkpoint 2",
+              "target_repository = unresolved",
+              "target_repository = owner/repository",
+              "사용자에게 작업 대상 Repository를 확인",
+              "사용자 응답",
+              "github-workflow.md",
+              "지금 필요한 reference만 읽는다",
               "Content Approval",
-              "Persistence Approval"
+              "Persistence Decision"
+            ]
+          },
+          {
+            "file": "plugins/ownhands/skills/plan-design/references/github-workflow.md",
+            "contains": [
+              "전제: `target_repository = owner/repository`",
+              "Planning-time read",
+              "Persistence topology",
+              "Content Approval",
+              "Persistence Approval",
+              "추가 write 승인을 묻지 않는다"
+            ]
+          },
+          {
+            "file": "plugins/ownhands/skills/plan-design/references/intent-guide.md",
+            "contains": [
+              "Content Approval",
+              "Persistence Approval",
+              "Issue/Branch",
+              "Persistence Decision",
+              "사용자가 ELI5를 명시적으로 요청하면",
+              "현재 Stage 진행 상태를 유지"
+            ]
+          },
+          {
+            "file": "plugins/ownhands/skills/plan-design/references/spec-guide.md",
+            "contains": [
+              "사용자가 ELI5를 명시적으로 요청하면",
+              "현재 Stage 진행 상태를 유지"
             ]
           },
           {
             "file": "plugins/ownhands/skills/plan-design/references/interview-guide.md",
             "contains": [
               "MIT License",
-              "ROUTE-B",
-              "ROUTE-C",
+              "GORE",
               "Fact",
               "Decision-bearing Section Review Loop",
               "3-way 응답 계약",
               "Open Question",
-              "Decision Card",
-              "intent-only",
-              "spec-from-intent",
-              "full-flow"
+              "Decision Card"
             ]
           },
           {
