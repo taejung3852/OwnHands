@@ -1,5 +1,7 @@
 # ADR-0018: SDLC Core와 ELI5·Ponytail 등 범용 보조 Skill을 분리한다
 
+> **2026-09-29 — Partially superseded by [ADR-0020](0020-developer-context-sync-and-human-diagram.md).** ELI5 활용·번들 제공 방향은 ELI5 제외와 `developer-context-sync` / `human-diagram` 책임 분리로 대체한다. Core/Companion 구분, 외부 원본 관리와 Ponytail 관련 범위는 유지한다. 아래 본문은 당시 결정 이력이며, 새 방향의 세부 설계·구현·배포는 #163의 후속 작업이다.
+
 - 상태: 사용자 분리·재사용 방향 확정 — 원본·버전·설치·업데이트 상세 미결정
 - 일자: 2026-09-22
 - 관련: [#154](https://github.com/taejung3852/OwnHands/issues/154), 피드백 9-1·13·14

@@ -1,5 +1,7 @@
 # ADR-0017: GORE 인터뷰를 단계·미결정 상태·시각 승인으로 안내한다
 
+> **2026-09-29 — Partially superseded by [ADR-0020](0020-developer-context-sync-and-human-diagram.md).** 승인 설명의 ELI5 전용 의존성은 대체한다. 승인 전 이해 지원, GORE, 단계 표시, 내용 승인과 저장 승인 분리는 유지한다. 대체할 경량 요약·시각화의 호출 계약은 #163의 후속 Spec에서 정하며, 아래 본문은 당시 결정 이력이다. 기존 Plugin 동작이 이미 변경됐다는 뜻은 아니다.
+
 - 상태: Accepted — ELI5 시점·내용/저장 승인 분리 Spec 사용자 승인 / 구현 미진행
 - 일자: 2026-09-22
 - 관련: [#154](https://github.com/taejung3852/OwnHands/issues/154), 피드백 2·3·4·10·15
